@@ -101,10 +101,15 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)AntTweakBar\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalLibraryDirectories>$(ProjectDir)AntTweakBar\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y $(ProjectDir)AntTweakBar\lib\AntTweakBar64.dll $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -131,14 +136,37 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)AntTweakBar\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(ProjectDir)AntTweakBar\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y $(ProjectDir)AntTweakBar\lib\AntTweakBar64.dll $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\lod4ptc.cpp" />
+    <ClCompile Include="src\model\Camera\Camera.cpp" />
+    <ClCompile Include="src\model\GameObject.cpp" />
+    <ClCompile Include="src\render\PointCloud.cpp" />
+    <ClCompile Include="src\render\Renderer.cpp" />
+    <ClCompile Include="src\render\Vertex.cpp" />
+    <ClCompile Include="src\ressources\RessourceLoader.cpp" />
+    <ClCompile Include="src\ressources\tinyply.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\lod4ptc.h" />
+    <ClInclude Include="src\model\Camera\Camera.h" />
+    <ClInclude Include="src\model\GameObject.h" />
+    <ClInclude Include="src\render\PointCloud.h" />
+    <ClInclude Include="src\render\Renderer.h" />
+    <ClInclude Include="src\render\Vertex.h" />
+    <ClInclude Include="src\ressources\RessourceLoader.h" />
+    <ClInclude Include="src\ressources\tinyply.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
