@@ -119,7 +119,6 @@ private:
 	XMFLOAT4X4 *m_View, *m_Proj;
 	std::list<PointCloud*> transparents;
 
-
 		
 };
 

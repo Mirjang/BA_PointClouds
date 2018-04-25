@@ -42,6 +42,9 @@
     <ClCompile Include="src\render\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\render\RenderEffects.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\model\Camera\Camera.h">
@@ -71,5 +74,11 @@
     <ClInclude Include="src\global\utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\render\RenderEffects.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\effects.fx" />
   </ItemGroup>
 </Project>

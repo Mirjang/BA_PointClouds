@@ -56,7 +56,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(sceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=1 max=1000 step=5");
 	TwAddVarRW(sceneSettings, "Camera Rotate Speed", TW_TYPE_FLOAT, &g_userInput.camRotateSpeed, "min=0.005 max=2 step=0.005");
 	TwAddVarRW(sceneSettings, "Light Position", TW_TYPE_DIR3F, &light.pos, ""); 
-	TwAddVarRW(sceneSettings, "Light Position", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
+	TwAddVarRW(sceneSettings, "Light Color", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
 
 	TwAddVarRW(sceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
 
