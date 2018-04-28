@@ -183,6 +183,10 @@ void Renderer::reloadShaders(RenderMode mode)
 
 	SafeRelease(cbPerObjectBuffer); 
 	SafeRelease(vertexLayout); 
+
+
+
+	/* //Old code replaced by RenderEffect.h
 	SafeRelease(VS);
 	SafeRelease(VS_buffer);
 	SafeRelease(GS);
@@ -260,6 +264,11 @@ void Renderer::reloadShaders(RenderMode mode)
 	d3dContext->VSSetShader(VS, NULL, NULL);
 	d3dContext->GSSetShader(GS, NULL, NULL);
 	d3dContext->PSSetShader(PS, NULL, NULL);
+	*/ //end old code
+
+	if (g_renderEffect)	delete g_renderEffect;
+
+	g_renderEffect = new RenderEffect(d3dDevice); 
 
 	D3D11_INPUT_ELEMENT_DESC descVertexLayout[] =
 	{
@@ -319,7 +328,6 @@ void Renderer::reloadShaders(RenderMode mode)
 
 void Renderer::loadMesh( const std::string& name)
 {
-
 
 	//mesh has already been loaded or doesnt exist
 	if (name == "") return; 

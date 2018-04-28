@@ -14,6 +14,8 @@
 
 #include <DirectXMath.h>
 
+#include "RenderEffect.h"
+
 #include <list>
 #include <map>
 
@@ -119,6 +121,6 @@ private:
 	XMFLOAT4X4 *m_View, *m_Proj;
 	std::list<PointCloud*> transparents;
 
-		
+	RenderEffect* g_renderEffect = nullptr; 
 };
 

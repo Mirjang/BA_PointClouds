@@ -101,11 +101,11 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)AntTweakBar\include;C:\Users\Patrick\OneDrive\...BachelorThesis\repo\FX11-master\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)AntTweakBar\include;$(ProjectDir)libs\FX11-master\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>C:\Users\Patrick\OneDrive\...BachelorThesis\repo\FX11-master\Bin\Desktop_2017_Win10\$(Platform)\$(Configuration)\;$(ProjectDir)AntTweakBar\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Patrick\OneDrive\...BachelorThesis\repo\LoD4ptC\LoD4ptC\libs\FX11-master\Bin\Desktop_2017_Win10\x64\Release;$(ProjectDir)libs\FX11-master\Bin\Desktop_2017_Win10\$(Platform)\$(Configuration)\;$(ProjectDir)AntTweakBar\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y $(ProjectDir)AntTweakBar\lib\AntTweakBar64.dll $(OutDir)</Command>
@@ -140,13 +140,13 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)AntTweakBar\include;C:\Users\Patrick\OneDrive\...BachelorThesis\repo\FX11-master\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)AntTweakBar\include;$(ProjectDir)libs\FX11-master\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Patrick\OneDrive\...BachelorThesis\repo\FX11-master\Bin\Desktop_2017_Win10\$(Platform)\$(Configuration)\;$(ProjectDir)AntTweakBar\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Patrick\OneDrive\...BachelorThesis\repo\LoD4ptC\LoD4ptC\libs\FX11-master\Bin\Desktop_2017_Win10\x64\Release;$(ProjectDir)libs\FX11-master\Bin\Desktop_2017_Win10\$(Platform)\$(Configuration)\;$(ProjectDir)AntTweakBar\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y $(ProjectDir)AntTweakBar\lib\AntTweakBar64.dll $(OutDir)</Command>
@@ -161,7 +161,7 @@
     <ClCompile Include="src\model\Camera\Camera.cpp" />
     <ClCompile Include="src\model\GameObject.cpp" />
     <ClCompile Include="src\render\PointCloud.cpp" />
-    <ClCompile Include="src\render\RenderEffects.cpp" />
+    <ClCompile Include="src\render\RenderEffect.cpp" />
     <ClCompile Include="src\render\Renderer.cpp" />
     <ClCompile Include="src\render\Vertex.cpp" />
     <ClCompile Include="src\ressources\RessourceLoader.cpp" />
@@ -173,7 +173,7 @@
     <ClInclude Include="src\model\Camera\Camera.h" />
     <ClInclude Include="src\model\GameObject.h" />
     <ClInclude Include="src\render\PointCloud.h" />
-    <ClInclude Include="src\render\RenderEffects.h" />
+    <ClInclude Include="src\render\RenderEffect.h" />
     <ClInclude Include="src\render\Renderer.h" />
     <ClInclude Include="src\render\Vertex.h" />
     <ClInclude Include="src\ressources\RessourceLoader.h" />

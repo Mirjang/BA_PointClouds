@@ -4,15 +4,18 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 15.0.26403.7
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoD4ptC", "LoD4ptC\LoD4ptC.vcxproj", "{EA476DC2-389E-4CF6-92AC-142218E37F71}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DF460EAB-570D-4B50-9089-2E2FC801BF38} = {DF460EAB-570D-4B50-9089-2E2FC801BF38}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "LoD4pc", "LoD4pc", "{C952C6D1-3571-4D41-8F15-0594AF3E02F0}"
 	ProjectSection(SolutionItems) = preProject
 		LoD4ptC\AntTweakBar\Readme.txt = LoD4ptC\AntTweakBar\Readme.txt
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Effects11", "..\FX11-master\Effects11_2017_Win10.vcxproj", "{DF460EAB-570D-4B50-9089-2E2FC801BF38}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libraries", "libraries", "{8213292F-A006-4612-B832-3CDA3294159B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Effects11", "LoD4ptC\libs\FX11-master\Effects11_2017_Win10.vcxproj", "{DF460EAB-570D-4B50-9089-2E2FC801BF38}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

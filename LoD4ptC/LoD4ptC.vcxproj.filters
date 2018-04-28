@@ -42,7 +42,7 @@
     <ClCompile Include="src\render\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render\RenderEffects.cpp">
+    <ClCompile Include="src\render\RenderEffect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -74,7 +74,7 @@
     <ClInclude Include="src\global\utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render\RenderEffects.h">
+    <ClInclude Include="src\render\RenderEffect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

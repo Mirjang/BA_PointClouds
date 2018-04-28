@@ -2,6 +2,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <cassert>
+
 #define SafeRelease(ptr)     if (ptr){(ptr)->Release(); ptr = NULL;}
 
 
