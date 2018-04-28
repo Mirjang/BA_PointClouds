@@ -1,37 +1,50 @@
 #pragma pack_matrix(row_major)
 
+/*
+************* Constant buffers
+*/
+
 cbuffer perObject
 {
-	float4x4 g_wvp;
+    float4x4 g_wvp;
     float4 g_lightpos;
     float4 g_lightColor;
     float g_splatradius;
-	float g_splatdiameter; 
+    float g_splatdiameter;
 };
 
 
-struct VS_OUTPUT
+struct PosNorCol
 {
-	float4 pos : SV_POSITION;
-	float3 normal : NORMAL;
-    float4 color : COLOR; 
+    float4 pos : SV_POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+};
+
+struct PosNorColTex
+{
+    float4 pos : SV_POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+    float2 tex : TEXCOORD; //UV coords to determine if pixel is in circle
+
 };
 
 
 //Pass through
-VS_OUTPUT VS(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
+PosNorCol VS_PASSTHROUGH(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
 {
-	VS_OUTPUT output;
+    VS_OUTPUT output;
 
-	inPos.w = 1.0f;
+    inPos.w = 1.0f;
 
     output.pos = inPos;
     output.normal = inNormal;
     
-    output.color = inColor; 
+    output.color = inColor;
     
 
-	return output;
+    return output;
 }
 
 [maxvertexcount(4)]
@@ -59,6 +72,6 @@ void GS(point VS_OUTPUT input[1], inout TriangleStream<VS_OUTPUT> OutStream)
 
 float4 PS(VS_OUTPUT input) : SV_TARGET
 {
-    return input.color; 
+    return input.color;
 }
 

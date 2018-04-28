@@ -18,33 +18,20 @@ Renderer::~Renderer()
 {
 	swapChain->SetFullscreenState(FALSE, NULL);
 
-
 	SafeRelease(cbPerObjectBuffer);
-	SafeRelease(vertexLayout);
-	SafeRelease(VS);
-	SafeRelease(VS_buffer);
-	SafeRelease(GS);
-	SafeRelease(GS_buffer);
-	SafeRelease(PS);
-	SafeRelease(PS_buffer);
-
 
 	for (auto mesh : meshDict)
 	{
 		mesh.second->vertexBuffer->Release(); 
 	}
 
+	SafeRelease(depthStencilBuffer);
+	SafeRelease(depthStencilView);
+	SafeRelease(renderTargetView);
 
-	depthStencilBuffer->Release();
-	depthStencilView->Release();
-	renderTargetView->Release();
-
-	stateRS_default->Release();
-	stateRS_CCW->Release(); 
-
-	swapChain->Release();
-	d3dContext->Release();
-	d3dDevice->Release();
+	SafeRelease(swapChain);
+	SafeRelease(d3dContext);
+	SafeRelease(d3dDevice);
 
 #ifdef _DEBUG
 	d3dDebug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
@@ -149,27 +136,6 @@ void Renderer::initDirectX()
 		std::cin.get();
 	}
 
-	D3D11_RASTERIZER_DESC descRasterizer;
-	ZeroMemory(&descRasterizer, sizeof(D3D11_RASTERIZER_DESC));
-	descRasterizer.FillMode = D3D11_FILL_SOLID;
-	descRasterizer.CullMode = D3D11_CULL_BACK;
-	descRasterizer.FrontCounterClockwise = true;
-	descRasterizer.DepthBias = 0;
-	descRasterizer.SlopeScaledDepthBias = 0.0f;
-	descRasterizer.DepthBiasClamp = 0.0f;
-	descRasterizer.DepthClipEnable = true;
-	descRasterizer.ScissorEnable = false;
-	descRasterizer.MultisampleEnable = true;
-	descRasterizer.AntialiasedLineEnable = true;
-
-	d3dDevice->CreateRasterizerState(&descRasterizer, &stateRS_default);
-
-	descRasterizer.FrontCounterClockwise = true; 
-
-	d3dDevice->CreateRasterizerState(&descRasterizer, &stateRS_CCW); 
-
-	d3dContext->RSSetState(stateRS_default);
-
 	d3dContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
 }
@@ -182,104 +148,6 @@ void Renderer::reloadShaders(RenderMode mode)
 	std::wstring shader = L""; 
 
 	SafeRelease(cbPerObjectBuffer); 
-	SafeRelease(vertexLayout); 
-	SafeRelease(VS);
-	SafeRelease(VS_buffer);
-	SafeRelease(GS);
-	SafeRelease(GS_buffer);
-	SafeRelease(PS); 
-	SafeRelease(PS_buffer); 
-
-
-	switch (mode)
-	{
-	case QUAD_SPLAT:
-		shader = L"./shaders/quadsplat.hlsl";
-		break;
-	case CIRCLE_SPLAT:
-		shader = L"./shaders/circularsplat.hlsl";
-		break;
-	case ELLIPTIC_SPLAT:
-		throw "Not implemented"; 
-		break;
-	default:
-		break;
-	}
-
-	//load shaders
-
-	ID3DBlob *errBlob;
-	result = D3DCompileFromFile(shader.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_ENABLE_STRICTNESS, NULL, &VS_buffer, &errBlob);
-	if (FAILED(result))
-	{
-		std::cout << "failed to compile shaders " << std::endl;
-		std::cout << (char*)errBlob->GetBufferPointer() << std::endl; 
-		std::cin.get();		
-	}
-	result = D3DCompileFromFile(shader.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_ENABLE_STRICTNESS, NULL, &PS_buffer, &errBlob);
-	if (FAILED(result))
-	{
-		std::cout << "failed to compile shaders " << std::endl;
-		std::cout << (char*)errBlob->GetBufferPointer() << std::endl;
-		std::cin.get();
-
-	}
-	result = D3DCompileFromFile(shader.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "GS", "gs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_ENABLE_STRICTNESS, NULL, &GS_buffer, &errBlob);
-	if (FAILED(result))
-	{
-		std::cout << "failed to compile shaders " << std::endl;
-		std::cout << (char*)errBlob->GetBufferPointer() << std::endl;
-		std::cin.get();
-	}
-
-
-	result = d3dDevice->CreateVertexShader(VS_buffer->GetBufferPointer(), VS_buffer->GetBufferSize(), NULL, &VS);
-	if (FAILED(result))
-	{
-		std::cout << "failed to load VertexShader "<< result << std::endl;
-		std::cin.get();
-	}
-
-	result = d3dDevice->CreatePixelShader(PS_buffer->GetBufferPointer(), PS_buffer->GetBufferSize(), NULL, &PS);
-
-	if (FAILED(result))
-	{
-		std::cout << "failed to load PixelShader " << result << std::endl;
-		std::cin.get();
-	}
-
-
-	result = d3dDevice->CreateGeometryShader(GS_buffer->GetBufferPointer(), GS_buffer->GetBufferSize(), NULL, &GS);
-
-	if (FAILED(result))
-	{
-		std::cout << "failed to load GeometryShader " << result << std::endl;
-		std::cin.get();
-	}
-
-	d3dContext->VSSetShader(VS, NULL, NULL);
-	d3dContext->GSSetShader(GS, NULL, NULL);
-	d3dContext->PSSetShader(PS, NULL, NULL);
-
-	D3D11_INPUT_ELEMENT_DESC descVertexLayout[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }, 
-
-	};
-
-
-
-	//create and set Input layout
-
-	result = d3dDevice->CreateInputLayout(descVertexLayout, ARRAYSIZE(descVertexLayout), VS_buffer->GetBufferPointer(), VS_buffer->GetBufferSize(), &vertexLayout);
-	if (FAILED(result))
-	{
-		std::cout << "failed to create InputLayout " << result << std::endl;
-		std::cin.get();
-	}
-	d3dContext->IASetInputLayout(vertexLayout);
 
 	d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 
@@ -299,19 +167,6 @@ void Renderer::reloadShaders(RenderMode mode)
 			std::cin.get();
 		}
 	}
-
-	D3D11_VIEWPORT viewport;
-	ZeroMemory(&viewport, sizeof(viewport));
-	viewport.Height = static_cast<float>(*pScreen_heigth);
-	viewport.Width = static_cast<float>(*pScreen_width);
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
-
-	d3dContext->RSSetViewports(1, &viewport);
-	
-	d3dContext->RSSetState(stateRS_default);
 
 	transparents.clear(); 
 
@@ -416,18 +271,15 @@ void Renderer::render(const std::string& meshName, const DirectX::XMFLOAT4X4*  _
 
 	UINT offset = 0; 
 	d3dContext->IASetVertexBuffers(0, 1, &result->second->vertexBuffer, &result->second->strides, &offset); 
-
-	//send WVP-Matrix to Vertex Shader
 	XMStoreFloat4x4(&cbPerObj.m_wvp, XMLoadFloat4x4(_m_World) * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
 	d3dContext->UpdateSubresource(cbPerObjectBuffer, 0, NULL, &cbPerObj, 0, 0);
 	d3dContext->VSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
 	d3dContext->GSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
-	d3dContext->VSSetShader(VS, NULL, 0);
-	d3dContext->GSSetShader(GS, NULL, 0);
-	d3dContext->PSSetShader(PS, NULL, 0);
-	d3dContext->Draw(result->second->getVertexCount(), 0);
-	//d3dContext->Draw(10000, 0); // surface cant handle my shitty code
 
+	//send WVP-Matrix to Vertex Shader
+	
+
+	d3dContext->Draw(result->second->getVertexCount(), 0);
 
 }
 

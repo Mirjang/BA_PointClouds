@@ -108,6 +108,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 
+		g_Renderer->newFrame(g_camera->getViewMatrix(), g_camera->getProjectionMatrix());
+
+		input();
+
+		XMFLOAT4X4 identity;
+		XMStoreFloat4x4(&identity, XMMatrixIdentity());
+
+
+		g_sceneRoot._render(g_Renderer, &identity);
+		TwDraw();
+		g_Renderer->endFrame();
+
 	}
 
 	TwTerminate(); 
@@ -192,6 +204,7 @@ LRESULT CALLBACK windowProc(HWND hWindow, UINT message, WPARAM wParam, LPARAM lP
 void update()
 {
 	g_Renderer->setSplatSize(g_renderSettings.splatSize); 
+
 	g_Renderer->setLight(XMLoadFloat4(&light.pos), XMLoadFloat3(&g_userInput.lightColor));
 
 	if (g_activeObject)
@@ -222,17 +235,7 @@ void update()
 
 	framesPerSec = 1 / g_deltaTime; 
 
-	g_Renderer->newFrame(g_camera->getViewMatrix(), g_camera->getProjectionMatrix()); 
 
-	input(); 
-
-	XMFLOAT4X4 identity; 
-	XMStoreFloat4x4(&identity, XMMatrixIdentity());
-
-
-	g_sceneRoot._render(g_Renderer, &identity); 
-	TwDraw(); 
-	g_Renderer->endFrame(); 
 }
 
 void input()

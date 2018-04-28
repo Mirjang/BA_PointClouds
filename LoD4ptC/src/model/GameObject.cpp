@@ -12,7 +12,7 @@ sca(XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f)), rot(XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f)), po
 }
 
 GameObject::GameObject(std::string _mesh) : meshName(_mesh),
-sca(XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f)), rot(XMFLOAT4(0.0f,0.0f, 0.0f, 1.0f)), pos(XMFLOAT4(0.0f, 0.0f, -0.5f, 1.0f)), transparent(false)
+sca(XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f)), rot(XMFLOAT4(0.0f,0.0f, 0.0f, 1.0f)), pos(XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f)), transparent(false)
 {
 	XMStoreFloat4x4(&m_world, XMMatrixIdentity());
 }

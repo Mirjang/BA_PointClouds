@@ -149,6 +149,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\render\Effects.cpp" />
     <ClCompile Include="src\lod4ptc.cpp" />
     <ClCompile Include="src\model\Camera\Camera.cpp" />
     <ClCompile Include="src\model\GameObject.cpp" />
@@ -159,6 +160,8 @@
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\global\utils.h" />
+    <ClInclude Include="src\render\Effects.h" />
     <ClInclude Include="src\lod4ptc.h" />
     <ClInclude Include="src\model\Camera\Camera.h" />
     <ClInclude Include="src\model\GameObject.h" />
@@ -175,6 +178,9 @@
     <None Include="shaders\quadsplat.hlsl">
       <FileType>Document</FileType>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\effects.fx" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

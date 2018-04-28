@@ -58,8 +58,8 @@ public:
 
 	void setLight(const XMVECTOR& pos, const XMVECTOR& color)
 	{
-		XMStoreFloat3(&cbPerObj.lightpos,pos); 
-		XMStoreFloat3(&cbPerObj.lightcolor, color); 
+		XMStoreFloat4(&cbPerObj.lightpos,pos); 
+		XMStoreFloat4(&cbPerObj.lightcolor, color); 
 	}
 
 	/**
@@ -81,23 +81,11 @@ public:
 
 private: 
 
-	ID3D11RasterizerState* stateRS_default = NULL;
-	ID3D11RasterizerState* stateRS_CCW = NULL;		//backface rendering
-
 
 	ID3D11RenderTargetView* renderTargetView = NULL;
 	ID3D11DepthStencilView* depthStencilView = NULL;
 	ID3D11Texture2D* depthStencilBuffer = NULL;
 
-	ID3D11InputLayout* vertexLayout = NULL;
-
-	ID3D11VertexShader* VS = NULL;
-	ID3DBlob* VS_buffer = NULL;
-	ID3D11PixelShader* PS = NULL;
-	ID3DBlob* PS_buffer = NULL;
-	
-	ID3D11GeometryShader* GS = NULL;
-	ID3DBlob* GS_buffer = NULL;
 
 	/**
 	*	###	Runtime Variables	###
@@ -106,8 +94,8 @@ private:
 	struct cbPerObject
 	{
 		XMFLOAT4X4 m_wvp;
-		XMFLOAT3 lightpos; 
-		XMFLOAT3 lightcolor; 
+		XMFLOAT4 lightpos; 
+		XMFLOAT4 lightcolor; 
 		float splatRadius; 
 		float splatDiameter; 
 	};
@@ -117,6 +105,8 @@ private:
 	ID3D11Buffer* cbPerObjectBuffer = NULL;
 
 	XMFLOAT4X4 *m_View, *m_Proj;
+
+	//unused 
 	std::list<PointCloud*> transparents;
 
 
