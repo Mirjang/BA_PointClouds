@@ -186,7 +186,8 @@ void Renderer::reloadShaders(RenderMode mode)
 
 
 
-	/* //Old code replaced by RenderEffect.h
+	 //Old code replaced by RenderEffect.h
+	/* */
 	SafeRelease(VS);
 	SafeRelease(VS_buffer);
 	SafeRelease(GS);
@@ -211,7 +212,6 @@ void Renderer::reloadShaders(RenderMode mode)
 	}
 
 	//load shaders
-
 	ID3DBlob *errBlob;
 	result = D3DCompileFromFile(shader.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_ENABLE_STRICTNESS, NULL, &VS_buffer, &errBlob);
 	if (FAILED(result))
@@ -264,7 +264,7 @@ void Renderer::reloadShaders(RenderMode mode)
 	d3dContext->VSSetShader(VS, NULL, NULL);
 	d3dContext->GSSetShader(GS, NULL, NULL);
 	d3dContext->PSSetShader(PS, NULL, NULL);
-	*/ //end old code
+	/**/ //end old code
 
 	if (g_renderEffect)	delete g_renderEffect;
 
