@@ -68,8 +68,9 @@
     <ClInclude Include="src\lod4ptc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\global\utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\quadsplat.hlsl" />
+    <FxCompile Include="shaders\circularsplat.hlsl" />
   </ItemGroup>
 </Project>

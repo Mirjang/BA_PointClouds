@@ -168,6 +168,14 @@
     <ClInclude Include="src\ressources\RessourceLoader.h" />
     <ClInclude Include="src\ressources\tinyply.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\circularsplat.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="shaders\quadsplat.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

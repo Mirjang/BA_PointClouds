@@ -8,7 +8,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C952C6D1-3571-4D41-8F15-0594AF3E02F0}"
 	ProjectSection(SolutionItems) = preProject
 		LoD4ptC\AntTweakBar\Readme.txt = LoD4ptC\AntTweakBar\Readme.txt
-		LoD4ptC\shaders\shaders.hlsl = LoD4ptC\shaders\shaders.hlsl
 	EndProjectSection
 EndProject
 Global
@@ -30,5 +29,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1FA05E41-805A-4BF8-97DB-B01AF1FA40F0}
 	EndGlobalSection
 EndGlobal
