@@ -152,7 +152,7 @@ void Renderer::initDirectX()
 	D3D11_RASTERIZER_DESC descRasterizer;
 	ZeroMemory(&descRasterizer, sizeof(D3D11_RASTERIZER_DESC));
 	descRasterizer.FillMode = D3D11_FILL_SOLID;
-	descRasterizer.CullMode = D3D11_CULL_BACK;
+	descRasterizer.CullMode = D3D11_CULL_NONE;
 	descRasterizer.FrontCounterClockwise = true;
 	descRasterizer.DepthBias = 0;
 	descRasterizer.SlopeScaledDepthBias = 0.0f;

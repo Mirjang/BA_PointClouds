@@ -40,9 +40,9 @@ struct RenderEffect
 	{
 		HRESULT hr; 
 		
-		D3DX11CreateEffectFromFile(L"./shaders/effects.fx", 0, device, &effect);
+	//	D3DX11CreateEffectFromFile(L"./shaders/effects.fx", 0, device, &effect);
 
-		assert(effect->IsValid());
+	//	assert(effect->IsValid());
 
 
 	}
