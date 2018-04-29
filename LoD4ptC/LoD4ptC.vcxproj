@@ -155,6 +155,7 @@
     <ClCompile Include="src\model\GameObject.cpp" />
     <ClCompile Include="src\render\PointCloud.cpp" />
     <ClCompile Include="src\render\Renderer.cpp" />
+    <ClCompile Include="src\render\EffectConfig.h" />
     <ClCompile Include="src\render\Vertex.cpp" />
     <ClCompile Include="src\ressources\RessourceLoader.cpp" />
     <ClCompile Include="src\ressources\tinyply.cpp" />
@@ -180,7 +181,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaders\effects.fx" />
+    <None Include="shaders\effects.hlsl">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VS_PASSTHROUGH</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VS_PASSTHROUGH</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Effect</ShaderType>
+      <FileType>Document</FileType>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

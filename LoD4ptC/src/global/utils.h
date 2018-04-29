@@ -8,7 +8,7 @@
 
 
 //Render modes
-enum RenderMode {
+enum SplatType {
 	QUAD_SPLAT, CIRCLE_SPLAT, ELLIPTIC_SPLAT
 };
 
@@ -17,11 +17,11 @@ enum RenderMode {
 //Settings to be input via AntTweakBar
 struct RenderSettings {
 	int lod = 0;	//LOD to be rendered
-	RenderMode renderMode = RenderMode::QUAD_SPLAT;
+	SplatType renderMode = SplatType::QUAD_SPLAT;
 	float splatSize = 0.0001f;
-
+	bool useLight = true; 
 };
-
+extern RenderSettings g_renderSettings;
 
 
 struct screenParams {

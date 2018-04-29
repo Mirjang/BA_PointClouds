@@ -17,6 +17,8 @@
 #include <list>
 #include <map>
 
+#include "Effects.h"
+
 #include "../ressources/RessourceLoader.h"
 #include "./PointCloud.h"
 #include "../global/utils.h"
@@ -40,7 +42,7 @@ public:
 	*/
 
 	inline void initDirectX(); 
-	void reloadShaders(RenderMode mode); 
+	void reloadShaders(); 
 
 
 	/**
@@ -109,7 +111,7 @@ private:
 	//unused 
 	std::list<PointCloud*> transparents;
 
-
+	Effects::Pass* currentPass = nullptr;
 		
 };
 

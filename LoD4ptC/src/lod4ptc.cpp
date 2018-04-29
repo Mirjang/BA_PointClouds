@@ -44,10 +44,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwBar* renderSettings = TwNewBar("RenderSettings"); 
 
 	TwAddVarRO(renderSettings, "Level of Detail", TW_TYPE_UINT32, &g_renderSettings.lod, "readonly=false");
-	TwEnumVal renderModeEV[] = {{ RenderMode::QUAD_SPLAT, "Quad-Splats"}, { RenderMode::CIRCLE_SPLAT, "Circle-Splats"}, { RenderMode::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
-	TwType twRenderMode = TwDefineEnum("Render Mode", renderModeEV, 3);
+	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
+	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, 3);
 	TwAddVarRW(renderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
 	TwAddVarRW(renderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
+	TwAddVarRW(renderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
 	TwAddVarRW(renderSettings, "Reload Shaders", TW_TYPE_BOOLCPP, &g_userInput.reloadShaders, "");
 
 
@@ -70,7 +71,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	DragAcceptFiles(g_hWindow, TRUE);
 
-	g_Renderer->reloadShaders(g_renderSettings.renderMode); 
+	g_Renderer->reloadShaders(); 
 
 	/*
 	* ----------- Init scene ----------
@@ -223,7 +224,7 @@ void update()
 	if (g_userInput.reloadShaders)
 	{
 		g_userInput.reloadShaders = false; 
-		g_Renderer->reloadShaders(g_renderSettings.renderMode); 
+		g_Renderer->reloadShaders(); 
 	}
 
 	//camera mode: wasd or orbit

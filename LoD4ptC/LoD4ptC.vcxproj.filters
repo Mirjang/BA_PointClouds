@@ -45,6 +45,9 @@
     <ClCompile Include="src\render\Effects.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\render\EffectConfig.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\model\Camera\Camera.h">
@@ -81,8 +84,6 @@
   <ItemGroup>
     <None Include="shaders\circularsplat.hlsl" />
     <None Include="shaders\quadsplat.hlsl" />
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\effects.fx" />
+    <None Include="shaders\effects.hlsl" />
   </ItemGroup>
 </Project>

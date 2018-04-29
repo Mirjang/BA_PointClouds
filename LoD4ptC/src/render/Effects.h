@@ -1,4 +1,8 @@
 #pragma once
+
+#ifndef EFFECTS_H
+#define EFFECTS_H
+
 #pragma comment (lib, "d3d11.lib")
 #include <d3d11.h>
 
@@ -6,6 +10,7 @@
 #include <D3DCompiler.h>
 
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <unordered_map>
 
@@ -20,40 +25,30 @@
 
 namespace Effects
 {
+	//strct prototypes
+	struct Pass;
+	struct Technique;
 
-	namespace intern {
-		std::vector<ID3DBlob*> shaderblobs;
 
-		const wchar_t SHADER_FILE[] = L"./shaders/effects.fx";
 
-		const std::vector<std::string> VS_NAMES = 
-		{
+	namespace config {
+		extern const wchar_t SHADER_FILE[];
+		extern const std::vector<std::string> VS_NAMES;
+		extern const std::vector<std::string> GS_NAMES;
+		extern const std::vector<std::string> PS_NAMES;
 
-		};
-		const std::vector<std::string> GS_NAMES =
-		{
-
-		};
-		const std::vector<std::string> PS_NAMES =
-		{
-
-		};
-
-		const D3D11_INPUT_ELEMENT_DESC LAYOUT_POS3_NOR3_COL4 [] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		};
-
-		ID3D11InputLayout* layout; 
+		extern const D3D11_INPUT_ELEMENT_DESC LAYOUT_POS3_NOR3_COL4[];
+		extern const int layoutSize;
 	}
 
 	/*pretty sure I´ll only use those*/
 
-	std::unordered_map<std::string, ID3D11VertexShader*> vertexShaders; 
-	std::unordered_map<std::string, ID3D11GeometryShader*> geometryShaders;
-	std::unordered_map<std::string, ID3D11PixelShader*> pixelShaders;
+	extern std::unordered_map<std::string, ID3D11VertexShader*> vertexShaders; 
+	extern std::unordered_map<std::string, ID3D11GeometryShader*> geometryShaders;
+	extern std::unordered_map<std::string, ID3D11PixelShader*> pixelShaders;
+
+	extern ID3D11InputLayout* layout;
+	extern std::vector<ID3DBlob*> shaderblobs;
 
 	struct st_RS_STATES 
 	{
@@ -62,14 +57,23 @@ namespace Effects
 		ID3D11RasterizerState* CULL_FRONT_CCW; 
 		ID3D11RasterizerState* CULL_BACK_CCW;
 		ID3D11RasterizerState* CULL_NONE;
-	}RS_STATE;
+	};
+	
+	extern st_RS_STATES RS_STATE;
 
 
 	//Inits pipline states and loads shaders defined in intern::XX_NAMES from intern::SHADER_LOCATION
-	void init(ID3D11Device* device);
+	extern void init(ID3D11Device* device);
 
 	//releases all com objects
-	void deinit();
+	extern void deinit();
+
+	/*
+	*Returns Pass based on given config.. not sure if i should compile shaders here, 
+	*for testing tho shaders are compiled once Effects::init() is called which gives immidiate feedback if a shader is bad
+	*/
+	extern Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate);
+
 
 	struct Pass
 	{
@@ -79,26 +83,13 @@ namespace Effects
 
 		ID3D11RasterizerState* RS_STATE = nullptr; 
 
-		void apply(ID3D11DeviceContext* const context)
-		{
-			context->IASetInputLayout(intern::layout); 
-			context->RSSetState(RS_STATE);
+		void apply(ID3D11DeviceContext* const context);
 
-			context->VSSetShader(VS, nullptr, 0); 
-			context->PSSetShader(PS, nullptr, 0);
-			if(GS)
-				context->GSSetShader(GS, nullptr, 0);
-
-		}
-
-		Pass* create(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate); 
 		~Pass() {}; 
-
-	private:
-		Pass(); 
+		Pass() {};
+//		friend Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate); //doesnt work -.-
 
 	};
-
 
 	//should i ever need to do multi-pass rendering
 	struct Technique
@@ -107,3 +98,5 @@ namespace Effects
 	};
 
 }
+
+#endif // !EFFECTS_H
