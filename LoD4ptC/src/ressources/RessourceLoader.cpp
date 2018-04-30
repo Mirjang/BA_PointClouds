@@ -66,6 +66,13 @@ int RessourceLoader::loadPLY(const std::string& name, PointCloud* out)
 		try { colors = file.request_properties_from_element("vertex", { "red", "green", "blue" }); }
 		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
 
+		if (!colors)
+		{	
+			//much special treatment
+			try { colors = file.request_properties_from_element("vertex", { "diffuse_red", "diffuse_green", "diffuse_blue" }); }
+			catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+		}
+
 		try { alphas = file.request_properties_from_element("vertex", { "alpha" }); }
 		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
 

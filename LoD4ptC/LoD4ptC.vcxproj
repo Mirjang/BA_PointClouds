@@ -173,14 +173,6 @@
     <ClInclude Include="src\ressources\tinyply.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\circularsplat.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="shaders\quadsplat.hlsl">
-      <FileType>Document</FileType>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="shaders\effects.hlsl">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VS_PASSTHROUGH</EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>

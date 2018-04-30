@@ -58,10 +58,12 @@ public:
 		cbPerObj.splatDiameter = size + size;
 	}
 
-	void setLight(const XMVECTOR& pos, const XMVECTOR& color)
+	void setLight(const XMVECTOR& direction, const XMVECTOR& color, const XMVECTOR& camPos)
 	{
-		XMStoreFloat4(&cbPerObj.lightpos,pos); 
-		XMStoreFloat4(&cbPerObj.lightcolor, color); 
+		XMStoreFloat4(&cbPerObj.lightDir,direction); 
+		XMStoreFloat4(&cbPerObj.lightColor, color); 
+		XMStoreFloat4(&cbPerObj.camPos, camPos);
+
 	}
 
 	/**
@@ -95,9 +97,11 @@ private:
 	__declspec(align(16))
 	struct cbPerObject
 	{
-		XMFLOAT4X4 m_wvp;
-		XMFLOAT4 lightpos; 
-		XMFLOAT4 lightcolor; 
+		XMFLOAT4X4 wvpMat;
+		XMFLOAT4X4 worldMat;
+		XMFLOAT4 lightDir; 
+		XMFLOAT4 lightColor; 
+		XMFLOAT4 camPos;
 		float splatRadius; 
 		float splatDiameter; 
 	};

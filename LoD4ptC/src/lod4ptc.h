@@ -75,6 +75,7 @@ struct UserInput
 	float camRotateSpeed = 0.025f;
 
 	DirectX::XMFLOAT4 objectRotation; 
+	DirectX::XMFLOAT3 lightDirection;
 	DirectX::XMFLOAT3 lightColor = { 1,1,1 };
 
 	bool button_lmb = false; 
@@ -91,5 +92,5 @@ struct UserInput
 
 UserInput g_userInput; 
 
-GameObject light;
+
 

@@ -49,15 +49,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(renderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
 	TwAddVarRW(renderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
 	TwAddVarRW(renderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
-	TwAddVarRW(renderSettings, "Reload Shaders", TW_TYPE_BOOLCPP, &g_userInput.reloadShaders, "");
+	TwAddVarRW(renderSettings, "Apply Settings", TW_TYPE_BOOLCPP, &g_userInput.reloadShaders, "");
 
 
 	TwAddVarRW(sceneSettings, "OrbitCamera", TW_TYPE_BOOLCPP, &g_userInput.orbitCam, "");
 
 	TwAddVarRW(sceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=1 max=1000 step=5");
 	TwAddVarRW(sceneSettings, "Camera Rotate Speed", TW_TYPE_FLOAT, &g_userInput.camRotateSpeed, "min=0.005 max=2 step=0.005");
-	TwAddVarRW(sceneSettings, "Light Position", TW_TYPE_DIR3F, &light.pos, ""); 
-	TwAddVarRW(sceneSettings, "Light Position", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
+	TwAddVarRW(sceneSettings, "Light Direction", TW_TYPE_DIR3F, &g_userInput.lightDirection, "");
+	TwAddVarRW(sceneSettings, "Light Color", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
 
 	TwAddVarRW(sceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
 
@@ -81,7 +81,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	g_camera->translateAbs(0.1f, 1.0f, -75.0f); 
 
 
-	light.pos = { -100, 100, 0,0 }; 
+	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(-1, -1, 0.5, 0)));  //rnd ligth dir, somewhere from above
 
 	/*
 	--------------- TEST -----------
@@ -206,7 +206,8 @@ void update()
 {
 	g_Renderer->setSplatSize(g_renderSettings.splatSize); 
 
-	g_Renderer->setLight(XMLoadFloat4(&light.pos), XMLoadFloat3(&g_userInput.lightColor));
+	g_Renderer->setLight(XMLoadFloat3(&g_userInput.lightDirection), XMLoadFloat3(&g_userInput.lightColor), XMLoadFloat4(&g_camera->pos));
+
 
 	if (g_activeObject)
 	{

@@ -82,8 +82,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\circularsplat.hlsl" />
-    <None Include="shaders\quadsplat.hlsl" />
     <None Include="shaders\effects.hlsl" />
   </ItemGroup>
 </Project>

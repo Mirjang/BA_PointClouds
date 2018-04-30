@@ -25,12 +25,16 @@ namespace Effects
 
 		const std::vector<std::string> VS_NAMES =
 		{
-			"VS_PASSTHROUGH"
+			"VS_PASSTHROUGH", 
+			"VS_SIMPLE"
 		};
 		const std::vector<std::string> GS_NAMES =
 		{
 			"GS_QUAD",
-			"GS_TEXCOORDS"
+			"GS_CIRCLE", 
+			"GS_QUAD_LIT", 
+			"GS_CIRCLE_LIT"
+
 		};
 		const std::vector<std::string> PS_NAMES =
 		{

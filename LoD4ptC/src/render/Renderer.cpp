@@ -156,11 +156,11 @@ void Renderer::reloadShaders()
 	{
 		if (g_renderSettings.useLight)
 		{
-			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_QUAD_PHONG", "GS_QUAD", Effects::RS_STATE.CULL_NONE);
+			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_QUAD_PHONG", "GS_QUAD_LIT", Effects::RS_STATE.CULL_NONE);
 		}
 		else
 		{
-			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_QUAD_NOLIGHT", "GS_QUAD", Effects::RS_STATE.CULL_NONE);
+			currentPass = Effects::createPass("VS_SIMPLE", "PS_QUAD_NOLIGHT", "GS_QUAD", Effects::RS_STATE.CULL_NONE);
 		}
 
 		break; 
@@ -169,11 +169,11 @@ void Renderer::reloadShaders()
 	{
 		if (g_renderSettings.useLight)
 		{
-			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_CIRCLE_PHONG", "GS_TEXCOORDS", Effects::RS_STATE.CULL_NONE);
+			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_CIRCLE_PHONG", "GS_CIRCLE_LIT", Effects::RS_STATE.CULL_NONE);
 		}
 		else
 		{
-			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_CIRCLE_NOLIGHT", "GS_TEXCOORDS", Effects::RS_STATE.CULL_NONE);
+			currentPass = Effects::createPass("VS_SIMPLE", "PS_CIRCLE_NOLIGHT", "GS_CIRCLE", Effects::RS_STATE.CULL_NONE);
 		}
 		break;
 	}
@@ -317,15 +317,20 @@ void Renderer::render(const std::string& meshName, const DirectX::XMFLOAT4X4*  _
 
 	if (result == meshDict.end()) return; 
 
+	XMMATRIX worldmat = XMLoadFloat4x4(_m_World); 
+
 	currentPass->apply(d3dContext); 
 
 	//Set and update ressources
 	UINT offset = 0; 
 	d3dContext->IASetVertexBuffers(0, 1, &result->second->vertexBuffer, &result->second->strides, &offset); 
-	XMStoreFloat4x4(&cbPerObj.m_wvp, XMLoadFloat4x4(_m_World) * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
+	XMStoreFloat4x4(&cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
+	XMStoreFloat4x4(&cbPerObj.worldMat, worldmat);
 	d3dContext->UpdateSubresource(cbPerObjectBuffer, 0, NULL, &cbPerObj, 0, 0);
 	d3dContext->VSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
 	d3dContext->GSSetConstantBuffers(0, 1, &cbPerObjectBuffer);	
+	d3dContext->PSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
+
 
 	d3dContext->Draw(result->second->getVertexCount(), 0);
 
