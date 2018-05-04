@@ -71,7 +71,7 @@ struct PosWorldNorColTex
 
 inline float4 lightning_phong(float3 worldPos, float3 normal)
 {
-    float3 r = reflect(-g_lightDir.xyz, normal);
+    float3 r = reflect(g_lightDir.xyz, normal);
     float3 v = normalize(g_cameraPos.xyz - worldPos);
     
     //lighting constants

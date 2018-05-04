@@ -149,26 +149,28 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\render\Effects.cpp" />
+    <ClCompile Include="src\lod\LODGeneration.cpp" />
+    <ClCompile Include="src\rendering\Effects.cpp" />
     <ClCompile Include="src\lod4ptc.cpp" />
     <ClCompile Include="src\model\Camera\Camera.cpp" />
     <ClCompile Include="src\model\GameObject.cpp" />
-    <ClCompile Include="src\render\PointCloud.cpp" />
-    <ClCompile Include="src\render\Renderer.cpp" />
-    <ClCompile Include="src\render\EffectConfig.h" />
-    <ClCompile Include="src\render\Vertex.cpp" />
+    <ClCompile Include="src\rendering\PointCloud.cpp" />
+    <ClCompile Include="src\rendering\Renderer.cpp" />
+    <ClCompile Include="src\rendering\EffectConfig.h" />
+    <ClCompile Include="src\rendering\Vertex.cpp" />
     <ClCompile Include="src\ressources\RessourceLoader.cpp" />
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\lod\LODGeneration.h" />
     <ClInclude Include="src\global\utils.h" />
-    <ClInclude Include="src\render\Effects.h" />
+    <ClInclude Include="src\rendering\Effects.h" />
     <ClInclude Include="src\lod4ptc.h" />
     <ClInclude Include="src\model\Camera\Camera.h" />
     <ClInclude Include="src\model\GameObject.h" />
-    <ClInclude Include="src\render\PointCloud.h" />
-    <ClInclude Include="src\render\Renderer.h" />
-    <ClInclude Include="src\render\Vertex.h" />
+    <ClInclude Include="src\rendering\PointCloud.h" />
+    <ClInclude Include="src\rendering\Renderer.h" />
+    <ClInclude Include="src\rendering\Vertex.h" />
     <ClInclude Include="src\ressources\RessourceLoader.h" />
     <ClInclude Include="src\ressources\tinyply.h" />
   </ItemGroup>

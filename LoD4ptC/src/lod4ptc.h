@@ -11,7 +11,7 @@
 #include <AntTweakBar.h>
 
 #include "global\utils.h"
-#include "render\Renderer.h"
+#include "rendering\Renderer.h"
 #include "model\Camera\Camera.h"
 #include "ressources\RessourceLoader.h"
 
@@ -41,13 +41,12 @@ inline void update(); //updates objects per frame
 HINSTANCE g_hInstance; //Handle for this process... required for creating a window
 HWND g_hWindow;	//Handle for the game window (filled below)
 
-
-
-
-screenParams g_ScreenParams; 
-
-
+// ALL THE GLOBALS
+ScreenParams g_screenParams; 
 RenderSettings g_renderSettings; 
+LODSettings g_lodSettings;
+Statistics g_statistics;
+UserInput g_userInput;
 
 /**
 *	###	Runtime Variables	###
@@ -66,31 +65,7 @@ double g_deltaTime = 0.0f;
 
 
 
-float framesPerSec = 0.0; 
 
-struct UserInput
-{
-
-	float cameraSpeed = 250.0f;
-	float camRotateSpeed = 0.025f;
-
-	DirectX::XMFLOAT4 objectRotation; 
-	DirectX::XMFLOAT3 lightDirection;
-	DirectX::XMFLOAT3 lightColor = { 1,1,1 };
-
-	bool button_lmb = false; 
-	bool button_rmb = false;
-	
-	bool reloadShaders = false; 
-	bool orbitCam = false; 
-	bool resetCamera = false; 
-
-	//Housekeeper
-	float lastMouseX = 0; 
-	float lastMouseY = 0; 
-};
-
-UserInput g_userInput; 
 
 
 

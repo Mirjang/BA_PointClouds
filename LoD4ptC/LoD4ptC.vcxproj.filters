@@ -21,16 +21,10 @@
     <ClCompile Include="src\lod4ptc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render\Vertex.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\model\Camera\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\model\GameObject.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\render\PointCloud.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\ressources\RessourceLoader.cpp">
@@ -39,13 +33,22 @@
     <ClCompile Include="src\ressources\tinyply.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render\Renderer.cpp">
+    <ClCompile Include="src\rendering\EffectConfig.h">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render\Effects.cpp">
+    <ClCompile Include="src\rendering\Effects.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render\EffectConfig.h">
+    <ClCompile Include="src\rendering\PointCloud.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rendering\Renderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rendering\Vertex.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lod\LODGeneration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -56,16 +59,7 @@
     <ClInclude Include="src\ressources\tinyply.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render\PointCloud.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\model\GameObject.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\Renderer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\Vertex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\ressources\RessourceLoader.h">
@@ -74,10 +68,22 @@
     <ClInclude Include="src\lod4ptc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render\Effects.h">
+    <ClInclude Include="src\global\utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\global\utils.h">
+    <ClInclude Include="src\rendering\Effects.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rendering\PointCloud.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rendering\Renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rendering\Vertex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\LODGeneration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

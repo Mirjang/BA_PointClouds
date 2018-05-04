@@ -6,8 +6,8 @@
 #include <iostream>
 #include <cstring>
 
-#include "../render/Vertex.h"
-#include "../render/PointCloud.h"
+#include "../rendering/Vertex.h"
+#include "../rendering/PointCloud.h"
 
 
 class RessourceLoader

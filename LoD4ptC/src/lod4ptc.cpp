@@ -20,17 +20,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	g_hInstance = hInstance;
 
-	g_ScreenParams.width = 1680;
-	g_ScreenParams.height = 1050;
-	g_ScreenParams.nearPlane = 0.01f;
-	g_ScreenParams.farPlane = 1000.0f;
+	g_screenParams.width = 1680;
+	g_screenParams.height = 1050;
+	g_screenParams.nearPlane = 0.01f;
+	g_screenParams.farPlane = 1000.0f;
 
 
 	g_RessourceLoader = new RessourceLoader(); 
 
 	initWindow();
 
-	g_Renderer = new Renderer(&g_hWindow, &g_ScreenParams.width, &g_ScreenParams.height);
+	g_Renderer = new Renderer(&g_hWindow, &g_screenParams.width, &g_screenParams.height);
 
 	g_Renderer->initialize();
 
@@ -38,34 +38,50 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	*	--- setup tweak bar -----------
 	*/
 	TwInit(TwGraphAPI::TW_DIRECT3D11, g_Renderer->d3dDevice);
-	TwWindowSize(g_ScreenParams.width, g_ScreenParams.height);
-	TwBar* menuBar = TwNewBar("Settings");
-	TwBar* sceneSettings = TwNewBar("SceneSettings");
-	TwBar* renderSettings = TwNewBar("RenderSettings"); 
+	TwWindowSize(g_screenParams.width, g_screenParams.height);
+	TwBar* twMenuBar = TwNewBar("Menu");
+	TwBar* twSceneSettings = TwNewBar("Scene");
+	TwBar* twRenderSettings = TwNewBar("Render"); 
+	TwBar* twLODSettings = TwNewBar("LOD");
 
-	TwAddVarRO(renderSettings, "Level of Detail", TW_TYPE_UINT32, &g_renderSettings.lod, "readonly=false");
+
+	TwAddVarRW(twRenderSettings, "Level of Detail", TW_TYPE_UINT32, &g_renderSettings.lod, "readonly=false");
 	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
 	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, 3);
-	TwAddVarRW(renderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
-	TwAddVarRW(renderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
-	TwAddVarRW(renderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
-	TwAddVarRW(renderSettings, "Apply Settings", TW_TYPE_BOOLCPP, &g_userInput.reloadShaders, "");
+	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
+	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
+	TwAddVarRW(twRenderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
+	TwAddSeparator(twRenderSettings, "sep", "");
+	TwAddVarRW(twRenderSettings, "Apply Settings", TW_TYPE_BOOLCPP, &g_userInput.reloadShaders, "");
 
 
-	TwAddVarRW(sceneSettings, "OrbitCamera", TW_TYPE_BOOLCPP, &g_userInput.orbitCam, "");
+	TwAddVarRW(twSceneSettings, "Light Direction", TW_TYPE_DIR3F, &g_userInput.lightDirection, "");
+	TwAddVarRW(twSceneSettings, "Light Color", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
+	TwAddVarRW(twSceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
+	TwAddSeparator(twSceneSettings, "sep", "");
+	TwAddVarRW(twSceneSettings, "OrbitCamera", TW_TYPE_BOOLCPP, &g_userInput.orbitCam, "");
+	TwAddVarRW(twSceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=1 max=1000 step=5");
+	TwAddVarRW(twSceneSettings, "Camera Rotate Speed", TW_TYPE_FLOAT, &g_userInput.camRotateSpeed, "min=0.005 max=2 step=0.005");
+	TwAddVarRW(twSceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
+	TwAddSeparator(twSceneSettings, "sep2", "");
+	TwAddVarRW(twSceneSettings, "ResetCamera", TW_TYPE_BOOLCPP, &g_userInput.resetCamera, "");
 
-	TwAddVarRW(sceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=1 max=1000 step=5");
-	TwAddVarRW(sceneSettings, "Camera Rotate Speed", TW_TYPE_FLOAT, &g_userInput.camRotateSpeed, "min=0.005 max=2 step=0.005");
-	TwAddVarRW(sceneSettings, "Light Direction", TW_TYPE_DIR3F, &g_userInput.lightDirection, "");
-	TwAddVarRW(sceneSettings, "Light Color", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
 
-	TwAddVarRW(sceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
-
-	TwAddVarRW(sceneSettings, "ResetCamera", TW_TYPE_BOOLCPP, &g_userInput.resetCamera, "");
+	TwEnumVal lodTypeEV[] = { { LODMode::OCTREE_NAIVE, "Octree naive" },{ LODMode::K_MEANS, "k-means" },{ LODMode::EGGS, "Eggs" } };
+	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, 3);
+	TwAddVarRW(twLODSettings, "LOD Mode", twRenderMode, &g_lodSettings.mode, NULL);
+	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
 
 
 
-	TwAddVarRO(menuBar, "Frames per Sec", TW_TYPE_FLOAT, &framesPerSec, "");
+	TwAddVarRW(twMenuBar, "Scene Menu", TW_TYPE_BOOLCPP, &g_userInput.showSceneMenu, "");
+	TwAddVarRW(twMenuBar, "Render Menu", TW_TYPE_BOOLCPP, &g_userInput.showRenderMenu, "");
+	TwAddVarRW(twMenuBar, "LOD Menu", TW_TYPE_BOOLCPP, &g_userInput.showLODMenu, "");
+	TwAddSeparator(twMenuBar, "sep", ""); 
+	TwAddVarRO(twMenuBar, "Frames per Sec", TW_TYPE_FLOAT, &g_statistics.framesPerSec, "");
+	TwAddVarRO(twMenuBar, "Vertices Drawn", TW_TYPE_INT32, &g_statistics.verticesDrawn, "");
+
+
 
 
 
@@ -77,7 +93,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	* ----------- Init scene ----------
 	*/
 	
-	g_camera = new Camera(&g_ScreenParams.width, &g_ScreenParams.height, g_ScreenParams.nearPlane, g_ScreenParams.farPlane); 
+	g_camera = new Camera(&g_screenParams.width, &g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane); 
 	g_camera->translateAbs(0.1f, 1.0f, -75.0f); 
 
 
@@ -118,7 +134,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 		g_sceneRoot._render(g_Renderer, &identity);
-		TwDraw();
+
+
+
+		TwSetParam(twSceneSettings, NULL, "visible", TW_PARAM_CSTRING, 1, g_userInput.showSceneMenu ? "true" : "false"); 
+		TwSetParam(twRenderSettings, NULL, "visible", TW_PARAM_CSTRING, 1, g_userInput.showRenderMenu ? "true" : "false");
+		TwSetParam(twLODSettings, NULL, "visible", TW_PARAM_CSTRING, 1, g_userInput.showLODMenu ? "true" : "false");
+
+		TwDefine(" LOD alpha=0 ");   // transparent bar
+
+
+		TwDraw(); 
+	
 		g_Renderer->endFrame();
 
 	}
@@ -167,7 +194,7 @@ void initWindow()
 		L"Level of Detail for Point Clouds",
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		g_ScreenParams.width, g_ScreenParams.height,
+		g_screenParams.width, g_screenParams.height,
 		NULL,
 		NULL,
 		g_hInstance,
@@ -218,7 +245,7 @@ void update()
 	{
 		g_userInput.resetCamera = false; 
 		delete g_camera; 
-		g_camera = new Camera(&g_ScreenParams.width, &g_ScreenParams.height, g_ScreenParams.nearPlane, g_ScreenParams.farPlane);
+		g_camera = new Camera(&g_screenParams.width, &g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane);
 		g_camera->translateAbs(0.1f, 1.0f, -75.0f);
 	}
 
@@ -234,8 +261,7 @@ void update()
 
 
 
-
-	framesPerSec = 1 / g_deltaTime; 
+	g_statistics.framesPerSec = 1 / g_deltaTime; 
 
 
 }

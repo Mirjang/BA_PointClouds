@@ -3,7 +3,7 @@
 #include <DirectXMath.h>
 #include <list>
 
-#include "../render/Renderer.h"
+#include "../rendering/Renderer.h"
 
 using namespace DirectX;
 //Basic class for any object to be represented in the game
