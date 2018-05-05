@@ -81,6 +81,7 @@ inline float4 lightning_phong(float3 worldPos, float3 normal)
     float camb = 0.15f;
     float cglow = 0.0f;
 
+
 	//return g_Diffuse.Sample(samAnisotropic, Input.Tex);
     return (cdiff * saturate(dot(normal, g_lightDir.xyz))
 		+ cspec * pow(saturate(dot(r, v)), espec)

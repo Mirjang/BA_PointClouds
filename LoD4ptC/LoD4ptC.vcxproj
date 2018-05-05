@@ -149,7 +149,8 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\lod\LODGeneration.cpp" />
+    <ClCompile Include="src\global\Octree.cpp" />
+    <ClCompile Include="src\lod\LOD.cpp" />
     <ClCompile Include="src\rendering\Effects.cpp" />
     <ClCompile Include="src\lod4ptc.cpp" />
     <ClCompile Include="src\model\Camera\Camera.cpp" />
@@ -162,7 +163,8 @@
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\lod\LODGeneration.h" />
+    <ClInclude Include="src\global\Octree.h" />
+    <ClInclude Include="src\lod\LOD.h" />
     <ClInclude Include="src\global\utils.h" />
     <ClInclude Include="src\rendering\Effects.h" />
     <ClInclude Include="src\lod4ptc.h" />

@@ -6,30 +6,44 @@
 struct Vertex
 {
 public:
-	Vertex() :_pos( 0,0,0 ), _normal(1,0,0 ), _color( 0,1,0,1 )
+	Vertex() :pos( 0,0,0 ), normal(1,0,0 ), color( 0,1,0,1 )
 	{
 		
 	}
 
 	Vertex(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3& normal, const DirectX::XMFLOAT4& color)
-		:_pos(pos), _normal(normal), _color(color)
+		:pos(pos), normal(normal), color(color)
 	{
 
 	}
 
 	Vertex(const float& x, const float&y, const float&z, const float&nx, const float&ny, const float&nz, const float&r, const float&g, const float&b, const float&a)
-		:_pos(x, y, z), _normal(nx, ny, nz), _color(r, g, b, a)
+		:pos(x, y, z), normal(nx, ny, nz), color(r, g, b, a)
+	{
+
+	}
+	
+	virtual ~Vertex()
 	{
 
 	}
 
-	~Vertex()
-	{
-
-	}
-
-	DirectX::XMFLOAT3 _pos;
-	DirectX::XMFLOAT3 _normal; 
-	DirectX::XMFLOAT4 _color; 
+	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT3 normal; 
+	DirectX::XMFLOAT4 color; 
 };
 
+struct SphereVertex : Vertex
+{
+	float radius; 
+};
+
+struct EllipticalVertex : Vertex
+{
+	DirectX::XMFLOAT3 axis1, axis2; 
+};
+
+struct EllipsoidVertex : Vertex
+{
+	float x, y, z; 
+};

@@ -108,7 +108,7 @@ int RessourceLoader::loadPLY(const std::string& name, PointCloud* out)
 
 			for(int i = 0; i < vertices->count; ++i)
 			{
-				std::memcpy(&out->vertices[i]._pos, &verts[i], 3 * sizeof(float));
+				std::memcpy(&out->vertices[i].pos, &verts[i], 3 * sizeof(float));
 			}
 			
 
@@ -118,7 +118,7 @@ int RessourceLoader::loadPLY(const std::string& name, PointCloud* out)
 				std::memcpy(norms.data(), normals->buffer.get(), numVerticesBytes);
 				for (int i = 0; i < vertices->count; ++i)
 				{
-					std::memcpy(&out->vertices[i]._normal, &norms[i], 3 * sizeof(float));
+					std::memcpy(&out->vertices[i].normal, &norms[i], 3 * sizeof(float));
 				}
 			}
 
@@ -139,7 +139,7 @@ int RessourceLoader::loadPLY(const std::string& name, PointCloud* out)
 
 				for (int i = 0; i < vertices->count; ++i)
 				{
-					DirectX::XMStoreFloat4(&out->vertices[i]._color, DirectX::XMVectorScale(DirectX::XMVectorSet((float)cols[i].x, (float)cols[i].y, (float)cols[i].z, alphas?(float)alpha[i] : 1), 1.0 / 255));
+					DirectX::XMStoreFloat4(&out->vertices[i].color, DirectX::XMVectorScale(DirectX::XMVectorSet((float)cols[i].x, (float)cols[i].y, (float)cols[i].z, alphas?(float)alpha[i] : 1), 1.0 / 255));
 				}
 			}
 	

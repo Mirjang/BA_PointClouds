@@ -48,7 +48,10 @@
     <ClCompile Include="src\rendering\Vertex.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\lod\LODGeneration.cpp">
+    <ClCompile Include="src\lod\LOD.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\global\Octree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -83,7 +86,10 @@
     <ClInclude Include="src\rendering\Vertex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\lod\LODGeneration.h">
+    <ClInclude Include="src\lod\LOD.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\global\Octree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
