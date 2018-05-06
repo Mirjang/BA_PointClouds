@@ -14,6 +14,15 @@ namespace OctreeInternal
 	template<class Type>
 	struct OctreeNode 
 	{
+		OctreeNode* parent = nullptr; 
+		bool marked = false; //mark nodes on traversal for various uses.. counter in case multiple traversals are needed... who cares about performance anyways? 
+		/*
+		* internal nodes and insertInternal == true:  this is the value stored at the internal node
+		* leaf nodes or insertInternal == false: stores various averaging/subsampling info
+		* should only be used if the node is already marked
+		*/
+		Type data;		
+
 		inline virtual bool isInternal() = 0;
 	};
 
@@ -23,9 +32,9 @@ namespace OctreeInternal
 	{
 		//000 = lowX lowY lowZ, 111 = highX highY highZ
 		std::vector<OctreeNode<Type>*> children;
-		Type data;
 
-		OctreeInternalNode() { 
+		OctreeInternalNode(const OctreeNode* parent):parent(parent) 
+		{
 			children.resize(8); 
 
 			for (int i = 0; i < 8; ++i)
@@ -34,7 +43,8 @@ namespace OctreeInternal
 			}
 
 		}
-		OctreeInternalNode(Type d) : data(d) { OctreeInternalNode();  }
+		OctreeInternalNode(const OctreeNode* parent, Type d) : data(d) 
+		{ OctreeInternalNode(parent);  }
 		~OctreeInternalNode()
 		{
 			for (auto it : children)
@@ -53,14 +63,15 @@ namespace OctreeInternal
 	{
 		bool isInternal() { return false; }
 
-		OctreeLeafNode() {}
+		OctreeLeafNode(const OctreeNode* parent):parent(parent) {}
 
-		OctreeLeafNode(const Type& d)
+		OctreeLeafNode(const OctreeNode* parent , const Type& d)
 		{
-			data.push_back(d); 
+			OctreeLeafNode(parent); 
+			verts.push_back(d); 
 		}
 
-		std::vector<Type> data; 
+		std::vector<Type> verts; 
 	};
 
 }
@@ -72,7 +83,7 @@ class Octree
 
 public:
 	//maxdepth = -1 --> keep expanding octree indefinately
-	Octree(XMFLOAT3 boundsMin, XMFLOAT3 boundsMax, int maxDepth = -1, bool insertInternal = false) : boundsMin(boundsMin), boundsMin(boundsMax), maxDepth(maxDepth)
+	Octree(XMFLOAT3 min3f, XMFLOAT3 max3f, int maxDepth = -1, bool insertInternal = false) : boundsMin(min3f), boundsMax(max3f), maxDepth(maxDepth)
 	{
 		XMStoreFloat3(&range, XMLoadFloat3(&boundsMax) - XMLoadFloat3(&boundsMin));
 	}
@@ -124,11 +135,11 @@ private:
 			{
 				if (insertInternal && depth != maxDepth) //store points at internal nodes (naive subsampling) and maxDepth not reached
 				{
-					intNode->children[index] = new OctreeInternal::OctreeInternalNode(data);
+					intNode->children[index] = new OctreeInternal::OctreeInternalNode(pNode, data);
 				}
 				else //max depth reached -> store all following pts in single leaf node
 				{
-					intNode->children[index] = new OctreeInternal::OctreeLeafNode(data);
+					intNode->children[index] = new OctreeInternal::OctreeLeafNode(pNode, data);
 				}
 			}
 			else	//go one step deeper
@@ -143,11 +154,11 @@ private:
 			if (depth != maxDepth) //turn leaf node into internal node 
 			{
 				if (insertInternal)
-					pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode(leafNode->data.pop_back); 
+					pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode(pParent, leafNode->verts.pop_back); 
 				else
-					pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode();
+					pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode(pParent);
 
-				for (auto elem : leafNode->data)
+				for (auto elem : leafNode->verts)
 				{
 					insert(pParent->children[parentIndex], elem, depth, pParent, parentIndex);
 				}
@@ -156,7 +167,7 @@ private:
 			}
 			else	//max depth -> just add to leaf node
 			{
-				leafNode->data.push_back(data); 
+				leafNode->verts.push_back(data); 
 			}
 		}
 

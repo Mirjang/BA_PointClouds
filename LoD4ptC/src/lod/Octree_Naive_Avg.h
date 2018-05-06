@@ -1,4 +1,7 @@
 #pragma once
+#include <iostream>
+#include <sstream>
+
 #include "LOD.h"
 #include "../global/Octree.h"
 
@@ -18,6 +21,9 @@ public:
 	
 
 private: 
+
+	void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode); 
+
 	struct TweakSettings
 	{
 		//----creation---
