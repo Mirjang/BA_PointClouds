@@ -3,7 +3,7 @@
 #define UTIL_H
 
 #include <DirectXMath.h>
-
+#include <AntTweakBar.h>
 
 #define SafeRelease(ptr)     if (ptr){(ptr)->Release(); ptr = NULL;}
 
@@ -15,6 +15,7 @@ enum SplatType
 
 enum LODMode
 {
+	NONE,
 	OCTREE_NAIVE, 
 	K_MEANS, 
 	EGGS
@@ -74,6 +75,12 @@ struct LODSettings
 	LODMode mode = LODMode::OCTREE_NAIVE;
 	int pixelThreshhold = 1; 
 
+
+	bool recreate = false; 
+
+	//housekeeper
+	LODMode lastMode = LODMode::NONE;
+	TwBar* twImplSettingsBar = nullptr; 
 };
 
 extern LODSettings g_lodSettings; 

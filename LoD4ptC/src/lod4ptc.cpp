@@ -47,7 +47,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	TwAddVarRW(twRenderSettings, "Level of Detail", TW_TYPE_UINT32, &g_renderSettings.lod, "readonly=false");
 	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
-	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, 3);
+	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, ARRAYSIZE(splatTypeEV));
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
 	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
 	TwAddVarRW(twRenderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
@@ -67,10 +67,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twSceneSettings, "ResetCamera", TW_TYPE_BOOLCPP, &g_userInput.resetCamera, "");
 
 
-	TwEnumVal lodTypeEV[] = { { LODMode::OCTREE_NAIVE, "Octree naive" },{ LODMode::K_MEANS, "k-means" },{ LODMode::EGGS, "Eggs" } };
-	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, 3);
+	TwEnumVal lodTypeEV[] = { { LODMode::NONE, "None" },{ LODMode::OCTREE_NAIVE, "Octree naive" },{ LODMode::K_MEANS, "k-means" },{ LODMode::EGGS, "Eggs" } };
+	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
 	TwAddVarRW(twLODSettings, "LOD Mode", twRenderMode, &g_lodSettings.mode, NULL);
 	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
+	TwAddSeparator(twMenuBar, "sep", "");
+	TwAddVarRW(twLODSettings, "recreate LOD", TW_TYPE_BOOLCPP, &g_lodSettings.recreate, NULL);
 
 
 
@@ -141,7 +143,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		TwSetParam(twRenderSettings, NULL, "visible", TW_PARAM_CSTRING, 1, g_userInput.showRenderMenu ? "true" : "false");
 		TwSetParam(twLODSettings, NULL, "visible", TW_PARAM_CSTRING, 1, g_userInput.showLODMenu ? "true" : "false");
 
-		TwDefine(" LOD alpha=0 ");   // transparent bar
 
 
 		TwDraw(); 
@@ -236,9 +237,54 @@ void update()
 	g_Renderer->setLight(XMLoadFloat3(&g_userInput.lightDirection), XMLoadFloat3(&g_userInput.lightColor), XMLoadFloat4(&g_camera->pos));
 
 
+	if (g_lodSettings.mode != g_lodSettings.lastMode)
+	{
+		if (g_lodSettings.twImplSettingsBar)
+		{
+			TwDeleteBar(g_lodSettings.twImplSettingsBar);
+		}
+
+		switch (g_lodSettings.mode)
+		{
+		case OCTREE_NAIVE:
+		{
+			g_lodSettings.twImplSettingsBar = Octree_Naive_Avg::setUpTweakBar();
+			break;
+		}
+		default:
+			break;
+		}
+
+		g_lodSettings.lastMode = g_lodSettings.mode;
+	}
+
 	if (g_activeObject)
 	{
 		g_activeObject->rot = g_userInput.objectRotation; 
+
+		if (g_lodSettings.recreate)	//ok just assuming that the active obj has a mesh, should work for this impl might cause problems for someone else tho... 
+		{
+			PointCloud* mesh = g_Renderer->meshDict.find(g_activeObject->getMesh())->second;
+			
+			if (mesh->lod)
+			{
+				delete mesh->lod; 
+			}
+
+			switch (g_lodSettings.mode)
+			{
+			case OCTREE_NAIVE:
+			{
+				mesh->lod = new Octree_Naive_Avg(); 
+				mesh->lod->create(g_Renderer->d3dDevice, mesh->vertices); 
+				break;
+			}
+			default:
+				break;
+			}
+			g_lodSettings.recreate = false;
+		}
+
 	}
 
 	if (g_userInput.resetCamera)

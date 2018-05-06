@@ -12,8 +12,11 @@
 
 #include "global\utils.h"
 #include "rendering\Renderer.h"
+#include "rendering\PointCloud.h"
 #include "model\Camera\Camera.h"
 #include "ressources\RessourceLoader.h"
+
+#include "lod\Octree_Naive_Avg.h"
 
 /**
 *	###	Init Function Prototypes	###

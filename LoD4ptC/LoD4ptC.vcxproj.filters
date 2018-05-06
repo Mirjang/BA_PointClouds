@@ -48,10 +48,10 @@
     <ClCompile Include="src\rendering\Vertex.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\lod\LOD.cpp">
+    <ClCompile Include="src\global\Octree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\global\Octree.cpp">
+    <ClCompile Include="src\lod\Octree_Naive_Avg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -90,6 +90,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\global\Octree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\Octree_Naive_Avg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

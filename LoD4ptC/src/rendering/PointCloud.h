@@ -7,12 +7,14 @@
 #include <vector>
 #include "Vertex.h"
 
+#include "../lod/LOD.h"
+
 //Basic class representing a 3D PointCloud
 class PointCloud
 {
 public:
 	PointCloud();
-	PointCloud(Vertex* pArrVertex, int vertCount);
+	PointCloud(Vertex* pArrVertex, int vertCount, LOD* lod = nullptr);
 	virtual ~PointCloud();
 
 
@@ -22,5 +24,6 @@ public:
 	UINT strides; 
 	std::vector<Vertex> vertices;	
 	int refCount = 0; 
+	LOD* lod; 
 };
 
