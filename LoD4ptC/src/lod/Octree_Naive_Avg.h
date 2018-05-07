@@ -13,9 +13,9 @@ public:
 	Octree_Naive_Avg();
 	virtual ~Octree_Naive_Avg();
 	
-	virtual void create(const ID3D11Device* device, vector<Vertex>& vertices) override;
-	virtual void recreate(const ID3D11Device* device, vector<Vertex>& vertices) override;
-	virtual void draw(const ID3D11DeviceContext* context) override;
+	virtual void create(ID3D11Device* const device, vector<Vertex>& vertices) override;
+	virtual void recreate(ID3D11Device* const device, vector<Vertex>& vertices) override;
+	virtual void draw(ID3D11DeviceContext* const context) override;
 	static TwBar* setUpTweakBar();
 
 	

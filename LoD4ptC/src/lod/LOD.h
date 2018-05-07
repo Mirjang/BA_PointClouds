@@ -10,6 +10,7 @@
 #include "../global/utils.h"
 #include "../global/Octree.h"
 #include "../rendering/Vertex.h"
+#include "../rendering/Effects.h"
 
 #include <AntTweakBar.h>
 
@@ -25,8 +26,10 @@ namespace LOD_Helpers
 class LOD
 {
 public:
-	virtual void create(const ID3D11Device* device, vector<Vertex>& vertices) = 0; 
-	virtual void recreate(const ID3D11Device* device, vector<Vertex>& vertices) = 0;
+	virtual void create(ID3D11Device* const device, vector<Vertex>& vertices) = 0;
+	virtual void recreate(ID3D11Device* const device, vector<Vertex>& vertices) = 0;
 	static void setUpTweakBar() {};
-	virtual void draw(const ID3D11DeviceContext* context) = 0;
+	virtual void draw(ID3D11DeviceContext* const context) = 0;
+
+
 };

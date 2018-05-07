@@ -69,9 +69,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	TwEnumVal lodTypeEV[] = { { LODMode::NONE, "None" },{ LODMode::OCTREE_NAIVE, "Octree naive" },{ LODMode::K_MEANS, "k-means" },{ LODMode::EGGS, "Eggs" } };
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
-	TwAddVarRW(twLODSettings, "LOD Mode", twRenderMode, &g_lodSettings.mode, NULL);
+	TwAddVarRW(twLODSettings, "LOD Mode", twLODMode, &g_lodSettings.mode, NULL);
 	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
-	TwAddSeparator(twMenuBar, "sep", "");
+	TwAddSeparator(twMenuBar, "sep3", "");
 	TwAddVarRW(twLODSettings, "recreate LOD", TW_TYPE_BOOLCPP, &g_lodSettings.recreate, NULL);
 
 
@@ -79,7 +79,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twMenuBar, "Scene Menu", TW_TYPE_BOOLCPP, &g_userInput.showSceneMenu, "");
 	TwAddVarRW(twMenuBar, "Render Menu", TW_TYPE_BOOLCPP, &g_userInput.showRenderMenu, "");
 	TwAddVarRW(twMenuBar, "LOD Menu", TW_TYPE_BOOLCPP, &g_userInput.showLODMenu, "");
-	TwAddSeparator(twMenuBar, "sep", ""); 
+	TwAddSeparator(twMenuBar, "sep4", ""); 
 	TwAddVarRO(twMenuBar, "Frames per Sec", TW_TYPE_FLOAT, &g_statistics.framesPerSec, "");
 	TwAddVarRO(twMenuBar, "Vertices Drawn", TW_TYPE_INT32, &g_statistics.verticesDrawn, "");
 
@@ -271,21 +271,10 @@ void update()
 				delete mesh->lod; 
 			}
 
-			switch (g_lodSettings.mode)
-			{
-			case OCTREE_NAIVE:
-			{
-				mesh->lod = new Octree_Naive_Avg(); 
-				mesh->lod->create(g_Renderer->d3dDevice, mesh->vertices); 
-				break;
-			}
-			default:
-				break;
-			}
-			g_lodSettings.recreate = false;
+			mesh->createLod(g_Renderer->d3dDevice, g_lodSettings.mode); 
 		}
-
 	}
+	g_lodSettings.recreate = false;	//make sure this is reset... buttons are hard 
 
 	if (g_userInput.resetCamera)
 	{

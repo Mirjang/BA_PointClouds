@@ -72,14 +72,14 @@ extern RenderSettings g_renderSettings;
 //set by AntTweakBar
 struct LODSettings
 {
-	LODMode mode = LODMode::OCTREE_NAIVE;
+	LODMode mode = LODMode::NONE;
 	int pixelThreshhold = 1; 
 
 
 	bool recreate = false; 
 
 	//housekeeper
-	LODMode lastMode = LODMode::NONE;
+	LODMode lastMode = mode;
 	TwBar* twImplSettingsBar = nullptr; 
 };
 

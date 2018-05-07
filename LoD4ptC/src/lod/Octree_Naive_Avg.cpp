@@ -28,9 +28,9 @@ TwBar* Octree_Naive_Avg::setUpTweakBar()
 }
 
 // pray for -O3
-void Octree_Naive_Avg::create(const ID3D11Device* device, vector<Vertex>& vertices) 
+void Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>& vertices)
 {
-
+	std::cout << "\n===================================================" << std::endl;
 	std::cout << "Creating Octree_Naive_Avg" << std::endl; 
 
 	XMFLOAT3 min3f, max3f; 
@@ -50,23 +50,27 @@ void Octree_Naive_Avg::create(const ID3D11Device* device, vector<Vertex>& vertic
 
 	octree = new Octree<Vertex>(min3f, max3f, settings.maxDepth, false);
 
-	std::cout << "Created Octree with Depth: " << octree->reachedDepth << " max Depth = " << settings.maxDepth << std::endl; 
 
 	for (auto it : vertices)
 	{
 		octree->insert(it); 
 	}
 
+	std::cout << "Created Octree with Depth: " << octree->reachedDepth << " max Depth = " << settings.maxDepth << std::endl;
+
 	traverseAndAverageOctree(octree->root); 
 
 	std::cout << "Finished traversing and averaging" << std::endl; 
+
+	std::cout << "===================================================\n" << std::endl;
+
 
 
 	//load to GPU
 
 }
 
-void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode)
+void Octree_Naive_Avg::traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode)
 {
 #ifdef DEBUG
 	if (pNode->marked)
@@ -76,7 +80,7 @@ void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode)
 #endif // DEBUG
 
 
-	if (pNode->isInternal)	//internal Node 
+	if (pNode->isInternal())	//internal Node 
 	{
 		XMVECTOR avgPos = XMVectorSet(0, 0, 0, 0); 
 		XMVECTOR avgNormal = XMVectorSet(0, 0, 0, 0);
@@ -95,7 +99,7 @@ void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode)
 			avgColor += XMLoadFloat4(&child->data.color); 
 		}
 		
-		int numChildren = intNode->children.size();
+		size_t numChildren = intNode->children.size();
 		XMStoreFloat3(&pNode->data.pos, avgPos / numChildren); 
 		XMStoreFloat3(&pNode->data.normal, avgNormal / numChildren);
 		XMStoreFloat4(&pNode->data.color, avgColor / numChildren);
@@ -128,13 +132,13 @@ void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode)
 }
 
 
-void Octree_Naive_Avg::recreate(const ID3D11Device* device, vector<Vertex>& vertices)
+void Octree_Naive_Avg::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 	delete octree; 
 	create(device, vertices); 
 }
 
-void Octree_Naive_Avg::draw(const ID3D11DeviceContext* context)
+void Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 {
 
 

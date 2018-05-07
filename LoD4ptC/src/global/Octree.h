@@ -14,7 +14,7 @@ namespace OctreeInternal
 	template<class Type>
 	struct OctreeNode 
 	{
-		OctreeNode* parent = nullptr; 
+		OctreeNode<Type>* parent = nullptr; 
 		bool marked = false; //mark nodes on traversal for various uses.. counter in case multiple traversals are needed... who cares about performance anyways? 
 		/*
 		* internal nodes and insertInternal == true:  this is the value stored at the internal node
@@ -33,8 +33,10 @@ namespace OctreeInternal
 		//000 = lowX lowY lowZ, 111 = highX highY highZ
 		std::vector<OctreeNode<Type>*> children;
 
-		OctreeInternalNode(const OctreeNode* parent):parent(parent) 
+		OctreeInternalNode(OctreeNode<Type>* parent)
 		{
+			this->parent = parent;
+
 			children.resize(8); 
 
 			for (int i = 0; i < 8; ++i)
@@ -43,8 +45,19 @@ namespace OctreeInternal
 			}
 
 		}
-		OctreeInternalNode(const OctreeNode* parent, Type d) : data(d) 
-		{ OctreeInternalNode(parent);  }
+
+		OctreeInternalNode(OctreeNode<Type>* parent, Type d)
+		{ 
+			this->parent = parent;
+			this->data = d; 
+
+			children.resize(8);
+
+			for (int i = 0; i < 8; ++i)
+			{
+				children[i] = nullptr;
+			}
+		}
 		~OctreeInternalNode()
 		{
 			for (auto it : children)
@@ -63,11 +76,14 @@ namespace OctreeInternal
 	{
 		bool isInternal() { return false; }
 
-		OctreeLeafNode(const OctreeNode* parent):parent(parent) {}
-
-		OctreeLeafNode(const OctreeNode* parent , const Type& d)
+		OctreeLeafNode(OctreeNode<Type>* parent)
 		{
-			OctreeLeafNode(parent); 
+			this->parent = parent; 
+		}
+
+		OctreeLeafNode(OctreeNode<Type>* parent , const Type& d)
+		{
+			this->parent = parent;
 			verts.push_back(d); 
 		}
 
@@ -94,7 +110,14 @@ public:
 		++numNodes; 
 		if (!root)
 		{
-			root = new OctreeInternal::OctreeInternalNode<Type>(data);
+			if (insertInternal)
+			{
+				root = new OctreeInternal::OctreeInternalNode<Type>(nullptr, data);
+			}
+			else
+			{
+				root = new OctreeInternal::OctreeLeafNode<Type>(nullptr, data); 
+			}
 		}
 		else
 		{
@@ -102,7 +125,7 @@ public:
 		}
 	}
 
-	OctreeInternal::OctreeInternalNode<Type>* root = nullptr;
+	OctreeInternal::OctreeNode<Type>* root = nullptr;
 	int numNodes = 0; 
 	int reachedDepth = 0; 
 
@@ -135,11 +158,11 @@ private:
 			{
 				if (insertInternal && depth != maxDepth) //store points at internal nodes (naive subsampling) and maxDepth not reached
 				{
-					intNode->children[index] = new OctreeInternal::OctreeInternalNode(pNode, data);
+					intNode->children[index] = new OctreeInternal::OctreeInternalNode<Type>(pNode, data);
 				}
 				else //max depth reached -> store all following pts in single leaf node
 				{
-					intNode->children[index] = new OctreeInternal::OctreeLeafNode(pNode, data);
+					intNode->children[index] = new OctreeInternal::OctreeLeafNode<Type>(pNode, data);
 				}
 			}
 			else	//go one step deeper
@@ -153,14 +176,23 @@ private:
 
 			if (depth != maxDepth) //turn leaf node into internal node 
 			{
-				if (insertInternal)
-					pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode(pParent, leafNode->verts.pop_back); 
-				else
-					pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode(pParent);
 
-				for (auto elem : leafNode->verts)
+				if (!pParent) // 2nd element: we are at root and root is leaf node
 				{
-					insert(pParent->children[parentIndex], elem, depth, pParent, parentIndex);
+					pParent = new OctreeInternal::OctreeInternalNode<Type>(nullptr);
+					root = pParent; 
+				}
+
+				pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode<Type>(pParent);
+
+				if (insertInternal && leafNode->verts.size())
+				{ 
+					pParent->children[index]->data = leafNode->verts[0];
+				}
+
+				for (int i = insertInternal?1:0; i< leafNode->verts.size(); ++i)
+				{
+					insert(pParent->children[index], leafNode->verts[i], depth, pParent, parentIndex);
 				}
 
 				delete leafNode; 

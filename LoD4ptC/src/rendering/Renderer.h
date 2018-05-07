@@ -23,6 +23,7 @@
 #include "./PointCloud.h"
 #include "../global/utils.h"
 
+#include "../lod/LodImplementations.h"
 
 using namespace DirectX; 
 
@@ -104,6 +105,7 @@ private:
 		XMFLOAT4 camPos;
 		float splatRadius; 
 		float splatDiameter; 
+
 	};
 
 	cbPerObject cbPerObj;
@@ -115,7 +117,6 @@ private:
 	//unused 
 	std::list<PointCloud*> transparents;
 
-	Effects::Pass* currentPass = nullptr;
 		
 };
 

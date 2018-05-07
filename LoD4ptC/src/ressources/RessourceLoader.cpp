@@ -103,7 +103,7 @@ int RessourceLoader::loadPLY(const std::string& name, PointCloud* out)
 			struct float3 { float x, y, z; };
 			std::vector<float3> verts(vertices->count);
 			std::memcpy(verts.data(), vertices->buffer.get(), numVerticesBytes);
-			
+			out->vertices.clear(); 
 			out->vertices.resize(vertices->count); 
 
 			for(int i = 0; i < vertices->count; ++i)

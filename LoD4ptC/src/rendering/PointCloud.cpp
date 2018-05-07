@@ -8,7 +8,6 @@ PointCloud::PointCloud()
 
 PointCloud::~PointCloud()
 {
-	vertexBuffer->Release();
 	vertices.clear(); 
 
 	delete lod; 
@@ -25,3 +24,22 @@ PointCloud::PointCloud(Vertex* pArrVertex, int vertCount, LOD* lod): lod(lod)
 
 }
 
+
+void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
+{
+
+	switch (g_lodSettings.mode)
+	{
+	case LODMode::OCTREE_NAIVE:
+	{
+		lod = new Octree_Naive_Avg();
+		break;
+	}
+	default:
+		lod = new No_LOD();
+		break;
+	}
+
+	lod->create(device, vertices); 
+
+}

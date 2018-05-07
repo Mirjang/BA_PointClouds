@@ -22,7 +22,7 @@ Renderer::~Renderer()
 
 	for (auto mesh : meshDict)
 	{
-		mesh.second->vertexBuffer->Release(); 
+		delete mesh.second->lod;
 	}
 
 	SafeRelease(depthStencilBuffer);
@@ -143,12 +143,14 @@ void Renderer::initDirectX()
 
 void Renderer::reloadShaders()
 {
-	if (currentPass) delete currentPass; 
+	if (Effects::g_pCurrentPass) delete Effects::g_pCurrentPass; 
 
 	Effects::deinit();
 	Effects::init(d3dDevice);
 
 	//create pass based on g_renderSettings
+
+	//TODO: there will be different passes based on selected LOD strategy
 
 	switch (g_renderSettings.renderMode)
 	{
@@ -156,11 +158,11 @@ void Renderer::reloadShaders()
 	{
 		if (g_renderSettings.useLight)
 		{
-			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_QUAD_PHONG", "GS_QUAD_LIT", Effects::RS_STATE.CULL_NONE);
+			Effects::g_pCurrentPass = Effects::createPass("VS_PASSTHROUGH", "PS_QUAD_PHONG", "GS_QUAD_LIT", Effects::RS_STATE.CULL_NONE);
 		}
 		else
 		{
-			currentPass = Effects::createPass("VS_SIMPLE", "PS_QUAD_NOLIGHT", "GS_QUAD", Effects::RS_STATE.CULL_NONE);
+			Effects::g_pCurrentPass = Effects::createPass("VS_SIMPLE", "PS_QUAD_NOLIGHT", "GS_QUAD", Effects::RS_STATE.CULL_NONE);
 		}
 
 		break; 
@@ -169,11 +171,11 @@ void Renderer::reloadShaders()
 	{
 		if (g_renderSettings.useLight)
 		{
-			currentPass = Effects::createPass("VS_PASSTHROUGH", "PS_CIRCLE_PHONG", "GS_CIRCLE_LIT", Effects::RS_STATE.CULL_NONE);
+			Effects::g_pCurrentPass = Effects::createPass("VS_PASSTHROUGH", "PS_CIRCLE_PHONG", "GS_CIRCLE_LIT", Effects::RS_STATE.CULL_NONE);
 		}
 		else
 		{
-			currentPass = Effects::createPass("VS_SIMPLE", "PS_CIRCLE_NOLIGHT", "GS_CIRCLE", Effects::RS_STATE.CULL_NONE);
+			Effects::g_pCurrentPass = Effects::createPass("VS_SIMPLE", "PS_CIRCLE_NOLIGHT", "GS_CIRCLE", Effects::RS_STATE.CULL_NONE);
 		}
 		break;
 	}
@@ -208,7 +210,7 @@ void Renderer::reloadShaders()
 		}
 	}
 
-	D3D11_VIEWPORT viewport; 
+	D3D11_VIEWPORT viewport = { 0 };
 	viewport.Height = *pScreen_heigth;
 	viewport.Width = *pScreen_width; 
 	viewport.MinDepth = 0.0; 
@@ -244,33 +246,10 @@ void Renderer::loadMesh( const std::string& name)
 
 	//generate LOD
 
+	mesh->createLod(d3dDevice, g_lodSettings.mode); 
 
 
-
-
-
-	//init GPU buffers
-
-	//create vertex buffer
-	D3D11_BUFFER_DESC descVertexBuffer;
-	ZeroMemory(&descVertexBuffer, sizeof(D3D11_BUFFER_DESC));
-	descVertexBuffer.Usage = D3D11_USAGE_DEFAULT;
-	descVertexBuffer.ByteWidth = sizeof(Vertex) * mesh->getVertexCount();
-	descVertexBuffer.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-	D3D11_SUBRESOURCE_DATA dataVertexBuffer;
-	ZeroMemory(&dataVertexBuffer, sizeof(D3D11_SUBRESOURCE_DATA));
-	dataVertexBuffer.pSysMem = mesh->vertices.data();
-
-	result = d3dDevice->CreateBuffer(&descVertexBuffer, &dataVertexBuffer, &mesh->vertexBuffer);
-
-	if (FAILED(result))
-	{
-		std::cout << "failed to create vertex buffer " << result << std::endl;
-		std::cin.get();
-	}
-
-	mesh->strides = sizeof(Vertex);
+	//init GPU buffers <--- moved to LOD implementatiions
 
 	meshDict.insert(std::pair<std::string, PointCloud*>(name, mesh));
 
@@ -319,20 +298,20 @@ void Renderer::render(const std::string& meshName, const DirectX::XMFLOAT4X4*  _
 
 	XMMATRIX worldmat = XMLoadFloat4x4(_m_World); 
 
-	currentPass->apply(d3dContext); 
 
-	//Set and update ressources
-	UINT offset = 0; 
-	d3dContext->IASetVertexBuffers(0, 1, &result->second->vertexBuffer, &result->second->strides, &offset); 
-	XMStoreFloat4x4(&cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
+	//Set and update constant buffers
 	XMStoreFloat4x4(&cbPerObj.worldMat, worldmat);
+	XMStoreFloat4x4(&cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
+
+
+
 	d3dContext->UpdateSubresource(cbPerObjectBuffer, 0, NULL, &cbPerObj, 0, 0);
 	d3dContext->VSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
-	d3dContext->GSSetConstantBuffers(0, 1, &cbPerObjectBuffer);	
+	d3dContext->GSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
 	d3dContext->PSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
 
-
-	d3dContext->Draw(result->second->getVertexCount(), 0);
+	//use lod specific draw function (performs i.e traversal aswell as the final draw)
+	result->second->lod->draw(d3dContext);
 
 }
 

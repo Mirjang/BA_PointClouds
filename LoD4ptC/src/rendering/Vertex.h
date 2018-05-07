@@ -23,7 +23,7 @@ public:
 
 	}
 	
-	virtual ~Vertex()
+	~Vertex()
 	{
 
 	}

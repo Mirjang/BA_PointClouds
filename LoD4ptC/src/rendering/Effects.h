@@ -91,6 +91,9 @@ namespace Effects
 
 	};
 
+	extern Pass* g_pCurrentPass; 
+
+
 	//should i ever need to do multi-pass rendering
 	struct Technique
 	{

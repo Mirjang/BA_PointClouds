@@ -16,7 +16,8 @@
 #include "model\Camera\Camera.h"
 #include "ressources\RessourceLoader.h"
 
-#include "lod\Octree_Naive_Avg.h"
+//different LOD implementations
+#include "lod\LodImplementations.h"
 
 /**
 *	###	Init Function Prototypes	###
@@ -50,6 +51,10 @@ RenderSettings g_renderSettings;
 LODSettings g_lodSettings;
 Statistics g_statistics;
 UserInput g_userInput;
+namespace Effects 
+{
+	Pass* g_pCurrentPass;
+}
 
 /**
 *	###	Runtime Variables	###
