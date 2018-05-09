@@ -86,25 +86,30 @@ void Octree_Naive_Avg::traverseAndAverageOctree(OctreeInternal::OctreeNode<Verte
 		XMVECTOR avgNormal = XMVectorSet(0, 0, 0, 0);
 		XMVECTOR avgColor = XMVectorSet(0, 0, 0, 0);
 
+		size_t numChildren = 0; 
+		pNode->marked = true;
+
 		OctreeInternal::OctreeInternalNode<Vertex>* intNode = static_cast<OctreeInternal::OctreeInternalNode<Vertex>*>(pNode);
 		for (auto child : intNode->children)
 		{
-			if (!child->marked)
+			if (child)
 			{
-				traverseAndAverageOctree(child); 
-			}
+				if (!child->marked)
+				{
+					++numChildren;
+					traverseAndAverageOctree(child);
+				}
 
-			avgPos += XMLoadFloat3(&child->data.pos);
-			avgNormal += XMLoadFloat3(&child->data.normal); 
-			avgColor += XMLoadFloat4(&child->data.color); 
+				avgPos += XMLoadFloat3(&child->data.pos);
+				avgNormal += XMLoadFloat3(&child->data.normal);
+				avgColor += XMLoadFloat4(&child->data.color);
+			}
 		}
 		
-		size_t numChildren = intNode->children.size();
 		XMStoreFloat3(&pNode->data.pos, avgPos / numChildren); 
 		XMStoreFloat3(&pNode->data.normal, avgNormal / numChildren);
 		XMStoreFloat4(&pNode->data.color, avgColor / numChildren);
 
-		pNode->marked = true;
 	}
 	else	// leaf node
 	{

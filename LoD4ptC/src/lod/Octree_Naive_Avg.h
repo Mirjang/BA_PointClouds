@@ -27,7 +27,7 @@ private:
 	struct TweakSettings
 	{
 		//----creation---
-		int maxDepth = -1; 
+		int maxDepth = 16; 
 		
 		//----rendering---
 		int fixedDepth = 0; 

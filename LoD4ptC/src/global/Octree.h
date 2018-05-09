@@ -99,7 +99,7 @@ class Octree
 
 public:
 	//maxdepth = -1 --> keep expanding octree indefinately
-	Octree(XMFLOAT3 min3f, XMFLOAT3 max3f, int maxDepth = -1, bool insertInternal = false) : boundsMin(min3f), boundsMax(max3f), maxDepth(maxDepth)
+	Octree(XMFLOAT3 min3f, XMFLOAT3 max3f, int maxDepth = -1, bool insertInternal = false) : boundsMin(min3f), boundsMax(max3f), maxDepth(maxDepth), insertInternal(insertInternal)
 	{
 		XMStoreFloat3(&range, XMLoadFloat3(&boundsMax) - XMLoadFloat3(&boundsMin));
 	}
@@ -116,7 +116,8 @@ public:
 			}
 			else
 			{
-				root = new OctreeInternal::OctreeLeafNode<Type>(nullptr, data); 
+				root = new OctreeInternal::OctreeInternalNode<Type>(nullptr);
+				insert(root, data);
 			}
 		}
 		else
@@ -146,23 +147,24 @@ private:
 
 		XMVECTOR pointInCellIDX = XMVectorLess(pointInCellPos, cellsize / 2); 	
 
-		int index = pointInCellIDX.m128_i32[0] ? 0 : 1 |	//x
-			pointInCellIDX.m128_i32[1] ? 0 : 2 |			//y
-			pointInCellIDX.m128_i32[2] ? 0 : 4; 			//z
+
+		int index = (XMVectorGetX(pointInCellIDX)	? 0x00 : 0x01) |	//x
+			(XMVectorGetY(pointInCellIDX)	? 0x00 : 0x02) |			//y
+			(XMVectorGetZ(pointInCellIDX)	? 0x00 : 0x04); 			//z
 
 		if (pNode->isInternal())
 		{
 			OctreeInternal::OctreeInternalNode<Type>* intNode = static_cast<OctreeInternal::OctreeInternalNode<Type>*>(pNode);
 			
-			if (!intNode->children[index]) // location of current point is unallocated
+			if (!intNode->children[index]) // location of current point is unallocated, creafe new leaf
 			{
-				if (insertInternal && depth != maxDepth) //store points at internal nodes (naive subsampling) and maxDepth not reached
-				{
-					intNode->children[index] = new OctreeInternal::OctreeInternalNode<Type>(pNode, data);
-				}
-				else //max depth reached -> store all following pts in single leaf node
+				if (insertInternal) //store points at internal nodes (naive subsampling) vs store all pts at leafs (-> generate new pts at internal later) 
 				{
 					intNode->children[index] = new OctreeInternal::OctreeLeafNode<Type>(pNode, data);
+				}
+				else 
+				{
+					intNode->children[index] = new OctreeInternal::OctreeLeafNode<Type>(pNode);
 				}
 			}
 			else	//go one step deeper
@@ -176,13 +178,20 @@ private:
 
 			if (depth != maxDepth) //turn leaf node into internal node 
 			{
+				assert(pParent);
 
+				/**
 				if (!pParent) // 2nd element: we are at root and root is leaf node
 				{
-					pParent = new OctreeInternal::OctreeInternalNode<Type>(nullptr);
-					root = pParent; 
-				}
+					//shouldnt happen af
 
+				}
+				else
+				{
+				}*/
+
+			
+				//current node leaf->internal
 				pParent->children[parentIndex] = new OctreeInternal::OctreeInternalNode<Type>(pParent);
 
 				if (insertInternal && leafNode->verts.size())
