@@ -17,6 +17,7 @@ enum LODMode
 {
 	NONE,
 	OCTREE_NAIVE, 
+	NESTED_OCTREE_NAIVE, 
 	K_MEANS, 
 	EGGS
 };
@@ -72,7 +73,7 @@ extern RenderSettings g_renderSettings;
 //set by AntTweakBar
 struct LODSettings
 {
-	LODMode mode = LODMode::NONE;
+	LODMode mode = LODMode::NESTED_OCTREE_NAIVE;
 	int pixelThreshhold = 1; 
 
 

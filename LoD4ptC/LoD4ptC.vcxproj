@@ -149,9 +149,11 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\datastructures\NestedOctree.cpp" />
+    <ClCompile Include="src\lod\Nested_Octree_Naive_Avg.cpp" />
     <ClCompile Include="src\lod\No_LOD.cpp" />
     <ClCompile Include="src\lod\Octree_Naive_Avg.cpp" />
-    <ClCompile Include="src\global\Octree.cpp" />
+    <ClCompile Include="src\datastructures\Octree.cpp" />
     <ClCompile Include="src\rendering\Effects.cpp" />
     <ClCompile Include="src\lod4ptc.cpp" />
     <ClCompile Include="src\model\Camera\Camera.cpp" />
@@ -164,10 +166,12 @@
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\datastructures\NestedOctree.h" />
+    <ClInclude Include="src\lod\Nested_Octree_Naive_Avg.h" />
     <ClInclude Include="src\lod\LodImplementations.h" />
     <ClInclude Include="src\lod\No_LOD.h" />
     <ClInclude Include="src\lod\Octree_Naive_Avg.h" />
-    <ClInclude Include="src\global\Octree.h" />
+    <ClInclude Include="src\datastructures\Octree.h" />
     <ClInclude Include="src\lod\LOD.h" />
     <ClInclude Include="src\global\utils.h" />
     <ClInclude Include="src\rendering\Effects.h" />

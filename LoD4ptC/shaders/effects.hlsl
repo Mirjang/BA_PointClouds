@@ -15,6 +15,11 @@ cbuffer perObject
     float g_splatdiameter;
 };
 
+cbuffer LOD_octree_naive_avg
+{
+    uint fixedDepth; 
+};
+
 
 //--------------------------------------------------------------------------------------
 // Structs

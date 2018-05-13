@@ -3,8 +3,14 @@
 #include <sstream>
 
 #include "LOD.h"
-#include "../global/Octree.h"
+#include "../datastructures/Octree.h"
 
+
+/*
+*	THIS HAS BEEN PUT ON ICE FOR NOW
+*	...since I apparently have no clue what I´m doing
+*	...goto Nested_Octree....
+*/
 
 class Octree_Naive_Avg :
 	public LOD
@@ -18,11 +24,10 @@ public:
 	virtual void draw(ID3D11DeviceContext* const context) override;
 	static TwBar* setUpTweakBar();
 
-	
 
 private: 
 
-	void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode); 
+	inline void traverseAndAverageOctree(OctreeInternal::OctreeNode<Vertex>* pNode); 
 
 	struct TweakSettings
 	{
@@ -30,12 +35,27 @@ private:
 		int maxDepth = 16; 
 		
 		//----rendering---
-		int fixedDepth = 0; 
+		int fixedDrawDepth = 0; 
 		bool drawFixedDepth = false; 
 
 	};
+	static TweakSettings settings;
 
-	static TweakSettings settings; 
+
+	__declspec(align(16))
+	struct cbLODPerFrame
+	{
+
+		UINT32 fixedLODdepth;
+	};
+	cbLODPerFrame cbPerFrame; 
+
+	ID3D11Buffer* cbPerFrameBuffer = nullptr; 
+
+
+	ID3D11Buffer* vertexBuffer = nullptr;
+	UINT strides;
+
 
 	Octree<Vertex>* octree; //fixed size determined via depth in octree
 

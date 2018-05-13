@@ -7,6 +7,26 @@
 
 #include "../rendering/Vertex.h"
 
+//flags indicating if child is at _POS 0 = left/down/front
+
+#define X0Y0Z0 0b00000001
+#define X1Y0Z0 0b00000010
+#define X0Y1Z0 0b00000100
+#define X1Y1Z0 0b00001000
+#define X0Y0Z1 0b00010000
+#define X1Y0Z1 0b00100000
+#define X0Y1Z1 0b01000000
+#define X1Y1Z1 0b10000000
+
+#define ChildAt_X0Y0Z0(p) p&X0Y0Z0
+#define ChildAt_X1Y0Z0(p) p&X1Y0Z0
+#define ChildAt_X0Y1Z0(p) p&X0Y1Z0
+#define ChildAt_X1Y1Z0(p) p&X1Y1Z0
+#define ChildAt_X0Y0Z1(p) p&X0Y0Z1
+#define ChildAt_X1Y0Z1(p) p&X1Y0Z1
+#define ChildAt_X0Y1Z1(p) p&X0Y1Z1
+#define ChildAt_X1Y1Z1(p) p&X1Y1Z1
+
 using namespace DirectX;
 
 namespace OctreeInternal
@@ -23,7 +43,7 @@ namespace OctreeInternal
 		*/
 		Type data;		
 
-		inline virtual bool isInternal() = 0;
+		bool isInternal = true; 
 	};
 
 
@@ -67,28 +87,47 @@ namespace OctreeInternal
 			children.clear(); 
 		}
 
-		bool isInternal() { return true; }
-
 	};
 
 	template<class Type>
 	struct OctreeLeafNode : OctreeNode<Type>	//leaf Node
 	{
-		bool isInternal() { return false; }
 
 		OctreeLeafNode(OctreeNode<Type>* parent)
 		{
+			isInternal = false; 
 			this->parent = parent; 
 		}
 
-		OctreeLeafNode(OctreeNode<Type>* parent , const Type& d)
+		OctreeLeafNode(OctreeNode<Type>* parent, const Type& d) : OctreeLeafNode(parent)
 		{
-			this->parent = parent;
 			verts.push_back(d); 
 		}
 
 		std::vector<Type> verts; 
 	};
+
+	template<class Type>
+	struct ConsolidatedNode
+	{
+
+	};
+
+	template<class Type>
+	struct ConsolidatedInternalNode : ConsolidatedNode<Type>
+	{
+		Type data;
+		char children;
+		unsigned int* childrenOffsets; 
+	};
+	
+	template<class Type>
+	struct ConsolidatedLeafNode : ConsolidatedNode<Type>
+	{
+		unsigned int numVertices;
+		Type* data; 
+	};
+
 
 }
 
@@ -152,7 +191,7 @@ private:
 			(XMVectorGetY(pointInCellIDX)	? 0x00 : 0x02) |			//y
 			(XMVectorGetZ(pointInCellIDX)	? 0x00 : 0x04); 			//z
 
-		if (pNode->isInternal())
+		if (pNode->isInternal)
 		{
 			OctreeInternal::OctreeInternalNode<Type>* intNode = static_cast<OctreeInternal::OctreeInternalNode<Type>*>(pNode);
 			
@@ -213,6 +252,18 @@ private:
 		}
 
 	}
+
+	//turns unnecessary large octree with all them pointers into a consolidated array that can be traversed efficiently/moved to GPU
+	std::vector<OctreeInternal::ConsolidatedNode<Type>>* toNodeArray(bool deleteTree = true)
+	{
+
+
+		if (deleteTree)
+		{
+			delete root; 
+		}
+	}
+
 
 	//set at instantiaton
 	XMFLOAT3 boundsMin, boundsMax, range;
