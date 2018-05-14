@@ -251,6 +251,11 @@ void update()
 			g_lodSettings.twImplSettingsBar = Octree_Naive_Avg::setUpTweakBar();
 			break;
 		}
+		case NESTED_OCTREE_NAIVE:
+		{
+			g_lodSettings.twImplSettingsBar = Nested_Octree_Naive_Avg::setUpTweakBar();
+			break; 
+		}
 		default:
 			break;
 		}

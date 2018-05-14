@@ -35,6 +35,11 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 		lod = new Octree_Naive_Avg();
 		break;
 	}
+	case LODMode::NESTED_OCTREE_NAIVE: 
+	{
+		lod = new Nested_Octree_Naive_Avg(); 
+		break; 
+	}
 	default:
 		lod = new No_LOD();
 		break;

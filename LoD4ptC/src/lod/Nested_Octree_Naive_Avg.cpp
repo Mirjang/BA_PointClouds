@@ -77,8 +77,6 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
-	std::vector<Vertex> orderedVertices;
-	orderedVertices.resize(vertices.size());
 
 
 
@@ -89,13 +87,6 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 void Nested_Octree_Naive_Avg::traverseAndAverageOctree(NestedOctreeNode<Vertex>* pNode)
 {
-#ifdef DEBUG
-	if (pNode->marked)
-	{
-		std::cerr << "Octree traversal reached already marked node" << std::endl;
-	}
-#endif // DEBUG
-
 	/*old code from standard octree
 	if (pNode->isInternal)	//internal Node 
 	{
