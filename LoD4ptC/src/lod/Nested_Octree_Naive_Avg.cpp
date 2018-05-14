@@ -42,7 +42,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "\n===================================================" << std::endl;
 	std::cout << "Creating Octree_Naive_Avg" << std::endl;
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold);	//depending on vert count this may take a while
 
 
 	std::cout << "Created Octree with Depth: " << octree->reachedDepth << std::endl;
@@ -50,7 +50,6 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	traverseAndAverageOctree(octree->root);
 
 	std::cout << "Finished traversing and averaging" << std::endl;
-
 
 
 	//init GPU stuff
@@ -73,8 +72,6 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	//load to GPU
 
-
-
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
 
@@ -87,60 +84,43 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 void Nested_Octree_Naive_Avg::traverseAndAverageOctree(NestedOctreeNode<Vertex>* pNode)
 {
-	/*old code from standard octree
-	if (pNode->isInternal)	//internal Node 
+	for (int i = 0; i < 8; ++i)
 	{
-		XMVECTOR avgPos = XMVectorSet(0, 0, 0, 0);
-		XMVECTOR avgNormal = XMVectorSet(0, 0, 0, 0);
-		XMVECTOR avgColor = XMVectorSet(0, 0, 0, 0);
-
-		size_t numChildren = 0;
-		pNode->marked = true;
-
-		for (auto child : intNode->children)
+		if (pNode->children[i])	//subsample from child
 		{
-			if (child)
+			size_t x = (0x01 & i) * octree->gridResolution / 2;
+			size_t maxX = x + octree->gridResolution / 2;
+			size_t y = (0x02 & i) * octree->gridResolution / 2;
+			size_t maxY = y + octree->gridResolution / 2;
+			size_t z = (0x04 & i) * octree->gridResolution / 2;
+			size_t maxZ = z + octree->gridResolution / 2;
+
+			for (; x < maxX; ++x)
 			{
-				if (!child->marked)
+				for (y = maxY - octree->gridResolution/2; y < maxY; ++y)
 				{
-					++numChildren;
-					traverseAndAverageOctree(child);
+					for ( z = maxZ - octree->gridResolution/2 ; z < maxZ; ++z)
+					{
+
+
+
+
+					}
 				}
-
-				avgPos += XMLoadFloat3(&child->data.pos);
-				avgNormal += XMLoadFloat3(&child->data.normal);
-				avgColor += XMLoadFloat4(&child->data.color);
 			}
+
+
 		}
-
-		XMStoreFloat3(&pNode->data.pos, avgPos / numChildren);
-		XMStoreFloat3(&pNode->data.normal, avgNormal / numChildren);
-		XMStoreFloat4(&pNode->data.color, avgColor / numChildren);
-
 	}
-	else	// leaf node
-	{
-		XMVECTOR avgPos = XMVectorSet(0, 0, 0, 0);
-		XMVECTOR avgNormal = XMVectorSet(0, 0, 0, 0);
-		XMVECTOR avgColor = XMVectorSet(0, 0, 0, 0);
-
-		OctreeInternal::OctreeLeafNode<Vertex>* leafNode = static_cast<OctreeInternal::OctreeLeafNode<Vertex>*>(pNode);
-
-		for (auto data : leafNode->verts)
-		{
-			avgPos += XMLoadFloat3(&data.pos);
-			avgNormal += XMLoadFloat3(&data.normal);
-			avgColor += XMLoadFloat4(&data.color);
-		}
 
 
-		int numChildren = leafNode->verts.size();
-		XMStoreFloat3(&pNode->data.pos, avgPos / numChildren);
-		XMStoreFloat3(&pNode->data.normal, avgNormal / numChildren);
-		XMStoreFloat4(&pNode->data.color, avgColor / numChildren);
 
-		pNode->marked = true;
-	}*/
+
+	
+
+
+
+
 }
 
 

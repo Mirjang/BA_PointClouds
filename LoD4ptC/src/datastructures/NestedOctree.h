@@ -41,8 +41,6 @@ template<class Type>
 struct NestedOctreeNode
 {
 
-	//000 = left/down/front
-	NestedOctreeNode<Type>* children[8];
 	NestedOctreeNode()
 	{
 		for (int i = 0; i < 8; ++i)
@@ -64,7 +62,11 @@ struct NestedOctreeNode
 	}
 
 
-	std::vector<Type> data; //data tbd via subsampling/averaging/pca etc.. or actual input (at leaves) 
+	//000 = left/down/front
+	NestedOctreeNode<Type>* children[8];
+	std::vector<Type> data; //data tbd via subsampling/averaging/pca etc.. or actual input (at leaves)--- (Mis)used as buffer during creation !
+
+
 
 	std::unordered_map<UINT32,Type>  insertData; // used to store data in grid and determine when to subdivide
 
@@ -78,7 +80,7 @@ class NestedOctree
 
 public:
 
-	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution) : gridResolution(gridResolution)
+	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution, UINT32 expansionThreshold) : gridResolution(gridResolution),expansionThreshold(expansionThreshold)
 	{
 		if (!data.size()) return; //empty array
 
@@ -106,9 +108,6 @@ public:
 			insert(root, it, vmin); 
 		}
 
-
-
-
 	}
 
 	~NestedOctree() { delete root; }
@@ -118,6 +117,20 @@ public:
 	NestedOctreeNode<Type>* root = nullptr;
 	size_t numNodes = 0;
 	size_t reachedDepth = 0;
+	UINT32 gridResolution; //res of the inscribed grid (lower res->deeper tree)
+	UINT32 expansionThreshold; 
+
+	UINT32 calculateSubgridIndex(XMVECTOR relPos, XMVECTOR gridStart, size_t depth)
+	{
+		XMVECTOR gridMidpoint = gridStart + XMLoadFloat3(&range) / (2 << depth);
+
+		XMVECTOR vsubgridIndex = XMVectorLess(relPos, gridMidpoint / 2);
+
+		return (XMVectorGetX(vsubgridIndex) ? 0x00 : 0x01) |	//x
+			(XMVectorGetY(vsubgridIndex) ? 0x00 : 0x02) |			//y
+			(XMVectorGetZ(vsubgridIndex) ? 0x00 : 0x04); 			//z
+
+	}
 
 
 private:
@@ -130,20 +143,10 @@ private:
 
 		XMVECTOR gridMidpoint = gridStart + XMLoadFloat3(&range) / (2 << depth);
 
-
-
-
-
 		XMVECTOR relPos = XMLoadFloat3(&data.pos) - gridStart;
+
 		
-		
-
-		XMVECTOR vsubgridIndex = XMVectorLess(relPos, gridMidpoint / 2);
-
-
-		int subGridIndex = (XMVectorGetX(vsubgridIndex) ? 0x00 : 0x01) |	//x
-			(XMVectorGetY(vsubgridIndex) ? 0x00 : 0x02) |			//y
-			(XMVectorGetZ(vsubgridIndex) ? 0x00 : 0x04); 			//z
+		int subGridIndex = calculateSubgridIndex(relPos, gridStart, depth); 
 		
 		//grid has already been expanded -> go lower  (no insert on internal nodes)
 		if (pNode->children[subGridIndex])	
@@ -173,44 +176,55 @@ private:
 			auto result = pNode->insertData.find(index);
 			if (result != pNode->insertData.end())	
 			{
-				size_t depthPlus1 = depth + 1; //dont wana have to calc this every time and still need original depth... 
+				pNode->data.push_back(data); //(Mis)use as buffer during creation
 
-				XMFLOAT3 gridStart3f, gridMidpoint3f; // couldnt find a way to do this on simd -> divide gridIndex by 0xffffffff to get indicator vector?  
-				XMStoreFloat3(&gridStart3f, gridStart);
-				XMStoreFloat3(&gridMidpoint3f, gridMidpoint);
-
-				XMVECTOR subGridStart = XMVectorSet(
-					subGridIndex & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
-					subGridIndex & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
-					subGridIndex & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
-
-				XMVECTOR subGridMax = subGridStart + XMLoadFloat3(&range) / (2 << depth);
-
-
-
-				pNode->children[subGridIndex] = new NestedOctreeNode<Type>(); 
-				++numNodes; 
-				insert(pNode->children[subGridIndex], data, subGridStart, depthPlus1); //insert current data
-
-				////remove all data from expanding grid and insert in next level node
-				for (auto it = pNode->insertData.begin(); it!= pNode->insertData.end();)
+				if (pNode->data.size() > expansionThreshold)
 				{
-					// TODO 
-					// *move index calc to extra functions
-					// check if node lies in current grid -> remove from map and insert lower
-					// chech all nodes in insert map <----> check all possible grid indices ?? 
-					XMVECTOR itpos = XMLoadFloat3(&it->second.pos);
 
-					if(XMVector3GreaterOrEqual(subGridStart, itpos)	&& XMVector3Less(subGridMax, itpos))	//point lies in subgrid that is being expanded -> move point down
+					size_t depthPlus1 = depth + 1; //dont wana have to calc this every time and still need original depth... 
+
+					XMFLOAT3 gridStart3f, gridMidpoint3f; // couldnt find a way to do this on simd -> divide gridIndex by 0xffffffff to get indicator vector?  
+					XMStoreFloat3(&gridStart3f, gridStart);
+					XMStoreFloat3(&gridMidpoint3f, gridMidpoint);
+
+					XMVECTOR subGridStart[8];
+					//				XMVECTOR subGridMax[8];
+
+					for (int i = 0; i < 8; ++i)
 					{
-						
-						insert(pNode->children[subGridIndex], it->second, subGridStart, depthPlus1); //insert current data
-						it = pNode->insertData.erase(it); 
+						pNode->children[i] = new NestedOctreeNode<Type>();
+
+
+						subGridStart[i] = XMVectorSet(
+							i & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
+							i & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
+							i & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
+
+						//					subGridMax[i]= subGridStart + XMLoadFloat3(&range) / (2 << depth);
+
+
 					}
-					else
+
+					numNodes += 8;
+					insert(pNode->children[subGridIndex], data, subGridStart[subGridIndex], depthPlus1); //insert current data
+
+
+					////remove all data from expanding grid and insert in next level node
+					for (auto it : pNode->insertData)
 					{
-						++it; 
+						int itIndex = calculateSubgridIndex(XMLoadFloat3(&it.second.pos), gridStart, depth);
+						insert(pNode->children[itIndex], it.second, subGridStart[itIndex], depthPlus1); //insert current data
+
 					}
+
+					pNode->insertData.clear();
+
+					for (auto vert : pNode->data)
+					{
+						int itIndex = calculateSubgridIndex(XMLoadFloat3(&vert.pos), gridStart, depth);
+						insert(pNode->children[itIndex], vert, subGridStart[itIndex], depthPlus1); //insert current data
+					}
+					pNode->data.clear(); 
 				}
 
 			}
@@ -221,11 +235,8 @@ private:
 			}
 		}
 
-
-
 	}
 
-	UINT32 gridResolution; //res of the inscribed grid (lower res->deeper tree)
 	XMFLOAT3 boundsMin, boundsMax, range;
 
 };

@@ -20,6 +20,7 @@ private:
 	{
 		//----creation---
 		UINT32 gridResolution = 128; 
+		UINT32 expansionThreshold = 256; //expand node after this many vertices have allocated a duplicate position
 		//----rendering---
 		int fixedDepth = 0;
 		bool drawFixedDepth = false;
