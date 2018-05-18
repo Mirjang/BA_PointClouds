@@ -13,14 +13,24 @@ public:
 	static TwBar* setUpTweakBar();
 	virtual void draw(ID3D11DeviceContext* const context) override;
 
-	inline void traverseAndAverageOctree(NestedOctreeNode<Vertex>* pNode);
+	inline void traverseAndUpsampleOctree(NestedOctreeNode<Vertex>* pNode);
 
 private: 
 	struct TweakSettings
 	{
 		//----creation---
 		UINT32 gridResolution = 128; 
-		UINT32 expansionThreshold = 256; //expand node after this many vertices have allocated a duplicate position
+		/*
+		* expand node after this many vertices have allocated a duplicate position  
+		* a flat surface in a 128^3 grid would have roughly 16k (128^2) verts) 
+		*/
+		UINT32 expansionThreshold = 12000; 
+
+		/*
+		* number of nodes that will be averaged/upsampled into one higher-level node
+		*/
+		UINT32 upsampleRate = 4; 
+
 		//----rendering---
 		int fixedDepth = 0;
 		bool drawFixedDepth = false;

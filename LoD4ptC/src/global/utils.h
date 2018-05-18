@@ -80,7 +80,7 @@ struct LODSettings
 	bool recreate = false; 
 
 	//housekeeper
-	LODMode lastMode = mode;
+	LODMode lastMode = LODMode::NONE;
 	TwBar* twImplSettingsBar = nullptr; 
 };
 

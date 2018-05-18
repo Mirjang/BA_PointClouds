@@ -25,6 +25,9 @@ TwBar* Nested_Octree_Naive_Avg::setUpTweakBar()
 {
 	TwBar* tweakBar = TwNewBar("Octree Naive Avg");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.gridResolution, NULL);
+	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.expansionThreshold, NULL);
+	TwAddVarRW(tweakBar, "Upsample Rate", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.upsampleRate, NULL);
+
 
 	TwAddSeparator(tweakBar, "sep", NULL);
 	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Nested_Octree_Naive_Avg::settings.fixedDepth, NULL);
@@ -42,12 +45,12 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "\n===================================================" << std::endl;
 	std::cout << "Creating Octree_Naive_Avg" << std::endl;
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, settings.upsampleRate, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
 
 
 	std::cout << "Created Octree with Depth: " << octree->reachedDepth << std::endl;
 
-	traverseAndAverageOctree(octree->root);
+	traverseAndUpsampleOctree(octree->root);
 
 	std::cout << "Finished traversing and averaging" << std::endl;
 
@@ -82,24 +85,64 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 }
 
-void Nested_Octree_Naive_Avg::traverseAndAverageOctree(NestedOctreeNode<Vertex>* pNode)
+void Nested_Octree_Naive_Avg::traverseAndUpsampleOctree(NestedOctreeNode<Vertex>* pNode)
 {
-	for (int i = 0; i < 8; ++i)
-	{
-		if (pNode->children[i])	//subsample from child
-		{
-			size_t x = (0x01 & i) * octree->gridResolution / 2;
-			size_t maxX = x + octree->gridResolution / 2;
-			size_t y = (0x02 & i) * octree->gridResolution / 2;
-			size_t maxY = y + octree->gridResolution / 2;
-			size_t z = (0x04 & i) * octree->gridResolution / 2;
-			size_t maxZ = z + octree->gridResolution / 2;
+	int numchildren = 0;
 
-			for (; x < maxX; ++x)
+	for (int i = 0; i < 8; ++i)	//averaging has to be done bottom up
+	{
+		if (pNode->children[i]) 
+		{
+			++numchildren; 
+			if (!pNode->children[i]->marked)	// marked should be false	anyways but hey
 			{
-				for (y = maxY - octree->gridResolution/2; y < maxY; ++y)
+				traverseAndUpsampleOctree(pNode->children[i]);
+			}
+		}
+	}
+
+
+	XMVECTOR sumPos = XMVectorSet(0, 0, 0, 0); 
+	XMVECTOR sumNor = XMVectorSet(0, 0, 0, 0);
+	XMVECTOR sumCol = XMVectorSet(0, 0, 0, 0);
+
+
+	int numVerts = 0; 
+
+	for (int i = 0; i < 8; ++i) 	//subsample from children
+	{
+
+		if (numVerts == settings.upsampleRate)
+		{
+			XMFLOAT3 avgpos;
+			XMFLOAT3 avgnor; 
+			XMFLOAT4 avgcol; 
+
+			XMStoreFloat3(&avgpos, sumPos / numVerts); 
+			XMStoreFloat3(&avgnor, sumNor / numVerts); 
+			XMStoreFloat4(&avgcol, sumCol / numVerts); 
+
+			numVerts = 0; 
+			pNode->data.push_back(Vertex(avgpos, avgnor, avgcol));
+
+			sumPos = XMVectorSet(0, 0, 0, 0);
+			sumNor = XMVectorSet(0, 0, 0, 0);
+			sumCol = XMVectorSet(0, 0, 0, 0);
+		}
+
+
+		if (pNode->children[i])
+		{
+			// index in parrent array
+			size_t parentX = (0x01 & i) * octree->gridResolution / 2;
+			size_t parentY = (0x02 & i) * octree->gridResolution / 2;
+			size_t parentZ = (0x04 & i) * octree->gridResolution / 2;
+
+			for (size_t x = 0; x < octree->gridResolution; x+=2)
+			{
+				for (size_t y = 0; y < octree->gridResolution; y+=2)
 				{
-					for ( z = maxZ - octree->gridResolution/2 ; z < maxZ; ++z)
+					for ( size_t z =0 ; z < octree->gridResolution; z+=2)
 					{
 
 
@@ -108,9 +151,8 @@ void Nested_Octree_Naive_Avg::traverseAndAverageOctree(NestedOctreeNode<Vertex>*
 					}
 				}
 			}
-
-
 		}
+
 	}
 
 
