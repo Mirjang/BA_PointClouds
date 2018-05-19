@@ -21,6 +21,9 @@ public:
 private: 
 
 	int loadPLY(const std::string& name, PointCloud* out);
+	int loadVertarr(const std::string& name, PointCloud* out);
+
+
 
 };
 

@@ -164,25 +164,33 @@ private:
 	{
 		for (auto it : data)
 		{
-			insert(root, it, XMLoadFloat3(&boundsMin);
+			insert(root, it, XMLoadFloat3(&boundsMin));
 		}
 	}
 
-	inline void createAndAverage(NestedOctreeNode<Type>* pNode, const Type& data, XMVECTOR gridStart, size_t depth = 1)
-
+	inline void createAndAverage(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
+
+		reachedDepth = max(depth, reachedDepth);
+
 		// gridRes^3 hashmap w/ chaining
 		std::unordered_multimap<UINT32, Type> insertMap; 
 
-		UINT32 subGridOverlaps[8] = { 0 }; 
+		UINT32 subGridOverlapps[8] = { 0 };
 
+		std::vector<Type>* subGridData[8]; //Stores verts in case the tree needs to be expanded
+
+		for (int i = 0; i < 8; ++i)
+		{
+			subGridData[i] = new std::vector<Type>();
+		}
+
+
+		XMVECTOR cellsize = XMLoadFloat3(&range) / ((2 << depth) * gridResolution) ;	//[was] NOT SURE ABOUT THIS [fixed it, now im a bit more sure]
 
 		for (auto vert : data)
 		{
 			XMVECTOR relPos = XMLoadFloat3(&vert.pos) - gridStart;
-
-
-			XMVECTOR cellsize = (XMLoadFloat3(&range) / depth) / gridResolution;
 
 			XMVECTOR cellIndex = relPos / cellsize;
 
@@ -191,16 +199,99 @@ private:
 				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
 				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
 
-			insertMap->insert(std::pair<UINT32, Type>(gridIndex, vert)); 
+			insertMap.insert(std::pair<UINT32, Type>(gridIndex, vert)); 
 		}
 
-		for (int bucket = 0; bucket < insertMap.bucket_count(); ++bucket)
+		for (size_t bucket = 0; bucket < insertMap.bucket_count(); ++bucket)
 		{
+			size_t numElements = insertMap.bucket_size(bucket);
+
+			if (numElements)
+			{
+				XMVECTOR sumPos = XMVectorSet(0, 0, 0, 0);
+				XMVECTOR sumNor = XMVectorSet(0, 0, 0, 0);
+				XMVECTOR sumCol = XMVectorSet(0, 0, 0, 0);
+
+
+				UINT32 subGridIndex = calculateSubgridIndex(XMLoadFloat3(&insertMap.begin(bucket)->second.pos) - gridStart, gridStart, depth);
+
+
+				for (auto it = insertMap.begin(bucket); it != insertMap.end(bucket); ++it)
+				{
+					subGridData[subGridIndex]->push_back(it->second);
+
+					sumPos += XMLoadFloat3(&it->second.pos);
+					sumNor += XMLoadFloat3(&it->second.normal);
+					sumCol += XMLoadFloat4(&it->second.color);
+				}
+
+				Type vert; 
+
+				XMVECTOR avgpos = sumPos / numElements; 
 
 
 
+				XMStoreFloat3(&vert.pos, avgpos);
+				XMStoreFloat3(&vert.normal, sumNor / numElements);
+				XMStoreFloat4(&vert.color, sumCol / numElements);
+
+				pNode->data.push_back(vert); 
+
+				subGridOverlapps[subGridIndex] += numElements - 1; //first element in grid is ok, every other element is one too many 
+			}
+		}
+
+		bool expandNode = false; 
+		for (int i = 0; i < 8; ++i)
+		{
+			if (subGridOverlapps[i] > expansionThreshold)
+			{
+				expandNode = true; 
+				break; 
+			}
+		}
+
+		if (expandNode)
+		{
+			for (int i = 0; i < 8; ++i)// expand node where to many overlapps occured
+			{
+				pNode->children[i] = new NestedOctreeNode<Type>();
+
+				if (subGridData[i]->size() > expansionThreshold)	//these nodes migth have to bee expanded even further
+				{
+					XMFLOAT3 gridStart3f, gridMidpoint3f;
+
+					XMStoreFloat3(&gridMidpoint3f, gridStart + XMLoadFloat3(&range) / (2 << depth));
+					XMStoreFloat3(&gridStart3f, gridStart);
+
+
+					XMVECTOR subridstart = XMVectorSet(
+						i & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
+						i & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
+						i & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
+
+					createAndAverage(pNode->children[i], *subGridData[i], subridstart, depth + 1); //recurse one level 
+
+				}
+				else   //this will not be expanded -> leaf node -> no need for additional traversal 
+				{
+					//this node should be empty
+					pNode->children[i]->data.insert(pNode->children[i]->data.end(), subGridData[i]->begin(), subGridData[i]->end());
+				}
+				subGridData[i]->clear();	//release unneeded space asap
+				delete subGridData[i];
+			}
+		}
+		else
+		{
+			for (int i = 0; i < 8; ++i)
+			{
+				subGridData[i]->clear();
+				delete subGridData[i];
+			}
 
 		}
+
 
 	}
 

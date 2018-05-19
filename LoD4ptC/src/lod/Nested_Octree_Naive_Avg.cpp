@@ -50,9 +50,9 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	std::cout << "Created Octree with Depth: " << octree->reachedDepth << std::endl;
 
-	traverseAndUpsampleOctree(octree->root);
+	//traverseAndUpsampleOctree(octree->root); //this is now donw in create
 
-	std::cout << "Finished traversing and averaging" << std::endl;
+	//std::cout << "Finished traversing and averaging" << std::endl;
 
 
 	//init GPU stuff

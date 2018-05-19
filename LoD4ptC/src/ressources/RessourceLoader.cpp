@@ -1,5 +1,6 @@
 #include "RessourceLoader.h"
 #include <DirectXMath.h>
+#include <iterator>
 
 #include "tinyply.h"
 
@@ -7,7 +8,20 @@ using namespace tinyply;
 
 int RessourceLoader::loadAsset(const std::string& name, PointCloud* out)
 {
-	return loadPLY(name, out);
+
+	if (name.find(".ply") != std::string::npos)
+	{
+		return loadPLY(name, out);
+	}
+	else if (name.find(".vertarr") != std::string::npos)
+	{
+		return loadVertarr(name, out); 
+	}
+	else
+	{
+		std::cerr << "could not open unknown file: " << name << std::endl; 
+		return -1; 
+	}
 }
 
 
@@ -153,6 +167,29 @@ int RessourceLoader::loadPLY(const std::string& name, PointCloud* out)
 	}
 
 
+
+	return 0; 
+}
+
+
+int RessourceLoader::loadVertarr(const std::string& name, PointCloud* out)
+{
+
+
+	std::ifstream is(name, std::ios::binary); 
+
+
+	is.seekg(0, std::ios::end);
+	size_t length = is.tellg();
+	is.seekg(0, std::ios::beg);
+
+	Vertex* data = new Vertex[length/sizeof(Vertex)]; 
+	
+	is.read((char*)data, length); 
+
+	is.close(); 
+
+	out->vertices.assign(data, data + length / sizeof(Vertex)); 
 
 	return 0; 
 }
