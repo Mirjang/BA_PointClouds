@@ -18,6 +18,8 @@ public:
 	XMFLOAT4X4* const getViewMatrix();
 	XMFLOAT4X4* const getProjectionMatrix();
 
+	XMFLOAT4 forward;
+
 
 private:
 	int* pScreen_width;
@@ -28,6 +30,7 @@ private:
 	GameObject* target = nullptr;
 
 	XMFLOAT4 up;
+
 
 	XMFLOAT4X4 m_View, m_Proj;
 

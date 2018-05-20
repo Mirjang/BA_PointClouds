@@ -3,8 +3,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "Octree_Naive_Avg.h"
-
+#include "../rendering/Effects.h"
 
 
 Nested_Octree_Naive_Avg::Nested_Octree_Naive_Avg()
@@ -16,7 +15,6 @@ Nested_Octree_Naive_Avg::Nested_Octree_Naive_Avg()
 Nested_Octree_Naive_Avg::~Nested_Octree_Naive_Avg()
 {
 	SafeRelease(cbPerFrameBuffer);
-	SafeRelease(vertexBuffer);
 	delete octree;
 }
 
@@ -48,7 +46,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, settings.upsampleRate, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
 
 
-	std::cout << "Created Octree with Depth: " << octree->reachedDepth << std::endl;
+	std::cout << "Created Octree with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
 
 	//traverseAndUpsampleOctree(octree->root); //this is now donw in create
 
@@ -77,14 +75,13 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
-
-
-
+	octree->getStructureAsVector<LOD_Utils::VertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createVertexBufferFromNode, device);
 
 	std::cout << "===================================================\n" << std::endl;
 
 }
 
+//unused
 void Nested_Octree_Naive_Avg::traverseAndUpsampleOctree(NestedOctreeNode<Vertex>* pNode)
 {
 	int numchildren = 0;
@@ -171,7 +168,6 @@ void Nested_Octree_Naive_Avg::recreate(ID3D11Device* const device, vector<Vertex
 	delete octree;
 
 	SafeRelease(cbPerFrameBuffer);
-	SafeRelease(vertexBuffer);
 
 	create(device, vertices);
 }
@@ -183,5 +179,14 @@ void Nested_Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);
 	context->GSSetConstantBuffers(1, 1, &cbPerFrameBuffer);
 
+
+
 }
 
+void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, const XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+{
+	
+
+
+
+}

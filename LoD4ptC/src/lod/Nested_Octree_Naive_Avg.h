@@ -2,6 +2,8 @@
 #include "LOD.h"
 #include "../datastructures/NestedOctree.h"
 
+#include "LodUtils.h"
+
 class Nested_Octree_Naive_Avg : public LOD
 {
 public:
@@ -13,9 +15,14 @@ public:
 	static TwBar* setUpTweakBar();
 	virtual void draw(ID3D11DeviceContext* const context) override;
 
+	//unused -> maybe useful for actual sampling techniques
 	inline void traverseAndUpsampleOctree(NestedOctreeNode<Vertex>* pNode);
 
 private: 
+
+
+	void drawRecursive(ID3D11DeviceContext* const context, const XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
+
 	struct TweakSettings
 	{
 		//----creation---
@@ -48,9 +55,7 @@ private:
 
 	ID3D11Buffer* cbPerFrameBuffer = nullptr;
 
-	ID3D11Buffer* vertexBuffer = nullptr;
-	UINT strides;
-
+	std::vector<OctreeVectorNode<LOD_Utils::VertexBuffer>> vertexBuffers; 
 
 	NestedOctree<Vertex>* octree; //fixed size determined via depth in octree
 

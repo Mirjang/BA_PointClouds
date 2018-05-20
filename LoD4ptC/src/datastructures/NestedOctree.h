@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <basetsd.h>
+#include <queue>
 
 #include "../rendering/Vertex.h"
 
@@ -79,6 +80,13 @@ struct NestedOctreeNode
 
 };
 
+template <class NodeData>
+struct OctreeVectorNode
+{
+	NodeData data; 
+	UINT32 childrenOffsets[8] = { 0 };
+};
+
 
 template<class Type>
 class NestedOctree
@@ -112,10 +120,12 @@ public:
 		}
 
 		XMVECTOR vrange = vmax - vmin;
+		XMVECTOR vcenter = vmin + vrange / 2; 
 
-		XMStoreFloat3(&range, vrange);
 		XMStoreFloat3(&boundsMin, vmin);
 		XMStoreFloat3(&boundsMin, vmax);
+		XMStoreFloat3(&range, vrange);
+		XMStoreFloat3(&center, vcenter);
 
 		switch (mode)
 		{
@@ -135,14 +145,60 @@ public:
 
 	~NestedOctree() { delete root; }
 
+	/*
+	* returns structure of the octree as std::vector with every node holding NodeData and indices of childnodes
+	* structure is built breadth first
+	* implemented with just the right amount of unnecessary complexity
+	*/
+	template<class NodeData, typename... AssignFunctionArgs>
+	void getStructureAsVector(std::vector<OctreeVectorNode<NodeData>> &out, NodeData (*assignFunction)(NestedOctreeNode<Type>*, AssignFunctionArgs...)=nullptr, AssignFunctionArgs... assignFunctionArgs)
+	{
+		UINT currenIndex = 0; 
+		out.resize(numNodes); 
+		
+		std::queue<NestedOctreeNode<Type>*> nodebuffer;
+
+		nodebuffer.push(root); 
+
+		while(!nodebuffer.empty())
+		{
+			NestedOctreeNode<Type>* pNode = nodebuffer.front(); 
+			nodebuffer.pop();
+			OctreeVectorNode<NodeData> currentNode;
+
+			if (assignFunction)
+			{
+				currentNode.data = assignFunction(pNode, assignFunctionArgs...);
+			}
+
+			int children = 0; 
+			for (int i = 0; i < 8; ++i)
+			{
+				if (pNode->children[i]&&!pNode->children[i]->data.empty())
+				{
+					currentNode.childrenOffsets[i] = currenIndex + nodebuffer.size() + 1; 
+					nodebuffer.push(pNode->children[i]); 
+				}
+			}
+
+			out[currenIndex] = currentNode; 
+			++currenIndex;
+
+		}
+	}
+
 
 
 	NestedOctreeNode<Type>* root = nullptr;
 	size_t numNodes = 0;
 	size_t reachedDepth = 0;
+	size_t maxDepth = 8; 
 	UINT32 gridResolution; //res of the inscribed grid (lower res->deeper tree)
 	UINT32 expansionThreshold; //only expand node after this many overlaps
 	UINT32 upsamplingFactor; //combine $factor nodes to one higher level node 
+
+	std::vector<XMFLOAT3> cellsizeForDepth;
+
 
 	UINT32 calculateSubgridIndex(XMVECTOR relPos, XMVECTOR gridStart, size_t depth)
 	{
@@ -171,7 +227,15 @@ private:
 	inline void createAndAverage(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
 
-		reachedDepth = max(depth, reachedDepth);
+		if (depth > reachedDepth)
+		{
+			reachedDepth = depth;
+			XMVECTOR newCellsize = XMLoadFloat3(&range) / ((2 << depth) * gridResolution);	//[was] NOT SURE ABOUT THIS [fixed it, now im a bit more sure]
+
+			cellsizeForDepth.push_back(XMFLOAT3());
+			XMStoreFloat3(&cellsizeForDepth[depth], newCellsize);
+		}
+
 
 		// gridRes^3 hashmap w/ chaining
 		std::unordered_multimap<UINT32, Type> insertMap; 
@@ -180,13 +244,14 @@ private:
 
 		std::vector<Type>* subGridData[8]; //Stores verts in case the tree needs to be expanded
 
+		XMVECTOR cellsize = XMLoadFloat3(&cellsizeForDepth[depth]); 
+
 		for (int i = 0; i < 8; ++i)
 		{
 			subGridData[i] = new std::vector<Type>();
 		}
 
 
-		XMVECTOR cellsize = XMLoadFloat3(&range) / ((2 << depth) * gridResolution) ;	//[was] NOT SURE ABOUT THIS [fixed it, now im a bit more sure]
 
 		for (auto vert : data)
 		{
@@ -237,9 +302,11 @@ private:
 
 				pNode->data.push_back(vert); 
 
-				subGridOverlapps[subGridIndex] += numElements - 1; //first element in grid is ok, every other element is one too many 
+				subGridOverlapps[subGridIndex] += numElements - 1; //first element in grid is ok
 			}
 		}
+
+		insertMap.clear(); 
 
 		bool expandNode = false; 
 		for (int i = 0; i < 8; ++i)
@@ -251,33 +318,38 @@ private:
 			}
 		}
 
-		if (expandNode)
+		if (expandNode&&depth!=maxDepth)
 		{
-			for (int i = 0; i < 8; ++i)// expand node where to many overlapps occured
+			for (int i = 0; i < 8; ++i)// expand node(s) where to many overlapps occured
 			{
-				pNode->children[i] = new NestedOctreeNode<Type>();
-
-				if (subGridData[i]->size() > expansionThreshold)	//these nodes migth have to bee expanded even further
+				if (!subGridData[i]->empty())
 				{
-					XMFLOAT3 gridStart3f, gridMidpoint3f;
+					pNode->children[i] = new NestedOctreeNode<Type>();
+					++numNodes;
 
-					XMStoreFloat3(&gridMidpoint3f, gridStart + XMLoadFloat3(&range) / (2 << depth));
-					XMStoreFloat3(&gridStart3f, gridStart);
+					if (subGridData[i]->size() > expansionThreshold)	//these nodes migth have to bee expanded even further
+					{
+						XMFLOAT3 gridStart3f, gridMidpoint3f;
+
+						XMStoreFloat3(&gridMidpoint3f, gridStart + XMLoadFloat3(&range) / (2 << depth));
+						XMStoreFloat3(&gridStart3f, gridStart);
 
 
-					XMVECTOR subridstart = XMVectorSet(
-						i & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
-						i & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
-						i & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
+						XMVECTOR subridstart = XMVectorSet(
+							i & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
+							i & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
+							i & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
 
-					createAndAverage(pNode->children[i], *subGridData[i], subridstart, depth + 1); //recurse one level 
+						createAndAverage(pNode->children[i], *subGridData[i], subridstart, depth + 1); //recurse one level 
 
+					}
+					else   //this will not be expanded -> leaf node -> no need for additional traversal 
+					{
+						//this node should be empty
+						pNode->children[i]->data.insert(pNode->children[i]->data.end(), subGridData[i]->begin(), subGridData[i]->end());
+					}
 				}
-				else   //this will not be expanded -> leaf node -> no need for additional traversal 
-				{
-					//this node should be empty
-					pNode->children[i]->data.insert(pNode->children[i]->data.end(), subGridData[i]->begin(), subGridData[i]->end());
-				}
+
 				subGridData[i]->clear();	//release unneeded space asap
 				delete subGridData[i];
 			}
@@ -294,7 +366,6 @@ private:
 
 
 	}
-
 
 	inline void insert(NestedOctreeNode<Type>* pNode, const Type& data, XMVECTOR gridStart, size_t depth = 0)
 	{
@@ -397,6 +468,6 @@ private:
 
 	}
 
-	XMFLOAT3 boundsMin, boundsMax, range;
+	XMFLOAT3 boundsMin, boundsMax, range, center;
 
 };

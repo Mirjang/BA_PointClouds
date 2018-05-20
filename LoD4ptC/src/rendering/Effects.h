@@ -9,6 +9,8 @@
 #pragma comment (lib, "D3DCompiler.lib")
 #include <D3DCompiler.h>
 
+#include <DirectXMath.h>
+
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -23,6 +25,8 @@
 */
 
 
+using namespace DirectX; 
+
 namespace Effects
 {
 	//strct prototypes
@@ -30,6 +34,20 @@ namespace Effects
 	struct Technique;
 
 
+	__declspec(align(16)) struct cbPerObject
+	{
+		XMFLOAT4X4 wvpMat;
+		XMFLOAT4X4 worldMat;
+		XMFLOAT4 lightDir;
+		XMFLOAT4 lightColor;
+		XMFLOAT4 camPos;
+		XMFLOAT4 camDir;
+		float splatRadius;
+		float splatDiameter;
+
+	};
+
+	extern cbPerObject cbPerObj;
 
 	namespace config {
 		extern const wchar_t SHADER_FILE[];

@@ -49,7 +49,7 @@ public:
 	/**
 	*	###	Runtime Function Prototypes	###
 	*/
-	void newFrame(XMFLOAT4X4* _m_View, XMFLOAT4X4*  _m_Proj);							//Signals a new Frame, clears screen
+	void newFrame(XMFLOAT4X4* _m_View, XMFLOAT4X4* _m_Proj, XMFLOAT4* camPos, XMFLOAT4* camDir);		//Signals a new Frame, clears screen
 	void render(const std::string& meshName, const XMFLOAT4X4*  m_World);		//Renders 1 GO to screen
 	void endFrame();
 
@@ -59,12 +59,10 @@ public:
 		cbPerObj.splatDiameter = size + size;
 	}
 
-	void setLight(const XMVECTOR& direction, const XMVECTOR& color, const XMVECTOR& camPos)
+	void setLight(const XMVECTOR& direction, const XMVECTOR& color)
 	{
 		XMStoreFloat4(&cbPerObj.lightDir,direction); 
 		XMStoreFloat4(&cbPerObj.lightColor, color); 
-		XMStoreFloat4(&cbPerObj.camPos, camPos);
-
 	}
 
 	/**
@@ -92,23 +90,7 @@ private:
 	ID3D11Texture2D* depthStencilBuffer = NULL;
 
 
-	/**
-	*	###	Runtime Variables	###
-	*/
-	__declspec(align(16))
-	struct cbPerObject
-	{
-		XMFLOAT4X4 wvpMat;
-		XMFLOAT4X4 worldMat;
-		XMFLOAT4 lightDir; 
-		XMFLOAT4 lightColor; 
-		XMFLOAT4 camPos;
-		float splatRadius; 
-		float splatDiameter; 
-
-	};
-
-	cbPerObject cbPerObj;
+	Effects::cbPerObject cbPerObj;
 
 	ID3D11Buffer* cbPerObjectBuffer = NULL;
 

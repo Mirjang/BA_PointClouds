@@ -30,14 +30,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	initWindow();
 
-	g_Renderer = new Renderer(&g_hWindow, &g_screenParams.width, &g_screenParams.height);
+	g_renderer = new Renderer(&g_hWindow, &g_screenParams.width, &g_screenParams.height);
 
-	g_Renderer->initialize();
+	g_renderer->initialize();
 
 	/**
 	*	--- setup tweak bar -----------
 	*/
-	TwInit(TwGraphAPI::TW_DIRECT3D11, g_Renderer->d3dDevice);
+	TwInit(TwGraphAPI::TW_DIRECT3D11, g_renderer->d3dDevice);
 	TwWindowSize(g_screenParams.width, g_screenParams.height);
 	TwBar* twMenuBar = TwNewBar("Menu");
 	TwBar* twSceneSettings = TwNewBar("Scene");
@@ -89,14 +89,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	DragAcceptFiles(g_hWindow, TRUE);
 
-	g_Renderer->reloadShaders(); 
+	g_renderer->reloadShaders(); 
 
 	/*
 	* ----------- Init scene ----------
 	*/
 	
-	g_camera = new Camera(&g_screenParams.width, &g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane); 
-	g_camera->translateAbs(0.1f, 1.0f, -75.0f); 
+	camera = new Camera(&g_screenParams.width, &g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane); 
+	camera->translateAbs(0.1f, 1.0f, -75.0f); 
 
 
 	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(-1, -1, 0.5, 0)));  //rnd ligth dir, somewhere from above
@@ -111,7 +111,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//-------------------
 
 
-	g_sceneRoot.initialize(g_Renderer);
+	g_sceneRoot.initialize(g_renderer);
 
 
 	auto start = std::chrono::high_resolution_clock::now();
@@ -127,7 +127,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 
-		g_Renderer->newFrame(g_camera->getViewMatrix(), g_camera->getProjectionMatrix());
+		g_renderer->newFrame(camera->getViewMatrix(), camera->getProjectionMatrix(), &camera->pos, &camera->forward );
 
 		input();
 
@@ -135,7 +135,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		XMStoreFloat4x4(&identity, XMMatrixIdentity());
 
 
-		g_sceneRoot._render(g_Renderer, &identity);
+		g_sceneRoot._render(g_renderer, &identity);
 
 
 
@@ -147,12 +147,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		TwDraw(); 
 	
-		g_Renderer->endFrame();
+		g_renderer->endFrame();
 
 	}
 
 	TwTerminate(); 
-	delete g_Renderer; 
+	delete g_renderer; 
 	DestroyWindow(g_hWindow); 
 	
 	std::exit(0);
@@ -232,9 +232,9 @@ LRESULT CALLBACK windowProc(HWND hWindow, UINT message, WPARAM wParam, LPARAM lP
 
 void update()
 {
-	g_Renderer->setSplatSize(g_renderSettings.splatSize); 
+	g_renderer->setSplatSize(g_renderSettings.splatSize); 
 
-	g_Renderer->setLight(XMLoadFloat3(&g_userInput.lightDirection), XMLoadFloat3(&g_userInput.lightColor), XMLoadFloat4(&g_camera->pos));
+	g_renderer->setLight(XMLoadFloat3(&g_userInput.lightDirection), XMLoadFloat3(&g_userInput.lightColor));
 
 
 	if (g_lodSettings.mode != g_lodSettings.lastMode)
@@ -269,14 +269,14 @@ void update()
 
 		if (g_lodSettings.recreate)	//ok just assuming that the active obj has a mesh, should work for this impl might cause problems for someone else tho... 
 		{
-			PointCloud* mesh = g_Renderer->meshDict.find(g_activeObject->getMesh())->second;
+			PointCloud* mesh = g_renderer->meshDict.find(g_activeObject->getMesh())->second;
 			
 			if (mesh->lod)
 			{
 				delete mesh->lod; 
 			}
 
-			mesh->createLod(g_Renderer->d3dDevice, g_lodSettings.mode); 
+			mesh->createLod(g_renderer->d3dDevice, g_lodSettings.mode); 
 		}
 	}
 	g_lodSettings.recreate = false;	//make sure this is reset... buttons are hard 
@@ -284,19 +284,19 @@ void update()
 	if (g_userInput.resetCamera)
 	{
 		g_userInput.resetCamera = false; 
-		delete g_camera; 
-		g_camera = new Camera(&g_screenParams.width, &g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane);
-		g_camera->translateAbs(0.1f, 1.0f, -75.0f);
+		delete camera; 
+		camera = new Camera(&g_screenParams.width, &g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane);
+		camera->translateAbs(0.1f, 1.0f, -75.0f);
 	}
 
 	if (g_userInput.reloadShaders)
 	{
 		g_userInput.reloadShaders = false; 
-		g_Renderer->reloadShaders(); 
+		g_renderer->reloadShaders(); 
 	}
 
 	//camera mode: wasd or orbit
-	g_camera->setTarget(g_userInput.orbitCam?g_activeObject:nullptr);
+	camera->setTarget(g_userInput.orbitCam?g_activeObject:nullptr);
 
 
 
@@ -351,7 +351,7 @@ void input()
 
 			if (g_userInput.button_lmb && !g_userInput.orbitCam)
 			{
-				g_camera->rotate(( g_userInput.lastMouseY- mouseY) * g_userInput.camRotateSpeed * g_deltaTime, (g_userInput.lastMouseX - mouseX) * g_userInput.camRotateSpeed* g_deltaTime, 0);
+				camera->rotate(( g_userInput.lastMouseY- mouseY) * g_userInput.camRotateSpeed * g_deltaTime, (g_userInput.lastMouseX - mouseX) * g_userInput.camRotateSpeed* g_deltaTime, 0);
 			}
 
 			g_userInput.lastMouseX = mouseX;
@@ -379,7 +379,7 @@ void input()
 
 
 				g_activeObject = new GameObject(filename);
-				g_activeObject->initialize(g_Renderer);
+				g_activeObject->initialize(g_renderer);
 				g_sceneRoot.addChild(g_activeObject);
 				DragFinish((HDROP)msg.wParam); 
 			}
@@ -428,26 +428,26 @@ void evaluateKeyboardInput(WPARAM key, bool down)
 
 	case 0x57: //w
 	{
-		g_camera->move(0,0, g_userInput.cameraSpeed * g_deltaTime); 
+		camera->move(0,0, g_userInput.cameraSpeed * g_deltaTime); 
 		break; 
 	}
 
 	case 0x53: //s
 	{
-		g_camera->move(0, 0, -g_userInput.cameraSpeed * g_deltaTime);
+		camera->move(0, 0, -g_userInput.cameraSpeed * g_deltaTime);
 		break;
 	}
 
 	case 0x41: //a
 	{
-		g_camera->move(-g_userInput.cameraSpeed * g_deltaTime, 0, 0);
+		camera->move(-g_userInput.cameraSpeed * g_deltaTime, 0, 0);
 
 		break;
 	}
 
 	case 0x44: //d
 	{
-		g_camera->move(g_userInput.cameraSpeed * g_deltaTime, 0, 0);
+		camera->move(g_userInput.cameraSpeed * g_deltaTime, 0, 0);
 		break;
 	}
 

@@ -198,7 +198,7 @@ void Renderer::reloadShaders()
 	ZeroMemory(&desc_perObjBuffer, sizeof(D3D11_BUFFER_DESC));
 	desc_perObjBuffer.Usage = D3D11_USAGE_DEFAULT;
 	desc_perObjBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc_perObjBuffer.ByteWidth = sizeof(cbPerObject);
+	desc_perObjBuffer.ByteWidth = sizeof(Effects::cbPerObject);
 
 	result = d3dDevice->CreateBuffer(&desc_perObjBuffer, NULL, &cbPerObjectBuffer);
 	if (FAILED(result))
@@ -279,8 +279,10 @@ void Renderer::deleteMesh(const std::string& name) //decrements refcounter and r
 *	###	Runtime Functions	###
 */
 
-void Renderer::newFrame( XMFLOAT4X4* _m_View, XMFLOAT4X4* _m_Proj)
+void Renderer::newFrame( XMFLOAT4X4* _m_View, XMFLOAT4X4* _m_Proj, XMFLOAT4* camPos, XMFLOAT4* camDir)
 {
+	XMStoreFloat4(&cbPerObj.camPos, XMLoadFloat4(camPos));
+	XMStoreFloat4(&cbPerObj.camDir, XMLoadFloat4(camDir)); 
 
 	m_View = _m_View;
 	m_Proj = _m_Proj; 

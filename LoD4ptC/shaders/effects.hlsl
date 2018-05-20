@@ -11,6 +11,7 @@ cbuffer perObject
     float4 g_lightDir;
     float4 g_lightColor;
     float4 g_cameraPos; 
+    float4 g_cameraDir; 
     float g_splatradius;
     float g_splatdiameter;
 };

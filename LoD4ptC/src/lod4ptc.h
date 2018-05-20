@@ -66,8 +66,8 @@ GameObject g_sceneRoot;
 GameObject* g_activeObject = nullptr; 
 RessourceLoader* g_RessourceLoader;
 
-Renderer* g_Renderer; 
-Camera* g_camera; 
+Renderer* g_renderer; 
+Camera* camera; 
 
 double g_deltaTime = 0.0f; 
 
