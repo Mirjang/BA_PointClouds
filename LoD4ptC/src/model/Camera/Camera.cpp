@@ -1,5 +1,7 @@
 #include "Camera.h"
 
+#include "../../global/utils.h"
+
 using namespace DirectX;
 
 Camera::Camera(int* _pScreen_width, int* _pScreen_heigth, float _near, float _far) :
@@ -37,6 +39,6 @@ XMFLOAT4X4* const Camera::getViewMatrix()
 
 XMFLOAT4X4* const Camera::getProjectionMatrix()
 {
-	XMStoreFloat4x4(&m_Proj, XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0), (float)*pScreen_width / *pScreen_heigth, nearDist, farDist));
+	XMStoreFloat4x4(&m_Proj, XMMatrixPerspectiveFovLH(g_screenParams.fov, g_screenParams.width/g_screenParams.height, g_screenParams.nearPlane, g_screenParams.farPlane));
 	return &m_Proj;
 }

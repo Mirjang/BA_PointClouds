@@ -23,8 +23,8 @@ namespace Effects
 		extern ID3D11InputLayout* layout;
 	}
 
-
 	st_RS_STATES RS_STATE;
+	cbPerObject cbPerObj;
 
 	std::unordered_map<std::string, ID3D11VertexShader*> vertexShaders;
 	std::unordered_map<std::string, ID3D11GeometryShader*> geometryShaders;

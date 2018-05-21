@@ -55,14 +55,14 @@ public:
 
 	void setSplatSize(float size)
 	{
-		cbPerObj.splatRadius = size;
-		cbPerObj.splatDiameter = size + size;
+		Effects::cbPerObj.splatRadius = size;
+		Effects::cbPerObj.splatDiameter = size + size;
 	}
 
 	void setLight(const XMVECTOR& direction, const XMVECTOR& color)
 	{
-		XMStoreFloat4(&cbPerObj.lightDir,direction); 
-		XMStoreFloat4(&cbPerObj.lightColor, color); 
+		XMStoreFloat4(&Effects::cbPerObj.lightDir,direction);
+		XMStoreFloat4(&Effects::cbPerObj.lightColor, color);
 	}
 
 	/**
@@ -90,7 +90,7 @@ private:
 	ID3D11Texture2D* depthStencilBuffer = NULL;
 
 
-	Effects::cbPerObject cbPerObj;
+
 
 	ID3D11Buffer* cbPerObjectBuffer = NULL;
 

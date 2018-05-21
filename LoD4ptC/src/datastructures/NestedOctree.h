@@ -212,6 +212,7 @@ public:
 
 	}
 
+	XMFLOAT3 boundsMin, boundsMax, range, center;
 
 private:
 
@@ -227,7 +228,7 @@ private:
 	inline void createAndAverage(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
 
-		if (depth > reachedDepth)
+		if (depth > reachedDepth ||!depth )
 		{
 			reachedDepth = depth;
 			XMVECTOR newCellsize = XMLoadFloat3(&range) / ((2 << depth) * gridResolution);	//[was] NOT SURE ABOUT THIS [fixed it, now im a bit more sure]
@@ -356,6 +357,9 @@ private:
 		}
 		else
 		{
+			pNode->data.clear();
+			pNode->data = data; 
+
 			for (int i = 0; i < 8; ++i)
 			{
 				subGridData[i]->clear();
@@ -468,6 +472,5 @@ private:
 
 	}
 
-	XMFLOAT3 boundsMin, boundsMax, range, center;
 
 };

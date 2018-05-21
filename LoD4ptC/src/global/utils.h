@@ -92,6 +92,9 @@ struct ScreenParams
 	int height;
 	float nearPlane;
 	float farPlane;
+	float fov; 
 };
+
+extern ScreenParams g_screenParams; 
 
 #endif // !UTIL_H

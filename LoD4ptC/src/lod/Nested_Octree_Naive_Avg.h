@@ -21,7 +21,7 @@ public:
 private: 
 
 
-	void drawRecursive(ID3D11DeviceContext* const context, const XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
+	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
 	struct TweakSettings
 	{
@@ -59,6 +59,14 @@ private:
 
 	NestedOctree<Vertex>* octree; //fixed size determined via depth in octree
 
+	struct DrawConstants
+	{
+		float slope; 
+		float heightDiv2DivSlope; 
+		UINT strides = sizeof(Vertex); 
+		UINT offset = 0;
+		
+	} drawConstants;
 
 
 };

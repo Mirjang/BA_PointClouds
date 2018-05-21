@@ -52,7 +52,7 @@ void No_LOD::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
 
 void No_LOD::draw(ID3D11DeviceContext* const context)
 {
-
+	g_statistics.verticesDrawn = vertCount; 
 	Effects::g_pCurrentPass->apply(context); 
 
 	UINT offset = 0;

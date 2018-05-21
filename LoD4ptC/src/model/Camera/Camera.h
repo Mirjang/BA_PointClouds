@@ -4,6 +4,7 @@
 
 #include "../GameObject.h"
 
+
 using namespace DirectX;
 
 class Camera :

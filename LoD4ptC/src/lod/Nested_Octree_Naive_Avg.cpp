@@ -15,6 +15,13 @@ Nested_Octree_Naive_Avg::Nested_Octree_Naive_Avg()
 Nested_Octree_Naive_Avg::~Nested_Octree_Naive_Avg()
 {
 	SafeRelease(cbPerFrameBuffer);
+
+	for (auto it : vertexBuffers)
+	{
+		SafeRelease(it.data.buffer);
+	}
+	vertexBuffers.clear();
+
 	delete octree;
 }
 
@@ -169,24 +176,115 @@ void Nested_Octree_Naive_Avg::recreate(ID3D11Device* const device, vector<Vertex
 
 	SafeRelease(cbPerFrameBuffer);
 
+	for (auto it : vertexBuffers)
+	{
+		SafeRelease(it.data.buffer); 
+	}
+	vertexBuffers.clear(); 
+
 	create(device, vertices);
 }
 
 void Nested_Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 {
+	g_statistics.verticesDrawn = 0; 
+	Effects::g_pCurrentPass->apply(context); 
 
 	cbPerFrame.fixedLODdepth = Nested_Octree_Naive_Avg::settings.drawFixedDepth ? Nested_Octree_Naive_Avg::settings.fixedDepth : 0;
 	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);
 	context->GSSetConstantBuffers(1, 1, &cbPerFrameBuffer);
 
+	drawConstants.slope = tan(g_screenParams.fov / 2); 
+	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
+
+
+	drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
 
 
 }
 
-void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, const XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex,  XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
+	//thats how you turn an AABB into BS
 	
+	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
+	XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
+	
+	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
+	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f); 
 
 
+
+
+	float worldradius = max(max(cellsize3f.x, cellsize3f.y), cellsize3f.z);
+
+	worldradius = g_renderSettings.splatSize; 
+
+	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(center - cameraPos).m128_f32[0]; 
+
+
+
+	if (pixelsize < g_lodSettings.pixelThreshhold || depth == octree->reachedDepth)
+	{
+		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIntex].data;
+		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset); 
+		context->Draw(vb.size, 0); 
+		g_statistics.verticesDrawn +=vb.size;
+
+	}
+	else 
+	{
+		XMVECTOR nextLevelCenterOffset =  XMLoadFloat3(&octree->cellsizeForDepth[depth+1]) / 2;
+
+		if (vertexBuffers[nodeIntex].childrenOffsets[0])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, -1, -1, 0); 
+			
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[0], center + offset, cameraPos, depth + 1); 
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[1])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, -1, -1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[1], center + offset, cameraPos, depth + 1);
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[2])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, 1, -1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[2], center + offset, cameraPos, depth + 1);
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[3])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, 1, -1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[3], center + offset, cameraPos, depth + 1);
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[4])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, -1, 1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[4], center + offset, cameraPos, depth + 1);
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[5])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, -1, 1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[5], center + offset, cameraPos, depth + 1);
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[6])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, 1, 1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[6], center + offset, cameraPos, depth + 1);
+		}
+		if (vertexBuffers[nodeIntex].childrenOffsets[7])
+		{
+			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, 1, 1, 0);
+
+			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[7], center + offset, cameraPos, depth + 1);
+		}
+
+	}
 
 }

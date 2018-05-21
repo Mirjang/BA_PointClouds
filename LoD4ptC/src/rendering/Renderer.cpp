@@ -281,8 +281,11 @@ void Renderer::deleteMesh(const std::string& name) //decrements refcounter and r
 
 void Renderer::newFrame( XMFLOAT4X4* _m_View, XMFLOAT4X4* _m_Proj, XMFLOAT4* camPos, XMFLOAT4* camDir)
 {
-	XMStoreFloat4(&cbPerObj.camPos, XMLoadFloat4(camPos));
-	XMStoreFloat4(&cbPerObj.camDir, XMLoadFloat4(camDir)); 
+
+	g_statistics.verticesDrawn = 0; 
+
+	XMStoreFloat4(&Effects::cbPerObj.camPos, XMLoadFloat4(camPos));
+	XMStoreFloat4(&Effects::cbPerObj.camDir, XMLoadFloat4(camDir));
 
 	m_View = _m_View;
 	m_Proj = _m_Proj; 
@@ -302,12 +305,12 @@ void Renderer::render(const std::string& meshName, const DirectX::XMFLOAT4X4*  _
 
 
 	//Set and update constant buffers
-	XMStoreFloat4x4(&cbPerObj.worldMat, worldmat);
-	XMStoreFloat4x4(&cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
+	XMStoreFloat4x4(&Effects::cbPerObj.worldMat, worldmat);
+	XMStoreFloat4x4(&Effects::cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
 
 
 
-	d3dContext->UpdateSubresource(cbPerObjectBuffer, 0, NULL, &cbPerObj, 0, 0);
+	d3dContext->UpdateSubresource(cbPerObjectBuffer, 0, NULL, &Effects::cbPerObj, 0, 0);
 	d3dContext->VSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
 	d3dContext->GSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
 	d3dContext->PSSetConstantBuffers(0, 1, &cbPerObjectBuffer);

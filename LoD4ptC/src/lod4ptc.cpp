@@ -24,7 +24,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	g_screenParams.height = 1050;
 	g_screenParams.nearPlane = 0.01f;
 	g_screenParams.farPlane = 1000.0f;
-
+	g_screenParams.fov = XMConvertToRadians(45.0f);
 
 	g_RessourceLoader = new RessourceLoader(); 
 
