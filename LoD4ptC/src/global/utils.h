@@ -35,11 +35,11 @@ struct UserInput
 {
 	bool showSceneMenu = false;
 	bool showRenderMenu = true;
-	bool showLODMenu = true;
+	bool showLODMenu = false;
 
 
-	float cameraSpeed = 250.0f;
-	float camRotateSpeed = 0.025f;
+	float cameraSpeed = 800.0f;
+	float camRotateSpeed = 1.025f;
 
 	DirectX::XMFLOAT4 objectRotation;
 	DirectX::XMFLOAT3 lightDirection;
@@ -65,8 +65,8 @@ struct RenderSettings
 {
 	int lod = 0;	//LOD to be rendered
 	SplatType renderMode = SplatType::QUAD_SPLAT;
-	float splatSize = 0.0001f;
-	bool useLight = true; 
+	float splatSize = 0.0100f;
+	bool useLight = false; 
 };
 extern RenderSettings g_renderSettings;
 

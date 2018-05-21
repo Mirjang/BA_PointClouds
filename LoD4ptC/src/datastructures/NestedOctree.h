@@ -84,7 +84,8 @@ template <class NodeData>
 struct OctreeVectorNode
 {
 	NodeData data; 
-	UINT32 childrenOffsets[8] = { 0 };
+	UINT8 children = 0; 
+	UINT32 firstChildIndex = 0; 
 };
 
 
@@ -176,7 +177,8 @@ public:
 			{
 				if (pNode->children[i]&&!pNode->children[i]->data.empty())
 				{
-					currentNode.childrenOffsets[i] = currenIndex + nodebuffer.size() + 1; 
+					currentNode.children |= 1 << i; //set flag at child location 
+					currentNode.firstChildIndex = currenIndex + nodebuffer.size(); 
 					nodebuffer.push(pNode->children[i]); 
 				}
 			}
@@ -237,7 +239,7 @@ private:
 			XMStoreFloat3(&cellsizeForDepth[depth], newCellsize);
 		}
 
-
+		SOMETHING IS FUCKED HERE
 		// gridRes^3 hashmap w/ chaining
 		std::unordered_multimap<UINT32, Type> insertMap; 
 

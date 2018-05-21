@@ -23,6 +23,8 @@ private:
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
+	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth); 
+
 	struct TweakSettings
 	{
 		//----creation---
@@ -41,6 +43,11 @@ private:
 		//----rendering---
 		int fixedDepth = 0;
 		bool drawFixedDepth = false;
+
+
+		//info
+		int LOD = 0; 
+		int nodesDrawn = 0; 
 
 	};
 	static TweakSettings settings;

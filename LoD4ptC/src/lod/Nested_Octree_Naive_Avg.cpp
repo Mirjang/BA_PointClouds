@@ -38,6 +38,11 @@ TwBar* Nested_Octree_Naive_Avg::setUpTweakBar()
 	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Nested_Octree_Naive_Avg::settings.fixedDepth, NULL);
 	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Nested_Octree_Naive_Avg::settings.drawFixedDepth, NULL);
 
+	TwAddSeparator(tweakBar, "sep2", NULL);
+	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Nested_Octree_Naive_Avg::settings.LOD, NULL);
+	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Nested_Octree_Naive_Avg::settings.nodesDrawn, NULL);
+
+
 	return tweakBar;
 
 }
@@ -187,7 +192,10 @@ void Nested_Octree_Naive_Avg::recreate(ID3D11Device* const device, vector<Vertex
 
 void Nested_Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 {
-	g_statistics.verticesDrawn = 0; 
+
+	settings.nodesDrawn = 0; 
+	settings.LOD = 0; 
+
 	Effects::g_pCurrentPass->apply(context); 
 
 	cbPerFrame.fixedLODdepth = Nested_Octree_Naive_Avg::settings.drawFixedDepth ? Nested_Octree_Naive_Avg::settings.fixedDepth : 0;
@@ -197,14 +205,23 @@ void Nested_Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 	drawConstants.slope = tan(g_screenParams.fov / 2); 
 	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
 
-
-	drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
+	if (settings.drawFixedDepth)
+	{
+		drawRecursiveFixedDepth(context, 0, 0); 
+	}
+	else
+	{
+		drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
+	}
 
 
 }
 
-void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex,  XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex,  XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
+	settings.LOD = max(settings.LOD, depth); 
+
+
 	//thats how you turn an AABB into BS
 	
 	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
@@ -224,9 +241,11 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 
 
 
-	if (pixelsize < g_lodSettings.pixelThreshhold || depth == octree->reachedDepth)
+	if (pixelsize < g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
-		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIntex].data;
+		settings.nodesDrawn++;
+
+		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset); 
 		context->Draw(vb.size, 0); 
 		g_statistics.verticesDrawn +=vb.size;
@@ -234,57 +253,43 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	}
 	else 
 	{
-		XMVECTOR nextLevelCenterOffset =  XMLoadFloat3(&octree->cellsizeForDepth[depth+1]) / 2;
+		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->cellsizeForDepth[depth + 1]) / 2;
 
-		if (vertexBuffers[nodeIntex].childrenOffsets[0])
+		for (int i = 0; i < 8; ++i)
 		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, -1, -1, 0); 
-			
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[0], center + offset, cameraPos, depth + 1); 
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[1])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, -1, -1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[1], center + offset, cameraPos, depth + 1);
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[2])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, 1, -1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[2], center + offset, cameraPos, depth + 1);
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[3])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, 1, -1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[3], center + offset, cameraPos, depth + 1);
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[4])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, -1, 1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[4], center + offset, cameraPos, depth + 1);
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[5])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, -1, 1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[5], center + offset, cameraPos, depth + 1);
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[6])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(-1, 1, 1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[6], center + offset, cameraPos, depth + 1);
-		}
-		if (vertexBuffers[nodeIntex].childrenOffsets[7])
-		{
-			XMVECTOR offset = nextLevelCenterOffset * XMVectorSet(1, 1, 1, 0);
-
-			drawRecursive(context, vertexBuffers[nodeIntex].childrenOffsets[7], center + offset, cameraPos, depth + 1);
+			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+			{
+				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i); 
+				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + i, center + offset, cameraPos, depth + 1);
+			}
 		}
 
 	}
 
+}
+
+
+void Nested_Octree_Naive_Avg::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
+{
+
+	if (depth == settings.fixedDepth)
+	{
+		settings.nodesDrawn++;
+
+		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
+		context->Draw(vb.size, 0);
+		g_statistics.verticesDrawn += vb.size;
+
+	}
+	else
+	{
+		for (int i = 0; i < 8; ++i)
+		{
+			if (vertexBuffers[nodeIndex].children & (1 << i))	//ist ith flag set T->the child exists
+			{
+				drawRecursiveFixedDepth(context, vertexBuffers[nodeIndex].firstChildIndex + i, depth + 1);
+			}
+		}
+	}
 }
