@@ -88,7 +88,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	octree->getStructureAsVector<LOD_Utils::VertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createVertexBufferFromNode, device);
 
-	delete octree; //remove this mb later if i wana do more stuff with the same tree --> delete internal nodes and apply different upsampling
+	//delete octree; //remove this mb later if i wana do more stuff with the same tree --> delete internal nodes and apply different upsampling
 
 	LOD_Utils::printTreeStructure(vertexBuffers); 
 
@@ -239,6 +239,13 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 
 
 	float worldradius = max(max(cellsize3f.x, cellsize3f.y), cellsize3f.z);
+
+	/*
+	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
+	{
+		return; 
+	}
+	*/
 
 	worldradius = g_renderSettings.splatSize * (octree->reachedDepth - depth); 
 
