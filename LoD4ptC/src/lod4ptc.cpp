@@ -349,7 +349,7 @@ void input()
 			float mouseX = static_cast<float>(GET_X_LPARAM(msg.lParam));
 			float mouseY = static_cast<float>(GET_Y_LPARAM(msg.lParam));
 
-			if (g_userInput.button_lmb && !g_userInput.orbitCam)
+			if (g_userInput.button_lmb)
 			{
 				camera->rotate(( g_userInput.lastMouseY- mouseY) * g_userInput.camRotateSpeed * g_deltaTime, (g_userInput.lastMouseX - mouseX) * g_userInput.camRotateSpeed* g_deltaTime, 0);
 			}

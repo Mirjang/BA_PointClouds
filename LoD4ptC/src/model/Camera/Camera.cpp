@@ -24,7 +24,9 @@ XMFLOAT4X4* const Camera::getViewMatrix()
 {
 	if (target)
 	{
-		XMStoreFloat4x4(&m_View, XMMatrixLookAtLH(XMLoadFloat4(&pos), XMLoadFloat4(&target->pos), XMVectorSet(0, 1, 0, 0)));
+		XMVECTOR quat = XMLoadFloat4(&rot);
+		
+		XMStoreFloat4x4(&m_View,  XMMatrixMultiply(XMMatrixTranspose(XMMatrixRotationRollPitchYaw(pitch, yaw, 0)),  XMMatrixLookAtLH(XMLoadFloat4(&pos), XMLoadFloat4(&target->pos), XMVectorSet(0, 1, 0, 0))));
 	}
 	else
 	{

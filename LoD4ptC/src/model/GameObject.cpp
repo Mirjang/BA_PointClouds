@@ -96,10 +96,7 @@ void GameObject::rotate(float x, float y, float z)
 		yaw -= 2 * M_PI;
 	}
 
-//	std::cout << "Rotate:\t" << x << "  " << y << "  " << z << std::endl; 
-//	std::cout << "before:\t" << rot.x << "  " << rot.y << "  " << rot.z << "  " << rot.w << std::endl; 
 	XMStoreFloat4(&rot, XMQuaternionRotationRollPitchYaw(pitch, yaw, 0)); 
-//	std::cout << "after:\t" << rot.x << "  " << rot.y << "  " << rot.z << "  " << rot.w << std::endl;
 
 }
 
