@@ -32,7 +32,7 @@ TwBar* Nested_Octree_Naive_Avg::setUpTweakBar()
 	TwBar* tweakBar = TwNewBar("Octree Naive Avg");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.gridResolution, NULL);
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.expansionThreshold, NULL);
-	TwAddVarRW(tweakBar, "Upsample Rate", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.upsampleRate, NULL);
+	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Nested_Octree_Naive_Avg::settings.maxDepth, NULL);
 
 
 	TwAddSeparator(tweakBar, "sep", NULL);
@@ -56,12 +56,10 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "\n===================================================" << std::endl;
 	std::cout << "Creating Octree_Naive_Avg" << std::endl;
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, settings.upsampleRate, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
 
 
 	std::cout << "Created Octree with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
-
-	//traverseAndUpsampleOctree(octree->root); //this is now donw in create
 
 	//std::cout << "Finished traversing and averaging" << std::endl;
 
@@ -89,6 +87,8 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
 	octree->getStructureAsVector<LOD_Utils::VertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createVertexBufferFromNode, device);
+
+	delete octree; //remove this mb later if i wana do more stuff with the same tree --> delete internal nodes and apply different upsampling
 
 	LOD_Utils::printTreeStructure(vertexBuffers); 
 
@@ -233,16 +233,16 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
 	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f); 
 
+	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
+
 
 
 
 	float worldradius = max(max(cellsize3f.x, cellsize3f.y), cellsize3f.z);
 
-	worldradius = g_renderSettings.splatSize; 
+	worldradius = g_renderSettings.splatSize * (octree->reachedDepth - depth); 
 
-	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(center - cameraPos).m128_f32[0]; 
-
-
+	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0]; 
 
 	if (pixelsize < g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{

@@ -96,8 +96,8 @@ class NestedOctree
 
 public:
 
-	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution, UINT32 expansionThreshold, UINT32 upsamplingFactor, OctreeCreationMode mode = OctreeCreationMode::CreateAndPushDown) 
-		: gridResolution(gridResolution),expansionThreshold(expansionThreshold), upsamplingFactor(upsamplingFactor)
+	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution, UINT32 expansionThreshold, UINT32 maxDepth, OctreeCreationMode mode = OctreeCreationMode::CreateAndPushDown)
+		: gridResolution(gridResolution),expansionThreshold(expansionThreshold), upsamplingFactor(upsamplingFactor), maxDepth(maxDepth)
 	{
 		if (!data.size()) //empty array
 		{
@@ -196,7 +196,7 @@ public:
 	NestedOctreeNode<Type>* root = nullptr;
 	size_t numNodes = 0;
 	size_t reachedDepth = 0;
-	size_t maxDepth = 8; 
+	size_t maxDepth = 32; 
 	UINT32 gridResolution; //res of the inscribed grid (lower res->deeper tree)
 	UINT32 expansionThreshold; //only expand node after this many overlaps
 	UINT32 upsamplingFactor; //combine $factor nodes to one higher level node 
