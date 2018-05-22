@@ -31,5 +31,6 @@ namespace LOD_Utils
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device);
 
+	void printTreeStructure(const std::vector<OctreeVectorNode<VertexBuffer>>& verts, UINT32 nodeIndex = 0, UINT32 maxDepth = -1, UINT32 depth = 0);
 
 }

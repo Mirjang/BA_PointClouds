@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
 
 #include "../rendering/Effects.h"
 
@@ -88,6 +89,8 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
 	octree->getStructureAsVector<LOD_Utils::VertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createVertexBufferFromNode, device);
+
+	LOD_Utils::printTreeStructure(vertexBuffers); 
 
 	std::cout << "===================================================\n" << std::endl;
 
@@ -254,13 +257,16 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	else 
 	{
 		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->cellsizeForDepth[depth + 1]) / 2;
+		UINT8 numchildren = 0;
 
 		for (int i = 0; i < 8; ++i)
 		{
 			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
 			{
 				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i); 
-				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + i, center + offset, cameraPos, depth + 1);
+				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
+
+				++numchildren; 
 			}
 		}
 
@@ -272,23 +278,26 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 void Nested_Octree_Naive_Avg::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
 
-	if (depth == settings.fixedDepth)
+	if (depth == settings.fixedDepth ||!vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
 		context->Draw(vb.size, 0);
 		g_statistics.verticesDrawn += vb.size;
-
 	}
-	else
+	if(depth != settings.fixedDepth)
 	{
+		UINT8 numchildren = 0; 
+
 		for (int i = 0; i < 8; ++i)
 		{
-			if (vertexBuffers[nodeIndex].children & (1 << i))	//ist ith flag set T->the child exists
+			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
 			{
-				drawRecursiveFixedDepth(context, vertexBuffers[nodeIndex].firstChildIndex + i, depth + 1);
+				drawRecursiveFixedDepth(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, depth + 1);
+				++numchildren;
 			}
 		}
 	}

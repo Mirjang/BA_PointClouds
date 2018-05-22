@@ -31,4 +31,31 @@ namespace LOD_Utils
 
 	}
 
+
+	void printTreeStructure(const std::vector<OctreeVectorNode<VertexBuffer>>& verts, UINT32 nodeIndex, UINT32 maxDepth, UINT32 depth)
+	{
+		for (int i = 0; i < depth; ++i)
+		{
+			std::cout << "--";
+		}
+		std::cout << nodeIndex << std::endl;
+
+
+		if (depth != maxDepth)
+		{
+			UINT8 numchildren = 0;
+
+			for (int i = 0; i < 8; ++i)
+			{
+				if (verts[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+				{
+					printTreeStructure(verts, verts[nodeIndex].firstChildIndex + numchildren, maxDepth, depth + 1);
+					++numchildren;
+				}
+			}
+		}
+
+	}
+
+
 }

@@ -172,13 +172,15 @@ public:
 				currentNode.data = assignFunction(pNode, assignFunctionArgs...);
 			}
 
-			int children = 0; 
+			int childCounter = 0; 
 			for (int i = 0; i < 8; ++i)
 			{
 				if (pNode->children[i]&&!pNode->children[i]->data.empty())
 				{
 					currentNode.children |= 1 << i; //set flag at child location 
-					currentNode.firstChildIndex = currenIndex + nodebuffer.size(); 
+
+					if(!currentNode.firstChildIndex)//only set for the first child (other children will be directly after first child (Breadth first)
+						currentNode.firstChildIndex = currenIndex + nodebuffer.size()+1; 
 					nodebuffer.push(pNode->children[i]); 
 				}
 			}
@@ -239,7 +241,6 @@ private:
 			XMStoreFloat3(&cellsizeForDepth[depth], newCellsize);
 		}
 
-		SOMETHING IS FUCKED HERE
 		// gridRes^3 hashmap w/ chaining
 		std::unordered_multimap<UINT32, Type> insertMap; 
 
