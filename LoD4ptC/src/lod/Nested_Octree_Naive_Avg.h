@@ -33,9 +33,9 @@ private:
 		* expand node after this many vertices have allocated a duplicate position  
 		* a flat surface in a 128^3 grid would have roughly 16k (128^2) verts) 
 		*/
-		UINT32 expansionThreshold = 12000; 
+		UINT32 expansionThreshold = 2048; 
 		//maximum depth for octree 
-		UINT32 maxDepth = 32; 
+		UINT32 maxDepth = 16; 
 
 		/*
 		* number of nodes that will be averaged/upsampled into one higher-level node

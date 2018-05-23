@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
+#include <chrono>
 
 #include "../rendering/Effects.h"
 
@@ -56,10 +57,27 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "\n===================================================" << std::endl;
 	std::cout << "Creating Octree_Naive_Avg" << std::endl;
 
+	auto start = std::chrono::high_resolution_clock::now();
+
+	//render loop
+
 	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
 
+	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
+	std::cout << "Created OctreeV1 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
+	std::cout << "Took: " << elapsed.count() << "ms" << std::endl; 
 
-	std::cout << "Created Octree with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
+
+	/**
+	delete octree;
+	start = std::chrono::high_resolution_clock::now();
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateAndAverageV2);	//depending on vert count this may take a while
+
+	elapsed = std::chrono::high_resolution_clock::now() - start;
+	std::cout << "Created OctreeV2 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
+	std::cout << "Took: " << elapsed.count() << "ms" << std::endl;
+	/**/
+
 
 	//std::cout << "Finished traversing and averaging" << std::endl;
 
@@ -90,7 +108,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	//delete octree; //remove this mb later if i wana do more stuff with the same tree --> delete internal nodes and apply different upsampling
 
-	LOD_Utils::printTreeStructure(vertexBuffers); 
+	//LOD_Utils::printTreeStructure(vertexBuffers); 
 
 	std::cout << "===================================================\n" << std::endl;
 

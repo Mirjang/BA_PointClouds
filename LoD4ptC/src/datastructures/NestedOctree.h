@@ -42,7 +42,8 @@ using namespace DirectX;
 enum OctreeCreationMode
 {
 	CreateAndPushDown, 
-	CreateAndAverage
+	CreateAndAverage, 
+	CreateAndAverageV2
 };
 
 template<class Type>
@@ -139,6 +140,19 @@ public:
 		{
 			createAndAverage(root, data, vmin);
 			break;
+		}
+		case CreateAndAverageV2:
+		{
+			std::unordered_multimap<UINT32, Type> thisIsDumb; 
+
+			for (auto vert : data)
+			{
+				thisIsDumb.insert(std::pair<UINT32, Type>(0, vert));
+			}
+
+			createAndAverageV2(root, &thisIsDumb, vmin);
+			thisIsDumb.clear(); 
+			break; 
 		}
 		default:
 			break;
@@ -378,7 +392,7 @@ private:
 
 	}
 
-	inline void createAndAverageV2(NestedOctreeNode<Type>* pNode, const std::unordered_multimap<UINT32,Type>* data, XMVECTOR gridStart, size_t depth = 0)
+	inline void createAndAverageV2(NestedOctreeNode<Type>* pNode, std::unordered_multimap<UINT32,Type>* data, XMVECTOR gridStart, size_t depth = 0)
 	{
 
 		if (depth > reachedDepth || !depth)
@@ -404,27 +418,28 @@ private:
 
 
 
-		for (size_t bucket = 0; bucket < data->bucket_count(); ++bucket)
+	
+		for (auto it = data->begin(); it != data->end(); ++it)
 		{
-			for (auto it = insertMap[iSubGrid]->begin(bucket); it != insertMap[iSubGrid]->end(bucket); ++it)
-			{
-				Type& vert = it->second; 
-				XMVECTOR relPos = XMLoadFloat3(&vert.pos) - gridStart;
+			const Type& vert = it->second; 
+			XMVECTOR relPos = XMLoadFloat3(&vert.pos) - gridStart;
 
-				XMVECTOR cellIndex = relPos / cellsize;
+			XMVECTOR cellIndex = relPos / cellsize;
 
-				//point location in the inscribed grid (gridresolution)
-				UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
-					+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
-					+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
+			//point location in the inscribed grid (gridresolution)
+			UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
+				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
+				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
 
-				UINT32 subGridIndex = calculateSubgridIndex(XMLoadFloat3(&insertMap.begin(bucket)->second.pos) - gridStart, gridStart, depth);
+			UINT32 subGridIndex = calculateSubgridIndex(XMLoadFloat3(&vert.pos) - gridStart, gridStart, depth);
 
-				insertMap[subGridIndex]->insert(std::pair<UINT32, Type>(gridIndex, vert));
-			}
+			insertMap[subGridIndex]->insert(std::pair<UINT32, Type>(gridIndex, vert));
 		}
+		
 
-		for (int iSubGrid = 0; iSubGrid < 8; ++i)
+		data->clear(); 
+
+		for (int iSubGrid = 0; iSubGrid < 8; ++iSubGrid)
 		{
 
 			for (size_t bucket = 0; bucket < insertMap[iSubGrid]->bucket_count(); ++bucket)
@@ -437,10 +452,7 @@ private:
 					XMVECTOR sumNor = XMVectorSet(0, 0, 0, 0);
 					XMVECTOR sumCol = XMVectorSet(0, 0, 0, 0);
 
-
-
-
-					for (auto it = insertMap[iSubGrid]->egin(bucket); it != insertMap[iSubGrid]->end(bucket); ++it)
+					for (auto it = insertMap[iSubGrid]->begin(bucket); it != insertMap[iSubGrid]->end(bucket); ++it)
 					{
 						sumPos += XMLoadFloat3(&it->second.pos);
 						sumNor += XMLoadFloat3(&it->second.normal);
@@ -450,8 +462,6 @@ private:
 					Type vert;
 
 					XMVECTOR avgpos = sumPos / numElements;
-
-
 
 					XMStoreFloat3(&vert.pos, avgpos);
 					XMStoreFloat3(&vert.normal, sumNor / numElements);
@@ -500,33 +510,47 @@ private:
 
 
 
-						createAndAverage(pNode->children[i], *subGridData[i], subridstart, depth + 1); //recurse one level 
+						createAndAverageV2(pNode->children[i], insertMap[i], subridstart, depth + 1); //recurse one level 
 
 					}
 					else   //this will not be expanded -> leaf node -> no need for additional traversal 
 					{
 						//this node should be empty
-						pNode->children[i]->data.insert(pNode->children[i]->data.end(), insertMap[i]->begin(i), insertMap[i]->end(i));
+					
+
+						for (auto it = insertMap[i]->begin(); it != insertMap[i]->end(); ++it)
+						{
+							pNode->children[i]->data.push_back(it->second);
+
+						}
+
+						insertMap[i]->clear();
+						delete insertMap[i];
+						
+
 					}
 				}
 
 				insertMap[i]->clear();	//release unneeded space asap
-				delete insertMap[i];
 			}
 		}
 		else
 		{
 			pNode->data.clear();
-			pNode->data = data;
-
+			
+			
 			for (int i = 0; i < 8; ++i)
 			{
+				
+				for (auto it = insertMap[i]->begin(); it != insertMap[i]->end(); ++it)
+				{
+					pNode->data.push_back(it->second);
+				}
+				
 				insertMap[i]->clear();
-				delete insertMap[i];
 			}
 
 		}
-
 
 	}
 
