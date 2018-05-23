@@ -19,6 +19,7 @@ cbuffer perObject
 cbuffer LOD_octree_naive_avg
 {
     uint fixedDepth; 
+    float g_splatWorldRadius; 
 };
 
 

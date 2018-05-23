@@ -59,6 +59,7 @@ private:
 	struct cbLODPerFrame
 	{
 		UINT32 fixedLODdepth;
+		float splatSize; 
 	};
 	cbLODPerFrame cbPerFrame;
 

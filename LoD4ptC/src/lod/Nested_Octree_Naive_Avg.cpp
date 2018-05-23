@@ -225,6 +225,7 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	settings.LOD = max(settings.LOD, depth); 
 
 
+
 	//thats how you turn an AABB into BS
 	
 	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
@@ -239,6 +240,10 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 
 
 	float worldradius = max(max(cellsize3f.x, cellsize3f.y), cellsize3f.z);
+
+	cbPerFrame.splatSize = worldradius;
+	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);	//unnecessary updates->precompute
+
 
 	/*
 	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
