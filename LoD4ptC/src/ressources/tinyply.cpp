@@ -6,11 +6,12 @@
 // Version 2.0
 
 #include "tinyply.h"
+
+#include <iostream>
+#include <cstring>
 #include <algorithm>
 #include <functional>
 #include <type_traits>
-#include <iostream>
-#include <cstring>
 
 using namespace tinyply;
 using namespace std;
