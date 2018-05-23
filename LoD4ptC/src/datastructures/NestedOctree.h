@@ -284,7 +284,7 @@ private:
 			//point location in the inscribed grid (gridresolution)
 			UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
 				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
-				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
+				+ static_cast<UINT32>(XMVectorGetZ(cellIndex)) * gridResolution * gridResolution;
 
 			insertMap.insert(std::pair<UINT32, Type>(gridIndex, vert)); 
 		}
@@ -429,7 +429,7 @@ private:
 			//point location in the inscribed grid (gridresolution)
 			UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
 				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
-				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
+				+ static_cast<UINT32>(XMVectorGetZ(cellIndex)) * gridResolution * gridResolution;
 
 			UINT32 subGridIndex = calculateSubgridIndex(XMLoadFloat3(&vert.pos) - gridStart, gridStart, depth);
 
