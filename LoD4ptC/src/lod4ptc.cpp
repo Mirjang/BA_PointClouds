@@ -17,7 +17,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 
-
 	g_hInstance = hInstance;
 
 	g_screenParams.width = 1680;
@@ -67,7 +66,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twSceneSettings, "ResetCamera", TW_TYPE_BOOLCPP, &g_userInput.resetCamera, "");
 
 
-	TwEnumVal lodTypeEV[] = { { LODMode::NONE, "None" },{ LODMode::OCTREE_NAIVE, "Octree naive" },{ LODMode::NESTED_OCTREE_NAIVE, "Nested Octree naive" },{ LODMode::K_MEANS, "k-means" }/*,{ LODMode::EGGS, "Eggs" } */};
+	TwEnumVal lodTypeEV[] = { { LODMode::NONE, "None" },{ LODMode::NESTED_OCTREE_NAIVE, "Nested Octree: Naive" },{ LODMode::NESTED_OCTREE_POSSIONDISK, "Nested Octree: Possion Disk" },{ LODMode::K_MEANS, "k-means" }/*,{ LODMode::EGGS, "Eggs" } */};
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
 	TwAddVarRW(twLODSettings, "LOD Mode", twLODMode, &g_lodSettings.mode, NULL);
 	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
@@ -101,14 +100,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(-1, -1, 0.5, 0)));  //rnd ligth dir, somewhere from above
 
-	/*
-	--------------- TEST -----------
-	*/
-	//GameObject* dragon = new GameObject("dragon_perlin_color.ply");
 
-	//g_sceneRoot.addChild(dragon); 
-
-	//-------------------
 
 
 	g_sceneRoot.initialize(g_renderer);
@@ -236,7 +228,7 @@ void update()
 
 	g_renderer->setLight(XMLoadFloat3(&g_userInput.lightDirection), XMLoadFloat3(&g_userInput.lightColor));
 
-
+	// Choose LOD Mode 
 	if (g_lodSettings.mode != g_lodSettings.lastMode)
 	{
 		if (g_lodSettings.twImplSettingsBar)
@@ -246,15 +238,15 @@ void update()
 
 		switch (g_lodSettings.mode)
 		{
-		case OCTREE_NAIVE:
-		{
-			g_lodSettings.twImplSettingsBar = Octree_Naive_Avg::setUpTweakBar();
-			break;
-		}
 		case NESTED_OCTREE_NAIVE:
 		{
 			g_lodSettings.twImplSettingsBar = Nested_Octree_Naive_Avg::setUpTweakBar();
 			break; 
+		}
+		case NESTED_OCTREE_POSSIONDISK:
+		{
+			g_lodSettings.twImplSettingsBar = Nested_Octree_PossionDisk::setUpTweakBar();
+			break;
 		}
 		default:
 			break;
@@ -263,6 +255,7 @@ void update()
 		g_lodSettings.lastMode = g_lodSettings.mode;
 	}
 
+	//Update current Object
 	if (g_activeObject)
 	{
 		g_activeObject->rot = g_userInput.objectRotation; 

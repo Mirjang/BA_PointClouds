@@ -43,7 +43,8 @@ enum OctreeCreationMode
 {
 	CreateAndPushDown, 
 	CreateAndAverage, 
-	CreateAndAverageV2
+	CreateAndAverageV2, 
+	CreateAndPossionDisk
 };
 
 template<class Type>
@@ -77,7 +78,6 @@ struct NestedOctreeNode
 
 
 	bool marked = false; 
-	std::unordered_map<UINT32,Type>  insertData; // used to store data in grid and determine when to subdivide
 
 };
 
@@ -152,6 +152,11 @@ public:
 
 			createAndAverageV2(root, &thisIsDumb, vmin);
 			thisIsDumb.clear(); 
+			break; 
+		}
+		case CreateAndPossionDisk:
+		{
+			createAndPossionDisk(root, data, vmin);
 			break; 
 		}
 		default:
@@ -554,9 +559,123 @@ private:
 
 	}
 
+
+	inline void createAndPossionDisk(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
+	{
+
+		if (depth > reachedDepth || !depth)
+		{
+			reachedDepth = depth;
+			XMVECTOR newCellsize = XMLoadFloat3(&range) / ((2 << depth) * gridResolution);	//[was] NOT SURE ABOUT THIS [fixed it, now im a bit more sure]
+
+			cellsizeForDepth.push_back(XMFLOAT3());
+			XMStoreFloat3(&cellsizeForDepth[depth], newCellsize);
+		}
+
+		// gridRes^3 hashmap w/ chaining
+		std::unordered_multimap<UINT32, Type> insertMap;
+
+		UINT32 subGridOverlapps[8] = { 0 };
+
+		std::vector<Type>* subGridData[8]; //Stores verts in case the tree needs to be expanded
+
+		XMVECTOR cellsize = XMLoadFloat3(&cellsizeForDepth[depth]);
+
+		for (int i = 0; i < 8; ++i)
+		{
+			subGridData[i] = new std::vector<Type>();
+		}
+
+		for (auto vert : data)
+		{
+			XMVECTOR relPos = XMLoadFloat3(&vert.pos) - gridStart;
+
+			XMVECTOR cellIndex = relPos / cellsize;
+
+			//point location in the inscribed grid (gridresolution)
+			UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
+				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
+				+ static_cast<UINT32>(XMVectorGetZ(cellIndex)) * gridResolution * gridResolution;
+
+			insertMap.insert(std::pair<UINT32, Type>(gridIndex, vert));
+		}
+
+
+
+
+
+
+
+		insertMap.clear();
+
+		bool expandNode = false;
+		for (int i = 0; i < 8; ++i)
+		{
+			if (subGridOverlapps[i] > expansionThreshold)
+			{
+				expandNode = true;
+				break;
+			}
+		}
+
+		if (expandNode&&depth != maxDepth)
+		{
+			for (int i = 0; i < 8; ++i)// expand node(s) where to many overlapps occured
+			{
+				if (!subGridData[i]->empty())
+				{
+					pNode->children[i] = new NestedOctreeNode<Type>();
+					++numNodes;
+
+					if (subGridData[i]->size() > expansionThreshold)	//these nodes migth have to bee expanded even further
+					{
+						XMFLOAT3 gridStart3f, gridMidpoint3f;
+
+						XMStoreFloat3(&gridMidpoint3f, gridStart + XMLoadFloat3(&range) / (2 << depth));
+						XMStoreFloat3(&gridStart3f, gridStart);
+
+
+						XMVECTOR subridstart = XMVectorSet(
+							i & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
+							i & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
+							i & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
+
+						createAndPossionDisk(pNode->children[i], *subGridData[i], subridstart, depth + 1); //recurse one level 
+
+					}
+					else   //this will not be expanded -> leaf node -> no need for additional traversal 
+					{
+						//this node should be empty
+						pNode->children[i]->data.insert(pNode->children[i]->data.end(), subGridData[i]->begin(), subGridData[i]->end());
+					}
+				}
+
+				subGridData[i]->clear();	//release unneeded space asap
+				delete subGridData[i];
+			}
+		}
+		else
+		{
+			pNode->data.clear();
+			pNode->data = data;
+
+			for (int i = 0; i < 8; ++i)
+			{
+				subGridData[i]->clear();
+				delete subGridData[i];
+			}
+
+		}
+
+
+	}
+
+
+	//this is most likely broken by now... use w/ caution 
 	inline void insert(NestedOctreeNode<Type>* pNode, const Type& data, XMVECTOR gridStart, size_t depth = 0)
 	{
 		reachedDepth = max(depth, reachedDepth);
+		std::unordered_map<UINT32, Type>  insertData; // used to store data in grid and determine when to subdivide
 
 
 		XMVECTOR gridMidpoint = gridStart + XMLoadFloat3(&range) / (2 << depth);
@@ -591,8 +710,8 @@ private:
 				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
 
 			//there is already a point at the given gridpos --> expand and go lower
-			auto result = pNode->insertData.find(index);
-			if (result != pNode->insertData.end())	
+			auto result = insertData.find(index);
+			if (result != insertData.end())	
 			{
 				pNode->data.push_back(data); //(Mis)use as buffer during creation
 
@@ -628,14 +747,14 @@ private:
 
 
 					////remove all data from expanding grid and insert in next level node
-					for (auto it : pNode->insertData)
+					for (auto it : insertData)
 					{
 						int itIndex = calculateSubgridIndex(XMLoadFloat3(&it.second.pos), gridStart, depth);
 						insert(pNode->children[itIndex], it.second, subGridStart[itIndex], depthPlus1); //insert current data
 
 					}
 
-					pNode->insertData.clear();
+					insertData.clear();
 
 					for (auto vert : pNode->data)
 					{
@@ -649,7 +768,7 @@ private:
 			// first point at that position
 			else 
 			{
-				pNode->insertData.insert(std::pair<const UINT32, Type>(index, data));
+				insertData.insert(std::pair<const UINT32, Type>(index, data));
 			}
 		}
 

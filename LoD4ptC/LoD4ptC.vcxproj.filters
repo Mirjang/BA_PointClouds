@@ -66,6 +66,9 @@
     <ClCompile Include="src\lod\LodUtils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\lod\Nested_Octree_PossionDisk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\model\Camera\Camera.h">
@@ -120,6 +123,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\lod\LodUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\Nested_Octree_PossionDisk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

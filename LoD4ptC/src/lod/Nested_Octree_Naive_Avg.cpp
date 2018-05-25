@@ -115,6 +115,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 }
 
 //unused
+/*/
 void Nested_Octree_Naive_Avg::traverseAndUpsampleOctree(NestedOctreeNode<Vertex>* pNode)
 {
 	int numchildren = 0;
@@ -182,19 +183,9 @@ void Nested_Octree_Naive_Avg::traverseAndUpsampleOctree(NestedOctreeNode<Vertex>
 				}
 			}
 		}
-
 	}
-
-
-
-
-	
-
-
-
-
 }
-
+*/
 
 void Nested_Octree_Naive_Avg::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
 {

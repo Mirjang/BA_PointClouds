@@ -30,15 +30,15 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 
 	switch (g_lodSettings.mode)
 	{
-	case LODMode::OCTREE_NAIVE:
-	{
-		lod = new Octree_Naive_Avg();
-		break;
-	}
 	case LODMode::NESTED_OCTREE_NAIVE: 
 	{
 		lod = new Nested_Octree_Naive_Avg(); 
 		break; 
+	}
+	case LODMode::NESTED_OCTREE_POSSIONDISK:
+	{
+		lod = new Nested_Octree_PossionDisk();
+		break;
 	}
 	default:
 		lod = new No_LOD();

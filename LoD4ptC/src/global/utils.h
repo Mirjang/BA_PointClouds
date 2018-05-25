@@ -16,8 +16,9 @@ enum SplatType
 enum LODMode
 {
 	NONE,
-	OCTREE_NAIVE, 
-	NESTED_OCTREE_NAIVE, 
+	OCTREE_NAIVE,
+	NESTED_OCTREE_NAIVE,
+	NESTED_OCTREE_POSSIONDISK,
 	K_MEANS, 
 	EGGS
 };
@@ -73,7 +74,7 @@ extern RenderSettings g_renderSettings;
 //set by AntTweakBar
 struct LODSettings
 {
-	LODMode mode = LODMode::NESTED_OCTREE_NAIVE;
+	LODMode mode = LODMode::NESTED_OCTREE_POSSIONDISK;
 	int pixelThreshhold = 1; 
 
 

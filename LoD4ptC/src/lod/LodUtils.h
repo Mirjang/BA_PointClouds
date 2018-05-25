@@ -26,7 +26,7 @@ namespace LOD_Utils
 
 	inline DirectX::XMVECTOR signVector(UINT index)
 	{
-		return XMVectorSet(index & 1 ? 1 : -1, index & 2 ? 1 : -1, index & 4 ? 1 : -1, 1); 
+		return XMVectorSet(index & 1 ? 1.0f : -1.0f, index & 2 ? 1.0f : -1.0f, index & 4 ? 1 : -1.0f, 1.0f); 
 	}
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device);
