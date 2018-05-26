@@ -61,7 +61,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	//render loop
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateAndAverageV2);	//depending on vert count this may take a while
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created OctreeV1 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;

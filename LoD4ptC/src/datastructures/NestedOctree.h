@@ -122,6 +122,7 @@ public:
 		}
 
 		XMVECTOR vrange = vmax - vmin;
+
 		XMVECTOR vcenter = vmin + vrange / 2; 
 
 		XMStoreFloat3(&boundsMin, vmin);
@@ -154,6 +155,20 @@ public:
 			thisIsDumb.clear(); 
 			break; 
 		}
+<<<<<<< Updated upstream
+=======
+		case CreateAndPossionDisk:
+		{
+			float maxAxis = max(vrange.m128_f32[0], max(vrange.m128_f32[1], vrange.m128_f32[2]));
+			vrange = XMVectorSet(maxAxis, maxAxis, maxAxis, 0);
+
+			XMStoreFloat3(&boundsMax, vmin+vrange);
+			XMStoreFloat3(&range, vrange);
+
+			//createAndPossionDisk(root, data, vmin);
+			break; 
+		}
+>>>>>>> Stashed changes
 		default:
 			break;
 		}
