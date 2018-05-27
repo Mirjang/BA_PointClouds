@@ -61,7 +61,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	//render loop
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateNaiveAverage);	//depending on vert count this may take a while
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created OctreeV1 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
@@ -93,7 +93,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	//delete octree; //remove this mb later if i wana do more stuff with the same tree --> delete internal nodes and apply different upsampling
 
-	LOD_Utils::printTreeStructure(vertexBuffers); 
+	//LOD_Utils::printTreeStructure(vertexBuffers); 
 
 	std::cout << "===================================================\n" << std::endl;
 
@@ -246,7 +246,7 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	}
 	*/
 
-	worldradius = g_renderSettings.splatSize * (octree->reachedDepth - depth); 
+	worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth)); 
 
 	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0]; 
 

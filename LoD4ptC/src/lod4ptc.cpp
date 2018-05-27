@@ -98,7 +98,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	camera->translateAbs(0.1f, 1.0f, -75.0f); 
 
 
-	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(-1, -1, 0.5, 0)));  //rnd ligth dir, somewhere from above
+	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(0.8, -0.05, 0.5, 0)));  //rnd ligth dir, somewhere from above
 
 
 

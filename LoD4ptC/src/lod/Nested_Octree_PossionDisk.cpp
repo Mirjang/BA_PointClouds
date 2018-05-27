@@ -64,7 +64,7 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_PossionDisk::settings.gridResolution, Nested_Octree_PossionDisk::settings.expansionThreshold, Nested_Octree_PossionDisk::settings.maxDepth, OctreeCreationMode::CreateAndAverage);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_PossionDisk::settings.gridResolution, Nested_Octree_PossionDisk::settings.expansionThreshold, Nested_Octree_PossionDisk::settings.maxDepth, OctreeCreationMode::CreatePossionDisk);	//depending on vert count this may take a while
 
 
 
@@ -174,28 +174,25 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);	//unnecessary updates->precompute
 
 
-																				/*
-																				if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
-																				{
-																				return;
-																				}
-																				*/
+	/*
+	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
+	{
+	return;
+	}
+	*/
 
 	worldradius = g_renderSettings.splatSize * (octree->reachedDepth - depth);
 
 	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
 
-	if (pixelsize < g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
-	{
-		settings.nodesDrawn++;
+	settings.nodesDrawn++;
 
-		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
-		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
-		context->Draw(vb.size, 0);
-		g_statistics.verticesDrawn += vb.size;
+	LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+	context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
+	context->Draw(vb.size, 0);
+	g_statistics.verticesDrawn += vb.size;
 
-	}
-	else
+	if (pixelsize > g_lodSettings.pixelThreshhold && vertexBuffers[nodeIndex].children)
 	{
 		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->cellsizeForDepth[depth + 1]) / 2;
 		UINT8 numchildren = 0;
