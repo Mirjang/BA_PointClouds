@@ -86,6 +86,8 @@ namespace Effects
 	//releases all com objects
 	extern void deinit();
 
+	extern void setSplatSize(float size);
+
 	/*
 	*Returns Pass based on given config.. not sure if i should compile shaders here, 
 	*for testing tho shaders are compiled once Effects::init() is called which gives immidiate feedback if a shader is bad

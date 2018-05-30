@@ -103,7 +103,9 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 	//LOD_Utils::printTreeStructure(vertexBuffers); 
 
-	std::cout << "===================================================\n" << std::endl;
+	Effects::setSplatSize(octree->cellsizeForDepth[octree->reachedDepth].x); 
+
+	std::cout << "=======================DONE========================\n" << std::endl;
 
 }
 

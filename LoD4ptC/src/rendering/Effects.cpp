@@ -232,6 +232,12 @@ namespace Effects
 
 	}
 
+	void setSplatSize(float size) 
+	{
+		Effects::cbPerObj.splatRadius = size;
+		Effects::cbPerObj.splatDiameter = size + size;
+	}
+
 	/*
 	********* Pass Impl
 	*/
