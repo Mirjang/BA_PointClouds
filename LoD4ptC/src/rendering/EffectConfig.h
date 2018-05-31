@@ -26,22 +26,20 @@ namespace Effects
 		const std::vector<std::string> VS_NAMES =
 		{
 			"VS_PASSTHROUGH", 
-			"VS_SIMPLE"
+			"VS_APPLY_DEPTHCOLOR", 
 		};
 		const std::vector<std::string> GS_NAMES =
 		{
-			"GS_QUAD",
-			"GS_CIRCLE", 
-			"GS_QUAD_LIT", 
-			"GS_CIRCLE_LIT"
-
+			"GS_UNLIT",
+			"GS_LIT",
+			"GS_UNLIT_ADAPTIVESPLATSIZE",
 		};
 		const std::vector<std::string> PS_NAMES =
 		{
 			"PS_QUAD_NOLIGHT",
 			"PS_CIRCLE_NOLIGHT",
 			"PS_QUAD_PHONG",
-			"PS_CIRCLE_PHONG"
+			"PS_CIRCLE_PHONG",
 		};
 
 		const D3D11_INPUT_ELEMENT_DESC LAYOUT_POS3_NOR3_COL4[] =

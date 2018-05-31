@@ -1,10 +1,24 @@
 #pragma pack_matrix(row_major)
 
+
+//--------------------------------------------------------------------------------------
+// Defines
+//--------------------------------------------------------------------------------------
+
 //--------------------------------------------------------------------------------------
 // Constant buffers
 //--------------------------------------------------------------------------------------
 
-cbuffer perObject
+
+cbuffer splatSizeBuffer : register(b0)
+{
+    float2 g_splatradius;
+    float2 g_splatdiameter;
+    uint g_LODdepth;
+};
+
+
+cbuffer perObject : register(b1)
 {
     float4x4 g_wvp;
     float4x4 g_world; 
@@ -12,15 +26,18 @@ cbuffer perObject
     float4 g_lightColor;
     float4 g_cameraPos; 
     float4 g_cameraDir; 
-    float g_splatradius;
-    float g_splatdiameter;
 };
 
-cbuffer LOD_octree_naive_avg
+
+cbuffer shaderSettings : register(b2)
 {
-    uint fixedDepth; 
-    float g_splatWorldRadius; 
+    float2 g_splatSize;
+    float g_pixelThreshhold;
+    float g_screenHeightDiv2; 
+    float g_aspectRatio;
+    uint g_maxLod; 
 };
+
 
 
 //--------------------------------------------------------------------------------------
@@ -116,138 +133,140 @@ PosNorCol VS_PASSTHROUGH(float4 inPos : POSITION, float3 inNormal : NORMAL, floa
     return output;
 }
 
-//Ditches normals
-PosCol VS_SIMPLE(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
+//sets color based on LOD
+PosNorCol VS_APPLY_DEPTHCOLOR(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
 {
-    PosCol output;
+    PosNorCol output;
 
     inPos.w = 1.0f;
 
     output.pos = inPos;
-    output.color = inColor;
+    output.normal = inNormal;
+    
+    float tmp = (1.0f * g_LODdepth) / g_maxLod; 
+
+    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+    
     return output;
 }
+
 
 //--------------------------------------------------------------------------------------
 // Geometry Shaders
 //--------------------------------------------------------------------------------------
 
-//only color for no lighting quads
+//only color for no lighting 
 [maxvertexcount(4)]
-void GS_QUAD(point PosCol input[1], inout TriangleStream<PosCol> OutStream)
+void GS_UNLIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
-    input[0].pos = mul(input[0].pos, g_wvp);
-
-    input[0].pos.xy += float2(-g_splatradius, +g_splatradius); //left up
-    OutStream.Append(input[0]);
-
-    input[0].pos.y -= g_splatdiameter; //right up
-    OutStream.Append(input[0]);
-
-    input[0].pos.xy += float2(g_splatdiameter, g_splatdiameter); //left down
-    OutStream.Append(input[0]);
-
-    input[0].pos.y -= g_splatdiameter; //right down
-    OutStream.Append(input[0]);
-	
-
-    OutStream.RestartStrip();
-
-}
-
-//only color for no lighting quads
-//Adds tex coords to render circle
-[maxvertexcount(4)]
-void GS_CIRCLE(point PosCol input[1], inout TriangleStream<PosColTex> OutStream)
-{
-    PosColTex output;
+    PosWorldNorColTex output;
     output.pos = mul(input[0].pos, g_wvp);
+    output.normal = float3(0, 0, 0); 
+    output.posWorld = float3(0, 0, 0); 
     output.color = input[0].color;
 
-    output.pos.xy += float2(-g_splatradius, +g_splatradius); //left up
+
+    output.pos.xy += float2(-1, 1)*g_splatradius; //left up
     output.tex.xy = float2(-1, -1);
     OutStream.Append(output);
 
-    output.pos.y -= g_splatdiameter; //right up
+    output.pos.y -= g_splatdiameter.y; //right up
     output.tex.xy = float2(1, -1);
     OutStream.Append(output);
 
-    output.pos.xy += float2(g_splatdiameter, g_splatdiameter); //left down
+    output.pos.xy += g_splatdiameter; //left down
     output.tex.xy = float2(-1, 1);
     OutStream.Append(output);
 
-    output.pos.y -= g_splatdiameter; //right down
+    output.pos.y -= g_splatdiameter.y; //right down
     output.tex.xy = float2(1, 1);
     OutStream.Append(output);
 
-    OutStream.RestartStrip();
 }
 
 
-//Lit quad splats
+//lit splats
 [maxvertexcount(4)]
-void GS_QUAD_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorCol> OutStream)
+void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
-    PosWorldNorCol output;
-    output.pos = mul(input[0].pos, g_wvp);
-    output.posWorld = mul(input[0].pos, g_world);
-    output.normal = mul(input[0].normal, (float3x3) g_world);
-    output.color = input[0].color;
-
-    output.pos.xy += float2(-g_splatradius, +g_splatradius); //left up
-    OutStream.Append(output);
-
-    output.pos.y -= g_splatdiameter; //right up
-    OutStream.Append(output);
-
-    output.pos.xy += float2(g_splatdiameter, g_splatdiameter); //left down
-    OutStream.Append(output);
-
-    output.pos.y -= g_splatdiameter; //right down
-    OutStream.Append(output);
-
-    OutStream.RestartStrip();
-
-}
-
-//lit circle splats
-[maxvertexcount(4)]
-void GS_CIRCLE_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
-{
+    
     PosWorldNorColTex output;
     output.pos = mul(input[0].pos, g_wvp);
     output.posWorld = mul(input[0].pos, g_world);
     output.normal = mul(input[0].normal, (float3x3) g_world);
     output.color = input[0].color;
 
-    output.pos.xy += float2(-g_splatradius, +g_splatradius); //left up
+    output.pos.xy += float2(-1, 1) * g_splatradius; //left up
     output.tex.xy = float2(-1, -1);
     OutStream.Append(output);
 
-    output.pos.y -= g_splatdiameter; //right up
+    output.pos.y -= g_splatdiameter.y; //right up
     output.tex.xy = float2(1, -1);
     OutStream.Append(output);
 
-    output.pos.xy += float2(g_splatdiameter, g_splatdiameter); //left down
+    output.pos.xy += g_splatdiameter; //left down
     output.tex.xy = float2(-1, 1);
     OutStream.Append(output);
 
-    output.pos.y -= g_splatdiameter; //right down
+    output.pos.y -= g_splatdiameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+}
+
+//only color for no lighting 
+[maxvertexcount(4)]
+void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, g_wvp);
+    output.normal = float3(0, 0, 0);
+    output.posWorld = float3(0, 0, 0);
+    output.color = input[0].color;
+
+    float depth = output.pos.z / output.pos.w;
+
+    float2 adaptedRadius = g_splatSize;
+    
+    for (int i = g_maxLod; i; --i)
+    {
+        if (g_pixelThreshhold < (g_splatSize.x * depth * 1080 / 2))
+        {
+            float scale = 1 << (g_maxLod - i);
+            adaptedRadius = g_splatSize * float2(scale, scale);
+        }
+    }
+
+
+    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
+
+    output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += adaptedDiameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right down
     output.tex.xy = float2(1, 1);
     OutStream.Append(output);
 
-    OutStream.RestartStrip();
 }
+
 //--------------------------------------------------------------------------------------
 // Pixel Shaders
 //--------------------------------------------------------------------------------------
 
-float4 PS_QUAD_NOLIGHT(PosCol input) : SV_TARGET
+float4 PS_QUAD_NOLIGHT(PosWorldNorColTex input) : SV_TARGET
 {
     return input.color;
 }
 
-float4 PS_CIRCLE_NOLIGHT(PosColTex input) : SV_TARGET
+float4 PS_CIRCLE_NOLIGHT(PosWorldNorColTex input) : SV_TARGET
 {
     if (input.tex.x * input.tex.x + input.tex.y * input.tex.y > 1)
         discard;
@@ -256,20 +275,42 @@ float4 PS_CIRCLE_NOLIGHT(PosColTex input) : SV_TARGET
 }
 
 
-float4 PS_QUAD_PHONG(PosWorldNorCol input) : SV_TARGET
+float4 PS_QUAD_PHONG(PosWorldNorColTex input) : SV_TARGET
 {
     return lightning_phong(input.posWorld, input.normal) * input.color;
-//    return g_lightColor;
 }
 
 float4 PS_CIRCLE_PHONG(PosWorldNorColTex input) : SV_TARGET
 {
+    
     if (input.tex.x * input.tex.x + input.tex.y * input.tex.y > 1)
     {
         discard;            //remove discard when using blending for better performance 
         return float4(0, 0, 0, 0); 
     }
 
-    return lightning_phong(input.posWorld, input.normal)*input.color;
+    return lightning_phong(input.posWorld, input.normal) * input.color;
 }
 
+// STASH
+
+/*
+
+
+//Ditches normals
+PosNorCol VS_SIMPLE(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
+{
+    PosNorCol output;
+
+    inPos.w = 1.0f;
+
+    output.pos = inPos;
+    output.normal = inNormal;
+    
+    output.color = inColor;
+    
+
+    return output;
+}
+
+*/

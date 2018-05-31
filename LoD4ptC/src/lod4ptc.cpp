@@ -49,7 +49,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, ARRAYSIZE(splatTypeEV));
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
 	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
+	TwAddVarRW(twRenderSettings, "calc LOD splatsize", TW_TYPE_BOOLCPP, &g_renderSettings.determineSplatsize, "");
 	TwAddVarRW(twRenderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
+	TwAddVarRW(twRenderSettings, "Draw LOD", TW_TYPE_BOOLCPP, &g_renderSettings.drawLOD, "");
+
 	TwAddSeparator(twRenderSettings, "sep", "");
 	TwAddVarRW(twRenderSettings, "Apply Settings", TW_TYPE_BOOLCPP, &g_userInput.reloadShaders, "");
 
@@ -59,7 +62,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twSceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
 	TwAddSeparator(twSceneSettings, "sep", "");
 	TwAddVarRW(twSceneSettings, "OrbitCamera", TW_TYPE_BOOLCPP, &g_userInput.orbitCam, "");
-	TwAddVarRW(twSceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=1 max=1000 step=5");
+	TwAddVarRW(twSceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=0.5 max=1000 step=5");
 	TwAddVarRW(twSceneSettings, "Camera Rotate Speed", TW_TYPE_FLOAT, &g_userInput.camRotateSpeed, "min=0.005 max=2 step=0.005");
 	TwAddVarRW(twSceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
 	TwAddSeparator(twSceneSettings, "sep2", "");
@@ -88,7 +91,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	DragAcceptFiles(g_hWindow, TRUE);
 
+	Effects::cbShaderSettings.aspectRatio = g_screenParams.width/g_screenParams.height; 
+	Effects::cbShaderSettings.screenheightDiv2 = static_cast<float>(g_screenParams.height) / 2.0f; 
 	g_renderer->reloadShaders(); 
+
+
 
 	/*
 	* ----------- Init scene ----------
@@ -224,7 +231,10 @@ LRESULT CALLBACK windowProc(HWND hWindow, UINT message, WPARAM wParam, LPARAM lP
 
 void update()
 {
-	g_renderer->setSplatSize(g_renderSettings.splatSize); 
+	g_renderer->setAndUploadLODSplatSettings(g_renderSettings.splatSize); 
+
+	g_renderer->setUserInputSplatSize(g_renderSettings.splatSize);
+
 
 	g_renderer->setLight(XMLoadFloat3(&g_userInput.lightDirection), XMLoadFloat3(&g_userInput.lightColor));
 
@@ -253,6 +263,16 @@ void update()
 		}
 
 		g_lodSettings.lastMode = g_lodSettings.mode;
+	}
+
+	//User has changed pixel threshold (could be used in shader if adaptive splat size is used
+	if (g_lodSettings.pixelThreshhold != g_lodSettings.oldPixelThreshHold)
+	{
+		g_lodSettings.oldPixelThreshHold = g_lodSettings.pixelThreshhold; 
+
+		Effects::cbShaderSettings.pixelThreshhold = g_lodSettings.pixelThreshhold; 
+
+		g_renderer->updateShaderSettings(); 
 	}
 
 	//Update current Object

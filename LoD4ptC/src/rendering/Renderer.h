@@ -45,6 +45,8 @@ public:
 	inline void initDirectX(); 
 	void reloadShaders(); 
 
+	void updateShaderSettings(); 
+
 
 	/**
 	*	###	Runtime Function Prototypes	###
@@ -53,10 +55,20 @@ public:
 	void render(const std::string& meshName, const XMFLOAT4X4*  m_World);		//Renders 1 GO to screen
 	void endFrame();
 
-	void setSplatSize(float size)
+	void setAndUploadLODSplatSettings(const float& size)
 	{
-		Effects::cbPerObj.splatRadius = size;
-		Effects::cbPerObj.splatDiameter = size + size;
+		if (Effects::cbPerLOD.splatRadius.x == size) return; 
+
+		Effects::SetSplatSize(size); 
+		Effects::UpdatePerLODBuffer(d3dContext); 
+	}
+
+	void setUserInputSplatSize(const float& size)
+	{
+		if (Effects::cbShaderSettings.splatSize.x == size) return; 
+		Effects::cbShaderSettings.splatSize = XMFLOAT2(size, size * Effects::cbShaderSettings.aspectRatio);
+
+		updateShaderSettings();
 	}
 
 	void setLight(const XMVECTOR& direction, const XMVECTOR& color)
@@ -89,16 +101,8 @@ private:
 	ID3D11DepthStencilView* depthStencilView = NULL;
 	ID3D11Texture2D* depthStencilBuffer = NULL;
 
-
-
-
-	ID3D11Buffer* cbPerObjectBuffer = NULL;
-
 	XMFLOAT4X4 *m_View, *m_Proj;
 
-	//unused 
 	std::list<PointCloud*> transparents;
-
-		
 };
 

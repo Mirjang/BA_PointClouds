@@ -149,6 +149,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\global\Distances.cpp" />
     <ClCompile Include="src\datastructures\NestedOctree.cpp" />
     <ClCompile Include="src\lod\LodUtils.cpp" />
     <ClCompile Include="src\lod\Nested_Octree_Naive_Avg.cpp" />
@@ -168,6 +169,7 @@
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\global\Distances.h" />
     <ClInclude Include="src\datastructures\NestedOctree.h" />
     <ClInclude Include="src\lod\LodUtils.h" />
     <ClInclude Include="src\lod\Nested_Octree_Naive_Avg.h" />

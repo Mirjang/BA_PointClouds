@@ -48,25 +48,28 @@
     <ClCompile Include="src\rendering\Vertex.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\lod\Octree_Naive_Avg.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\lod\No_LOD.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\datastructures\Octree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\datastructures\NestedOctree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\lod\Nested_Octree_Naive_Avg.cpp">
+    <ClCompile Include="src\global\Distances.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\lod\LodUtils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\lod\Nested_Octree_Naive_Avg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\lod\Nested_Octree_PossionDisk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lod\No_LOD.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lod\Octree_Naive_Avg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -101,31 +104,34 @@
     <ClInclude Include="src\rendering\Vertex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\lod\LOD.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\lod\Octree_Naive_Avg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\lod\No_LOD.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\lod\LodImplementations.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\datastructures\Octree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\datastructures\NestedOctree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\lod\Nested_Octree_Naive_Avg.h">
+    <ClInclude Include="src\global\Distances.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\LOD.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\LodImplementations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\lod\LodUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\lod\Nested_Octree_Naive_Avg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\lod\Nested_Octree_PossionDisk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\No_LOD.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\Octree_Naive_Avg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -12,6 +12,8 @@
 
 #include "../rendering/Vertex.h"
 
+#include "../global/Distances.h"
+
 
 
 
@@ -40,6 +42,21 @@
 #define GridIndex(x,y,z) x + y*gridResolution + z*gridResolution*gridResolution
 
 using namespace DirectX; 
+
+typedef bool(*DistanceCheck)(const XMVECTOR&, const XMVECTOR&, const XMVECTOR&);
+
+enum OctreeFlags
+{
+	createCube = 0x00,
+	createAdaptive = 0x01 << 0,
+
+	dfEuclididan = 0x01 << 1, 
+	dfManhattan = 0x01 << 2,
+
+
+
+	defaultFlags = createCube | dfEuclididan
+};
 
 
 enum OctreeCreationMode
@@ -116,8 +133,8 @@ public:
 //	INT64 gridNeighboursAdjAndDiag[18]; //...way too many checks
 
 
-	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution, UINT32 expansionThreshold, UINT32 maxDepth, OctreeCreationMode mode = OctreeCreationMode::CreateAndPushDown)
-		: gridResolution(gridResolution),expansionThreshold(expansionThreshold), upsamplingFactor(upsamplingFactor), maxDepth(maxDepth)
+	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution, UINT32 expansionThreshold, UINT32 maxDepth, OctreeCreationMode mode = OctreeCreationMode::CreateAndPushDown, UINT64 flags = OctreeFlags::defaultFlags)
+		: gridResolution(gridResolution),expansionThreshold(expansionThreshold), upsamplingFactor(upsamplingFactor), maxDepth(maxDepth), flags(flags)
 	{
 		if (!data.size()) //empty array
 		{
@@ -146,6 +163,17 @@ public:
 		}
 
 		vmax *= 1.001f; // make grid a bit bigger so edge cases can be ignored
+
+		if (flags & OctreeFlags::createCube)
+		{
+			float cubeBounds = max(vmax.m128_f32[0], max(vmax.m128_f32[1], vmax.m128_f32[2])); 
+			vmax = XMVectorSet(cubeBounds, cubeBounds, cubeBounds, 0); 
+		}
+
+		if (flags & OctreeFlags::dfManhattan)
+		{
+			distanceCheck = &Distances::distanceCheckManhattan; 
+		}
 
 		XMVECTOR vrange = vmax - vmin;
 		XMVECTOR vcenter = vmin + vrange / 2; 
@@ -264,6 +292,9 @@ public:
 
 private:
 	
+	UINT64 flags = 0x0; 
+	DistanceCheck distanceCheck = &Distances::distanceCheckEuclidian; 
+
 
 	inline void createAndPushDown(const std::vector<Type>& data)
 	{
@@ -485,6 +516,7 @@ private:
 
 			//point location in the inscribed grid (gridresolution) <<-- make this float safe
 
+
 			UINT32 x = static_cast<UINT32>(XMVectorGetX(cellIndex));
 			UINT32 y = static_cast<UINT32>(XMVectorGetY(cellIndex));
 			UINT32 z = static_cast<UINT32>(XMVectorGetZ(cellIndex));
@@ -513,8 +545,7 @@ private:
 					}
 
 					auto neigbour = insertMap.find(static_cast<UINT32>(index));
-					if (neigbour != END && 
-						XMComparisonAnyTrue(XMVector3GreaterOrEqualR(cellsize, XMVectorAbs(XMLoadFloat3(&neigbour->second.pos) - pos))))
+					if (neigbour != END && !distanceCheck(pos, XMLoadFloat3(&neigbour->second.pos), cellsize))
 					{
 						canInsert = false; 
 					}
@@ -698,13 +729,5 @@ private:
 		}
 
 	}
-
-	//checks wether point(pos) fulfilles the minimum distance requirement (min distance = cellsize[depth]. InsertMap: all points allready inserted
-	inline bool possionDiskRangeCheck(const std::unordered_map<UINT32, Type>& insertMap, const XMVECTOR& pos)
-	{
-
-
-	}
-
 
 };

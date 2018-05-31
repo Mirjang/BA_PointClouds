@@ -16,7 +16,6 @@ Nested_Octree_PossionDisk::Nested_Octree_PossionDisk()
 
 Nested_Octree_PossionDisk::~Nested_Octree_PossionDisk()
 {
-	SafeRelease(cbPerFrameBuffer);
 
 	for (auto it : vertexBuffers)
 	{
@@ -35,6 +34,10 @@ TwBar* Nested_Octree_PossionDisk::setUpTweakBar()
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Nested_Octree_PossionDisk::settings.gridResolution, NULL);
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Nested_Octree_PossionDisk::settings.expansionThreshold, NULL);
 	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Nested_Octree_PossionDisk::settings.maxDepth, NULL);
+
+	TwEnumVal distanceFunctionEV[] = { { OctreeFlags::dfEuclididan, "Euclidian distance" },{ OctreeFlags::dfManhattan, "Manhattan distance" } };
+	TwType twDistanceFunction = TwDefineEnum("Distance Function", distanceFunctionEV, ARRAYSIZE(distanceFunctionEV));
+	TwAddVarRW(tweakBar, "Distance Function", twDistanceFunction, &settings.distanceFunction, NULL);
 
 
 	TwAddSeparator(tweakBar, "sep", NULL);
@@ -64,7 +67,12 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_PossionDisk::settings.gridResolution, Nested_Octree_PossionDisk::settings.expansionThreshold, Nested_Octree_PossionDisk::settings.maxDepth, OctreeCreationMode::CreatePossionDisk);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, 
+		Nested_Octree_PossionDisk::settings.gridResolution,
+		Nested_Octree_PossionDisk::settings.expansionThreshold, 
+		Nested_Octree_PossionDisk::settings.maxDepth,
+		OctreeCreationMode::CreatePossionDisk,
+		OctreeFlags::createCube | settings.distanceFunction);	//depending on vert count this may take a while
 
 
 
@@ -77,22 +85,6 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 	//init GPU stuff
 
-	D3D11_BUFFER_DESC desc_perFrameBuffer;
-	ZeroMemory(&desc_perFrameBuffer, sizeof(D3D11_BUFFER_DESC));
-	desc_perFrameBuffer.Usage = D3D11_USAGE_DEFAULT;
-	desc_perFrameBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc_perFrameBuffer.ByteWidth = sizeof(cbLODPerFrame);
-
-	hr = device->CreateBuffer(&desc_perFrameBuffer, NULL, &cbPerFrameBuffer);
-	if (FAILED(hr))
-	{
-		if (FAILED(hr))
-		{
-			std::cout << "failed to create constant buffer " << hr << std::endl;
-			std::cin.get();
-		}
-	}
-
 	//load to GPU
 
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
@@ -103,8 +95,10 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 	//LOD_Utils::printTreeStructure(vertexBuffers); 
 
-	Effects::setSplatSize(octree->cellsizeForDepth[octree->reachedDepth].x); 
+	g_renderSettings.splatSize = octree->cellsizeForDepth[octree->reachedDepth].x; // basic sice recomendation
 
+	Effects::cbShaderSettings.maxLOD = octree->reachedDepth; 
+	g_statistics.maxDepth = octree->reachedDepth; 
 	std::cout << "=======================DONE========================\n" << std::endl;
 
 }
@@ -112,8 +106,6 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 void Nested_Octree_PossionDisk::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 	delete octree;
-
-	SafeRelease(cbPerFrameBuffer);
 
 	for (auto it : vertexBuffers)
 	{
@@ -132,9 +124,7 @@ void Nested_Octree_PossionDisk::draw(ID3D11DeviceContext* const context)
 
 	Effects::g_pCurrentPass->apply(context);
 
-	cbPerFrame.fixedLODdepth = Nested_Octree_PossionDisk::settings.drawFixedDepth ? Nested_Octree_PossionDisk::settings.fixedDepth : 0;
-	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);
-	context->GSSetConstantBuffers(1, 1, &cbPerFrameBuffer);
+
 
 	drawConstants.slope = tan(g_screenParams.fov / 2);
 	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
@@ -156,7 +146,6 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 	settings.LOD = max(settings.LOD, depth);
 
 
-
 	//thats how you turn an AABB into BS
 
 	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
@@ -168,14 +157,6 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
 
 
-
-
-	float worldradius = max(max(cellsize3f.x, cellsize3f.y), cellsize3f.z);
-
-	cbPerFrame.splatSize = worldradius;
-	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);	//unnecessary updates->precompute
-
-
 	/*
 	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
 	{
@@ -183,11 +164,15 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 	}
 	*/
 
-	worldradius = g_renderSettings.splatSize * (octree->reachedDepth - depth);
+	float worldradius = g_renderSettings.splatSize * (1<<octree->reachedDepth - depth);
 
 	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
 
 	settings.nodesDrawn++;
+
+	Effects::SetSplatSize(worldradius);
+	Effects::cbPerLOD.currentLOD = depth;
+	Effects::UpdatePerLODBuffer(context);
 
 	LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 	context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
@@ -221,6 +206,14 @@ void Nested_Octree_PossionDisk::drawRecursiveFixedDepth(ID3D11DeviceContext* con
 	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
+
+		float worldradius = g_renderSettings.splatSize * (1<<octree->reachedDepth - depth);
+
+
+		Effects::SetSplatSize(worldradius);
+		Effects::cbPerLOD.currentLOD = depth;
+		Effects::UpdatePerLODBuffer(context);
+
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 

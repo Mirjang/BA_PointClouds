@@ -18,7 +18,8 @@ Renderer::~Renderer()
 {
 	swapChain->SetFullscreenState(FALSE, NULL);
 
-	SafeRelease(cbPerObjectBuffer);
+	SafeRelease(Effects::cbShaderSettingsBuffer)
+	SafeRelease(Effects::cbPerObjectBuffer);
 
 	for (auto mesh : meshDict)
 	{
@@ -151,32 +152,47 @@ void Renderer::reloadShaders()
 	//create pass based on g_renderSettings
 
 	//TODO: there will be different passes based on selected LOD strategy
+	std::string vsname, gsname, psname;
+
+
+	vsname = g_renderSettings.drawLOD ? "VS_APPLY_DEPTHCOLOR" : "VS_PASSTHROUGH";
+
+	if (g_renderSettings.useLight)
+	{
+		if (g_renderSettings.determineSplatsize)
+		{
+			gsname = "GS_LIT_ADAPTIVESPLATSIZE";
+		}
+		else
+		{
+			gsname = "GS_LIT";
+		}
+	}
+	else
+	{
+		if (g_renderSettings.determineSplatsize)
+		{
+			gsname = "GS_UNLIT_ADAPTIVESPLATSIZE";
+		}
+		else
+		{
+			gsname = "GS_UNLIT";
+		}
+	}
+
 
 	switch (g_renderSettings.renderMode)
 	{
 	case QUAD_SPLAT:
 	{
-		if (g_renderSettings.useLight)
-		{
-			Effects::g_pCurrentPass = Effects::createPass("VS_PASSTHROUGH", "PS_QUAD_PHONG", "GS_QUAD_LIT", Effects::RS_STATE.CULL_NONE);
-		}
-		else
-		{
-			Effects::g_pCurrentPass = Effects::createPass("VS_SIMPLE", "PS_QUAD_NOLIGHT", "GS_QUAD", Effects::RS_STATE.CULL_NONE);
-		}
+		psname = g_renderSettings.useLight ? "PS_QUAD_PHONG" : "PS_QUAD_NOLIGHT";
+
 
 		break; 
 	}	
 	case CIRCLE_SPLAT:
 	{
-		if (g_renderSettings.useLight)
-		{
-			Effects::g_pCurrentPass = Effects::createPass("VS_PASSTHROUGH", "PS_CIRCLE_PHONG", "GS_CIRCLE_LIT", Effects::RS_STATE.CULL_NONE);
-		}
-		else
-		{
-			Effects::g_pCurrentPass = Effects::createPass("VS_SIMPLE", "PS_CIRCLE_NOLIGHT", "GS_CIRCLE", Effects::RS_STATE.CULL_NONE);
-		}
+		psname = g_renderSettings.useLight ? "PS_CIRCLE_PHONG" : "PS_CIRCLE_NOLIGHT";
 		break;
 	}
 	case ELLIPTIC_SPLAT:
@@ -186,10 +202,14 @@ void Renderer::reloadShaders()
 	}
 	}
 
+	Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE);
+
+
 
 	HRESULT result;
+	SafeRelease(Effects::cbShaderSettingsBuffer)
 
-	SafeRelease(cbPerObjectBuffer); 
+	SafeRelease(Effects::cbPerObjectBuffer);
 
 	d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 
@@ -198,9 +218,9 @@ void Renderer::reloadShaders()
 	ZeroMemory(&desc_perObjBuffer, sizeof(D3D11_BUFFER_DESC));
 	desc_perObjBuffer.Usage = D3D11_USAGE_DEFAULT;
 	desc_perObjBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc_perObjBuffer.ByteWidth = sizeof(Effects::cbPerObject);
+	desc_perObjBuffer.ByteWidth = sizeof(Effects::PerObject);
 
-	result = d3dDevice->CreateBuffer(&desc_perObjBuffer, NULL, &cbPerObjectBuffer);
+	result = d3dDevice->CreateBuffer(&desc_perObjBuffer, NULL, &Effects::cbPerObjectBuffer);
 	if (FAILED(result))
 	{
 		if (FAILED(result))
@@ -209,6 +229,32 @@ void Renderer::reloadShaders()
 			std::cin.get();
 		}
 	}
+
+
+	desc_perObjBuffer.ByteWidth = sizeof(Effects::ShaderSettings);
+
+	result = d3dDevice->CreateBuffer(&desc_perObjBuffer, NULL, &Effects::cbShaderSettingsBuffer);
+	if (FAILED(result))
+	{
+		if (FAILED(result))
+		{
+			std::cout << "failed to create constant buffer " << result << std::endl;
+			std::cin.get();
+		}
+	}
+
+	desc_perObjBuffer.ByteWidth = sizeof(Effects::PerLOD);
+
+	result = d3dDevice->CreateBuffer(&desc_perObjBuffer, NULL, &Effects::cbPerLODBuffer);
+	if (FAILED(result))
+	{
+		if (FAILED(result))
+		{
+			std::cout << "failed to create constant buffer " << result << std::endl;
+			std::cin.get();
+		}
+	}
+
 
 	D3D11_VIEWPORT viewport = { 0 };
 	viewport.Height = *pScreen_heigth;
@@ -220,7 +266,21 @@ void Renderer::reloadShaders()
 
 	transparents.clear(); 
 
+	Effects::cbShaderSettings.maxLOD = g_statistics.maxDepth; 
+
+	updateShaderSettings(); 
+
 }
+
+void Renderer::updateShaderSettings()
+{
+	Effects::cbShaderSettings.aspectRatio = static_cast<float>(g_screenParams.width) / static_cast<float>(g_screenParams.height);
+	d3dContext->UpdateSubresource(Effects::cbShaderSettingsBuffer, 0, NULL, &Effects::cbShaderSettings, 0, 0);
+	d3dContext->VSSetConstantBuffers(Effects::BufferSlots::bsShaderSettings, 1, &Effects::cbShaderSettingsBuffer);
+	d3dContext->GSSetConstantBuffers(Effects::BufferSlots::bsShaderSettings, 1, &Effects::cbShaderSettingsBuffer);
+	d3dContext->PSSetConstantBuffers(Effects::BufferSlots::bsShaderSettings, 1, &Effects::cbShaderSettingsBuffer);
+}
+
 
 void Renderer::loadMesh( const std::string& name)
 {
@@ -248,10 +308,12 @@ void Renderer::loadMesh( const std::string& name)
 
 	mesh->createLod(d3dDevice, g_lodSettings.mode); 
 
-
 	//init GPU buffers <--- moved to LOD implementatiions
 
 	meshDict.insert(std::pair<std::string, PointCloud*>(name, mesh));
+
+	updateShaderSettings();
+
 
 }
 
@@ -310,10 +372,12 @@ void Renderer::render(const std::string& meshName, const DirectX::XMFLOAT4X4*  _
 
 
 
-	d3dContext->UpdateSubresource(cbPerObjectBuffer, 0, NULL, &Effects::cbPerObj, 0, 0);
-	d3dContext->VSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
-	d3dContext->GSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
-	d3dContext->PSSetConstantBuffers(0, 1, &cbPerObjectBuffer);
+	d3dContext->UpdateSubresource(Effects::cbPerObjectBuffer, 0, NULL, &Effects::cbPerObj, 0, 0);
+	d3dContext->VSSetConstantBuffers(Effects::BufferSlots::bsPerObject, 1, &Effects::cbPerObjectBuffer);
+	d3dContext->GSSetConstantBuffers(Effects::BufferSlots::bsPerObject, 1, &Effects::cbPerObjectBuffer);
+	d3dContext->PSSetConstantBuffers(Effects::BufferSlots::bsPerObject, 1, &Effects::cbPerObjectBuffer);
+
+
 
 	//use lod specific draw function (performs i.e traversal aswell as the final draw)
 	result->second->lod->draw(d3dContext);

@@ -3,6 +3,9 @@
 #include "../datastructures/NestedOctree.h"
 
 #include "LodUtils.h"
+#include <DirectXMath.h>
+
+
 
 class Nested_Octree_PossionDisk :
 	public LOD
@@ -18,13 +21,13 @@ public:
 
 private: 
 
-
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
 	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth);
 
 	struct TweakSettings
 	{
+		
 		//----creation---
 		UINT32 gridResolution = 128;
 		/*
@@ -35,6 +38,7 @@ private:
 		//maximum depth for octree 
 		UINT32 maxDepth = 16;
 
+		UINT64 distanceFunction = OctreeFlags::dfEuclididan; 
 
 		//----rendering---
 		int fixedDepth = 0;
@@ -47,17 +51,6 @@ private:
 
 	};
 	static TweakSettings settings;
-
-
-	__declspec(align(16))
-		struct cbLODPerFrame
-	{
-		UINT32 fixedLODdepth;
-		float splatSize;
-	};
-	cbLODPerFrame cbPerFrame;
-
-	ID3D11Buffer* cbPerFrameBuffer = nullptr;
 
 	std::vector<OctreeVectorNode<LOD_Utils::VertexBuffer>> vertexBuffers;
 

@@ -20,7 +20,6 @@ public:
 
 private: 
 
-
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
 	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth); 
@@ -50,16 +49,6 @@ private:
 	};
 	static TweakSettings settings;
 
-
-	__declspec(align(16))
-	struct cbLODPerFrame
-	{
-		UINT32 fixedLODdepth;
-		float splatSize; 
-	};
-	cbLODPerFrame cbPerFrame;
-
-	ID3D11Buffer* cbPerFrameBuffer = nullptr;
 
 	std::vector<OctreeVectorNode<LOD_Utils::VertexBuffer>> vertexBuffers; 
 

@@ -16,7 +16,6 @@ Nested_Octree_Naive_Avg::Nested_Octree_Naive_Avg()
 
 Nested_Octree_Naive_Avg::~Nested_Octree_Naive_Avg()
 {
-	SafeRelease(cbPerFrameBuffer);
 
 	for (auto it : vertexBuffers)
 	{
@@ -67,23 +66,6 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	std::cout << "Created OctreeV1 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
 	std::cout << "Took: " << elapsed.count() << "ms" << std::endl; 
 
-	//init GPU stuff
-
-	D3D11_BUFFER_DESC desc_perFrameBuffer;
-	ZeroMemory(&desc_perFrameBuffer, sizeof(D3D11_BUFFER_DESC));
-	desc_perFrameBuffer.Usage = D3D11_USAGE_DEFAULT;
-	desc_perFrameBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc_perFrameBuffer.ByteWidth = sizeof(cbLODPerFrame);
-
-	hr = device->CreateBuffer(&desc_perFrameBuffer, NULL, &cbPerFrameBuffer);
-	if (FAILED(hr))
-	{
-		if (FAILED(hr))
-		{
-			std::cout << "failed to create constant buffer " << hr << std::endl;
-			std::cin.get();
-		}
-	}
 
 	//load to GPU
 
@@ -94,6 +76,11 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 	//delete octree; //remove this mb later if i wana do more stuff with the same tree --> delete internal nodes and apply different upsampling
 
 	//LOD_Utils::printTreeStructure(vertexBuffers); 
+
+	g_renderSettings.splatSize = octree->cellsizeForDepth[octree->reachedDepth].x; // so we are at least close
+	Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
+	g_statistics.maxDepth = octree->reachedDepth;
+
 
 	std::cout << "===================================================\n" << std::endl;
 
@@ -176,8 +163,6 @@ void Nested_Octree_Naive_Avg::recreate(ID3D11Device* const device, vector<Vertex
 {
 	delete octree;
 
-	SafeRelease(cbPerFrameBuffer);
-
 	for (auto it : vertexBuffers)
 	{
 		SafeRelease(it.data.buffer); 
@@ -194,10 +179,6 @@ void Nested_Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 	settings.LOD = 0; 
 
 	Effects::g_pCurrentPass->apply(context); 
-
-	cbPerFrame.fixedLODdepth = Nested_Octree_Naive_Avg::settings.drawFixedDepth ? Nested_Octree_Naive_Avg::settings.fixedDepth : 0;
-	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);
-	context->GSSetConstantBuffers(1, 1, &cbPerFrameBuffer);
 
 	drawConstants.slope = tan(g_screenParams.fov / 2); 
 	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
@@ -233,12 +214,6 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 
 
 
-	float worldradius = max(max(cellsize3f.x, cellsize3f.y), cellsize3f.z);
-
-	cbPerFrame.splatSize = worldradius;
-	context->UpdateSubresource(cbPerFrameBuffer, 0, NULL, &cbPerFrame, 0, 0);	//unnecessary updates->precompute
-
-
 	/*
 	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
 	{
@@ -246,13 +221,16 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	}
 	*/
 
-	worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth)); 
+	 float worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth)); 
 
 	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0]; 
 
 	if (pixelsize < g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
+		Effects::SetSplatSize(worldradius);
+		Effects::cbPerLOD.currentLOD = depth;
+		Effects::UpdatePerLODBuffer(context);
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset); 
@@ -288,6 +266,12 @@ void Nested_Octree_Naive_Avg::drawRecursiveFixedDepth(ID3D11DeviceContext* const
 	{
 		settings.nodesDrawn++;
 
+		float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+		Effects::SetSplatSize(worldradius);
+		Effects::cbPerLOD.currentLOD = depth; 
+		Effects::UpdatePerLODBuffer(context); 
+		
+
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
@@ -308,3 +292,4 @@ void Nested_Octree_Naive_Avg::drawRecursiveFixedDepth(ID3D11DeviceContext* const
 		}
 	}
 }
+

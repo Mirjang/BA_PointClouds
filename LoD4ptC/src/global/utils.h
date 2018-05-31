@@ -1,6 +1,4 @@
 #pragma once
-#ifndef UTIL_H
-#define UTIL_H
 
 #include <DirectXMath.h>
 #include <AntTweakBar.h>
@@ -27,6 +25,8 @@ struct Statistics
 {
 	float framesPerSec = 24;	//hehe 24 -- pointless value
 	int verticesDrawn = 0; 
+
+	UINT32 maxDepth = 0; 
 };
 
 extern Statistics g_statistics; 
@@ -67,14 +67,16 @@ struct RenderSettings
 	int lod = 0;	//LOD to be rendered
 	SplatType renderMode = SplatType::QUAD_SPLAT;
 	float splatSize = 0.0100f;
+	bool determineSplatsize = false; 
 	bool useLight = false; 
+	bool drawLOD = false; 
 };
 extern RenderSettings g_renderSettings;
 
 //set by AntTweakBar
 struct LODSettings
 {
-	LODMode mode = LODMode::NESTED_OCTREE_NAIVE;
+	LODMode mode = LODMode::NESTED_OCTREE_POSSIONDISK;
 	int pixelThreshhold = 1; 
 
 
@@ -82,6 +84,7 @@ struct LODSettings
 
 	//housekeeper
 	LODMode lastMode = LODMode::NONE;
+	int oldPixelThreshHold = -1; 
 	TwBar* twImplSettingsBar = nullptr; 
 };
 
@@ -98,4 +101,3 @@ struct ScreenParams
 
 extern ScreenParams g_screenParams; 
 
-#endif // !UTIL_H

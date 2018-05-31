@@ -24,7 +24,14 @@ namespace Effects
 	}
 
 	st_RS_STATES RS_STATE;
-	cbPerObject cbPerObj;
+	PerObject cbPerObj;
+	ShaderSettings cbShaderSettings;
+	PerLOD cbPerLOD; 
+
+
+	ID3D11Buffer* cbPerObjectBuffer = NULL;
+	ID3D11Buffer* cbPerLODBuffer = NULL;
+	ID3D11Buffer* cbShaderSettingsBuffer = NULL;
 
 	std::unordered_map<std::string, ID3D11VertexShader*> vertexShaders;
 	std::unordered_map<std::string, ID3D11GeometryShader*> geometryShaders;
@@ -232,10 +239,25 @@ namespace Effects
 
 	}
 
-	void setSplatSize(float size) 
+
+	void SetSplatSize(const float& size)
 	{
-		Effects::cbPerObj.splatRadius = size;
-		Effects::cbPerObj.splatDiameter = size + size;
+		
+		cbPerLOD.splatRadius.x = size; 
+		cbPerLOD.splatDiameter.x = size + size; 
+
+		cbPerLOD.splatRadius.y = size*cbShaderSettings.aspectRatio;
+		cbPerLOD.splatDiameter.y = cbPerLOD.splatRadius.y+ cbPerLOD.splatRadius.y;
+
+	}
+
+	void UpdatePerLODBuffer(ID3D11DeviceContext* const context)
+	{
+		context->UpdateSubresource(Effects::cbPerLODBuffer, 0, NULL, &Effects::cbPerLOD, 0, 0);
+
+		context->VSSetConstantBuffers(Effects::BufferSlots::bsPerLOD, 1, &Effects::cbPerLODBuffer);
+		context->GSSetConstantBuffers(Effects::BufferSlots::bsPerLOD, 1, &Effects::cbPerLODBuffer);
+		context->PSSetConstantBuffers(Effects::BufferSlots::bsPerLOD, 1, &Effects::cbPerLODBuffer);
 	}
 
 	/*

@@ -34,7 +34,7 @@ namespace Effects
 	struct Technique;
 
 
-	__declspec(align(16)) struct cbPerObject
+	__declspec(align(16)) struct PerObject
 	{
 		XMFLOAT4X4 wvpMat;
 		XMFLOAT4X4 worldMat;
@@ -42,12 +42,37 @@ namespace Effects
 		XMFLOAT4 lightColor;
 		XMFLOAT4 camPos;
 		XMFLOAT4 camDir;
-		float splatRadius;
-		float splatDiameter;
-
 	};
 
-	extern cbPerObject cbPerObj;
+
+	__declspec(align(16)) struct PerLOD
+	{
+		XMFLOAT2 splatRadius;
+		XMFLOAT2 splatDiameter;
+		UINT32 currentLOD;
+	};
+
+
+	__declspec(align(16)) struct ShaderSettings
+	{
+		XMFLOAT2 splatSize;
+		float pixelThreshhold; 
+		float screenheightDiv2; 
+		float aspectRatio; 
+		UINT32 maxLOD; 
+	};
+
+	extern PerLOD cbPerLOD; 
+	extern PerObject cbPerObj;
+	extern ShaderSettings cbShaderSettings;
+
+
+	enum BufferSlots
+	{
+		bsPerLOD = 0x00,
+		bsPerObject = 0x01, 
+		bsShaderSettings = 0x02
+	};
 
 	namespace config {
 		extern const wchar_t SHADER_FILE[];
@@ -65,8 +90,14 @@ namespace Effects
 	extern std::unordered_map<std::string, ID3D11GeometryShader*> geometryShaders;
 	extern std::unordered_map<std::string, ID3D11PixelShader*> pixelShaders;
 
+	extern ID3D11Buffer* cbPerObjectBuffer;
+	extern ID3D11Buffer* cbPerLODBuffer;
+	extern ID3D11Buffer* cbShaderSettingsBuffer;
+
 	extern ID3D11InputLayout* layout;
 	extern std::vector<ID3DBlob*> shaderblobs;
+
+
 
 	struct st_RS_STATES 
 	{
@@ -86,7 +117,10 @@ namespace Effects
 	//releases all com objects
 	extern void deinit();
 
-	extern void setSplatSize(float size);
+
+	extern void SetSplatSize(const float& size);
+	extern void UpdatePerLODBuffer(ID3D11DeviceContext* const context);
+
 
 	/*
 	*Returns Pass based on given config.. not sure if i should compile shaders here, 
