@@ -60,7 +60,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	//render loop
 
-	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateNaiveAverage);	//depending on vert count this may take a while
+	octree = new NestedOctree<Vertex>(vertices, Nested_Octree_Naive_Avg::settings.gridResolution, Nested_Octree_Naive_Avg::settings.expansionThreshold, Nested_Octree_Naive_Avg::settings.maxDepth, OctreeCreationMode::CreateNaiveAverage, OctreeFlags::createCube);	//depending on vert count this may take a while
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created OctreeV1 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
@@ -195,35 +195,38 @@ void Nested_Octree_Naive_Avg::draw(ID3D11DeviceContext* const context)
 
 }
 
-void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex,  XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
-	settings.LOD = max(settings.LOD, depth); 
+	settings.LOD = max(settings.LOD, depth);
 
 
 
 	//thats how you turn an AABB into BS
-	
+
 	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
 	XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
-	
+
 	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
-	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f); 
+	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
 
 	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
 
 
+	//clipping 
+	XMVECTOR octreeCenterCamSpace = XMVector4Transform(octreeCenterWorldpos, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
 
-
-	/*
-	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
+	//clipping 
+	float dist = octree->range.x / (1 << depth);
+	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2] / octreeCenterWorldpos.m128_f32[3]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 	{
-		return; 
+		return;
 	}
-	*/
 
-	 float worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth)); 
+	float worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth)); 
 
 	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0]; 
+
+
 
 	if (pixelsize < g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
@@ -240,17 +243,17 @@ void Nested_Octree_Naive_Avg::drawRecursive(ID3D11DeviceContext* const context, 
 	}
 	else 
 	{
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->cellsizeForDepth[depth + 1]) / 2;
+		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
 		UINT8 numchildren = 0;
 
 		for (int i = 0; i < 8; ++i)
 		{
 			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
 			{
-				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i); 
+				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
 				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
 
-				++numchildren; 
+				++numchildren;
 			}
 		}
 

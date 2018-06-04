@@ -101,7 +101,7 @@ private:
 	ID3D11DepthStencilView* depthStencilView = NULL;
 	ID3D11Texture2D* depthStencilBuffer = NULL;
 
-	XMFLOAT4X4 *m_View, *m_Proj;
+	XMFLOAT4X4 *m_Proj;
 
 	std::list<PointCloud*> transparents;
 };

@@ -36,8 +36,9 @@ namespace Effects
 
 	__declspec(align(16)) struct PerObject
 	{
-		XMFLOAT4X4 wvpMat;
 		XMFLOAT4X4 worldMat;
+		XMFLOAT4X4 wvpMat;
+		XMFLOAT4X4 viewMat;
 		XMFLOAT4 lightDir;
 		XMFLOAT4 lightColor;
 		XMFLOAT4 camPos;

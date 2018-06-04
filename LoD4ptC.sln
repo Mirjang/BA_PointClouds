@@ -6,9 +6,6 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoD4ptC", "LoD4ptC\LoD4ptC.vcxproj", "{EA476DC2-389E-4CF6-92AC-142218E37F71}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C952C6D1-3571-4D41-8F15-0594AF3E02F0}"
-	ProjectSection(SolutionItems) = preProject
-		LoD4ptC\AntTweakBar\Readme.txt = LoD4ptC\AntTweakBar\Readme.txt
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RessourceConverter", "RessourceConverter\RessourceConverter.vcxproj", "{9E56CA31-4319-4C95-8F2F-E7492C1EE902}"
 EndProject

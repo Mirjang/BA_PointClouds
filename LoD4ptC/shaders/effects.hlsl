@@ -20,8 +20,9 @@ cbuffer splatSizeBuffer : register(b0)
 
 cbuffer perObject : register(b1)
 {
-    float4x4 g_wvp;
-    float4x4 g_world; 
+    float4x4 m_world;
+    float4x4 m_wvp;
+    float4x4 m_view;
     float4 g_lightDir;
     float4 g_lightColor;
     float4 g_cameraPos; 
@@ -38,6 +39,7 @@ cbuffer shaderSettings : register(b2)
     uint g_maxLod; 
 };
 
+Texture1D treeStructure; 
 
 
 //--------------------------------------------------------------------------------------
@@ -147,6 +149,7 @@ PosNorCol VS_APPLY_DEPTHCOLOR(float4 inPos : POSITION, float3 inNormal : NORMAL,
 
     output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
     
+
     return output;
 }
 
@@ -160,11 +163,10 @@ PosNorCol VS_APPLY_DEPTHCOLOR(float4 inPos : POSITION, float3 inNormal : NORMAL,
 void GS_UNLIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
     PosWorldNorColTex output;
-    output.pos = mul(input[0].pos, g_wvp);
+    output.pos = mul(input[0].pos, m_wvp);
     output.normal = float3(0, 0, 0); 
     output.posWorld = float3(0, 0, 0); 
     output.color = input[0].color;
-
 
     output.pos.xy += float2(-1, 1)*g_splatradius; //left up
     output.tex.xy = float2(-1, -1);
@@ -191,9 +193,9 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
 {
     
     PosWorldNorColTex output;
-    output.pos = mul(input[0].pos, g_wvp);
-    output.posWorld = mul(input[0].pos, g_world);
-    output.normal = mul(input[0].normal, (float3x3) g_world);
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
     output.pos.xy += float2(-1, 1) * g_splatradius; //left up
@@ -213,14 +215,60 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
     OutStream.Append(output);
 }
 
-//only color for no lighting 
+//only color for no lighting calculates splat size on the fly (for subsampling techniques) 
 [maxvertexcount(4)]
 void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
     PosWorldNorColTex output;
-    output.pos = mul(input[0].pos, g_wvp);
+    output.pos = mul(input[0].pos, m_wvp);
     output.normal = float3(0, 0, 0);
     output.posWorld = float3(0, 0, 0);
+    output.color = input[0].color;
+
+
+    float depth = output.pos.z ;
+
+    float2 adaptedRadius = g_splatSize;
+
+    for (int i = g_maxLod; i; --i)
+    {
+        if (g_pixelThreshhold < (adaptedRadius.x / depth * 1080 / 2))
+        {
+            break;
+        }
+        adaptedRadius *= 2;
+
+    }
+
+
+    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
+
+    output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += adaptedDiameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+
+}
+
+//only color for no lighting 
+[maxvertexcount(4)]
+void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
     float depth = output.pos.z / output.pos.w;
@@ -231,8 +279,9 @@ void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<P
     {
         if (g_pixelThreshhold < (g_splatSize.x * depth * 1080 / 2))
         {
-            float scale = 1 << (g_maxLod - i);
+            float scale = 2 << (g_maxLod - i);
             adaptedRadius = g_splatSize * float2(scale, scale);
+            break;
         }
     }
 
@@ -256,6 +305,7 @@ void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<P
     OutStream.Append(output);
 
 }
+
 
 //--------------------------------------------------------------------------------------
 // Pixel Shaders

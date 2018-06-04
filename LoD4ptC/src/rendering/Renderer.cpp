@@ -348,8 +348,8 @@ void Renderer::newFrame( XMFLOAT4X4* _m_View, XMFLOAT4X4* _m_Proj, XMFLOAT4* cam
 
 	XMStoreFloat4(&Effects::cbPerObj.camPos, XMLoadFloat4(camPos));
 	XMStoreFloat4(&Effects::cbPerObj.camDir, XMLoadFloat4(camDir));
+	Effects::cbPerObj.viewMat = *_m_View;
 
-	m_View = _m_View;
 	m_Proj = _m_Proj; 
 	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 
@@ -368,7 +368,7 @@ void Renderer::render(const std::string& meshName, const DirectX::XMFLOAT4X4*  _
 
 	//Set and update constant buffers
 	XMStoreFloat4x4(&Effects::cbPerObj.worldMat, worldmat);
-	XMStoreFloat4x4(&Effects::cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(m_View) * XMLoadFloat4x4(m_Proj));
+	XMStoreFloat4x4(&Effects::cbPerObj.wvpMat, worldmat * XMLoadFloat4x4(&Effects::cbPerObj.viewMat) * XMLoadFloat4x4(m_Proj));
 
 
 

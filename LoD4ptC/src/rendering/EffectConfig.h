@@ -33,6 +33,7 @@ namespace Effects
 			"GS_UNLIT",
 			"GS_LIT",
 			"GS_UNLIT_ADAPTIVESPLATSIZE",
+			"GS_LIT_ADAPTIVESPLATSIZE"
 		};
 		const std::vector<std::string> PS_NAMES =
 		{
