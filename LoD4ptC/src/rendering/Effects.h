@@ -56,6 +56,8 @@ namespace Effects
 
 	__declspec(align(16)) struct ShaderSettings
 	{
+		XMFLOAT3 octreeMin; 
+		XMFLOAT3 octreeSize; 
 		XMFLOAT2 splatSize;
 		float pixelThreshhold; 
 		float screenheightDiv2; 
@@ -110,7 +112,6 @@ namespace Effects
 	};
 	
 	extern st_RS_STATES RS_STATE;
-
 
 	//Inits pipline states and loads shaders defined in intern::XX_NAMES from intern::SHADER_LOCATION
 	extern void init(ID3D11Device* device);

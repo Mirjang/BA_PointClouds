@@ -254,7 +254,7 @@ public:
 					currentNode.children |= 1 << i; //set flag at child location 
 
 					if(!currentNode.firstChildIndex)//only set for the first child (other children will be directly after first child (Breadth first)
-						currentNode.firstChildIndex = currenIndex + nodebuffer.size()+1; 
+						currentNode.firstChildIndex = currenIndex + nodebuffer.size()+1;
 					nodebuffer.push(pNode->children[i]); 
 				}
 			}

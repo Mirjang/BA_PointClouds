@@ -38,6 +38,7 @@ namespace Effects
 	std::unordered_map<std::string, ID3D11PixelShader*> pixelShaders;
 
 	ID3D11InputLayout* layout;
+
 	std::vector<ID3DBlob*> shaderblobs;
 
 	Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate)
@@ -115,6 +116,7 @@ namespace Effects
 		descRasterizer.CullMode = D3D11_CULL_NONE;
 		hr = device->CreateRasterizerState(&descRasterizer, &RS_STATE.CULL_NONE);
 		RS_FAILED(hr);
+
 
 		int bufferctr = 0;
 		shaderblobs.resize(config::GS_NAMES.size() + config::GS_NAMES.size() + config::PS_NAMES.size()); //alloc space for all shader blobs

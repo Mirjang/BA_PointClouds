@@ -5,11 +5,11 @@
 #include "LodUtils.h"
 #include <DirectXMath.h>
 
-struct char2
+struct PerNodeData
 {
-	char r, g;
-	char2() {}
-	char2(char r, char g) : r(r), g(g) {}
+	UINT16 childBits = 0; //first 8 bits are padding
+	UINT16 firstChildOffset = 0;
+	PerNodeData() {}
 
 };
 
@@ -28,8 +28,7 @@ public:
 private: 
 
 	void traverseTreeAndMarkVisibleNodes(XMVECTOR& center, const XMVECTOR& cameraPos);
-	std::vector<LOD_Utils::VertexBuffer> visibleNodes; 
-	std::vector<char2> visibleNodesBlob; 
+	std::vector<PerNodeData> visibleNodesBlob; 
 	ID3D11Texture1D* visibleNodesTexture;
 
 

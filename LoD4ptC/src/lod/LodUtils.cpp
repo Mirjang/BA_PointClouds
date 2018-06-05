@@ -5,6 +5,8 @@ namespace LOD_Utils
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device)
 	{
+		
+
 		HRESULT result;
 		ID3D11Buffer* vbuffer = nullptr;
 

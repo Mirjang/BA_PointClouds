@@ -32,6 +32,8 @@ cbuffer perObject : register(b1)
 
 cbuffer shaderSettings : register(b2)
 {
+	float3 g_octreeMin; 
+	float3 g_octreeRange; 
     float2 g_splatSize;
     float g_pixelThreshhold;
     float g_screenHeightDiv2; 
@@ -39,7 +41,7 @@ cbuffer shaderSettings : register(b2)
     uint g_maxLod; 
 };
 
-Texture1D treeStructure; 
+Texture1D<uint> treeStructure : register(t0); 
 
 
 //--------------------------------------------------------------------------------------
@@ -219,29 +221,77 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
 [maxvertexcount(4)]
 void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
-    PosWorldNorColTex output;
-    output.pos = mul(input[0].pos, m_wvp);
-    output.normal = float3(0, 0, 0);
-    output.posWorld = float3(0, 0, 0);
-    output.color = input[0].color;
+
+	uint depth = 0; 
+	
+	float4 inpos = input[0].pos; 
+
+	uint data = treeStructure.Load(int2(0, 0));
+	uint nextIndex = 0; 
+	uint children = data >> 16; //Upper half
+	uint firstChildIndex = 0; //lower half
+	uint offset = 0;
+	float3 center = g_octreeMin + g_octreeRange / 2; 
+
+	while (children)
+	{
+		++depth; 
+		data = treeStructure.Load(int2(nextIndex,0));
+		children = data >> 16; //Upper half
+		firstChildIndex = data & 0xFFFF; //lower half
+
+		uint childCount = 1; 
+		for (int i = 0; i < offset; ++i)
+		{
+			if (children&i)
+				++childCount; 
+		}
+
+		nextIndex += firstChildIndex + childCount;
 
 
-    float depth = output.pos.z ;
+		float childRange = g_octreeRange.x / (2 << depth);
 
-    float2 adaptedRadius = g_splatSize;
+		if (inpos.x > center.x)
+		{
+			center.x += childRange; 
+			offset += 1; 
+		}
+		else
+		{
+			center.x -= childRange;
+		}
+		if (inpos.y > center.y)
+		{
+			center.y += childRange; 
+			offset += 2;
+		}
+		else
+		{
+			center.y += childRange; 
+		}
+		if (inpos.z > center.z)
+		{
+			offset += 4;
+			center.z += childRange; 
+		}
+		else
+		{
+			center.z -= childRange; 
+		}
 
-    for (int i = g_maxLod; i; --i)
-    {
-        if (g_pixelThreshhold < (adaptedRadius.x / depth * 1080 / 2))
-        {
-            break;
-        }
-        adaptedRadius *= 2;
+		children &= 1 << offset; 
+	}
 
-    }
+	float2 adaptedRadius = g_splatSize * (1 << g_maxLod - depth) ;
+	float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
+	PosWorldNorColTex output;
+	output.pos = mul(input[0].pos, m_wvp);
+	output.normal = float3(0, 0, 0);
+	output.posWorld = float3(0, 0, 0);
+	output.color = input[0].color;
 
-    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
     output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
     output.tex.xy = float2(-1, -1);

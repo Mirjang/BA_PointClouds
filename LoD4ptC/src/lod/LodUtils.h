@@ -15,6 +15,7 @@ namespace LOD_Utils
 	{
 		ID3D11Buffer* buffer; 
 		UINT32 size; 
+		char marked = 0; 
 
 		VertexBuffer() {}
 		VertexBuffer(ID3D11Buffer* buffer, UINT32 size) : buffer(buffer), size(size)

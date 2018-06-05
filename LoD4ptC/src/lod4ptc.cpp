@@ -48,7 +48,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
 	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, ARRAYSIZE(splatTypeEV));
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
-	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.000001");
+	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
 	TwAddVarRW(twRenderSettings, "calc LOD splatsize", TW_TYPE_BOOLCPP, &g_renderSettings.determineSplatsize, "");
 	TwAddVarRW(twRenderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
 	TwAddVarRW(twRenderSettings, "Draw LOD", TW_TYPE_BOOLCPP, &g_renderSettings.drawLOD, "");
