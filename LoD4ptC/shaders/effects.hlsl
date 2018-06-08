@@ -102,7 +102,7 @@ inline uint calcDepth(float3 inpos)
 
     uint depth = 0; 
 
-    uint2 node = treeStructure.Load(int2(0, 0)); //x: child bits, y: first child offset
+    uint2 node = treeStructure.Load(int2(0, 0)); //params:(index,unused) returns: x: child bits, y: first child offset
     uint nextIndex = 0;
 
     float3 center = g_octreeMin.xyz + g_octreeRange.xyz / 2;
@@ -116,13 +116,13 @@ inline uint calcDepth(float3 inpos)
         //determine subgrid of current pt
         float3 childRange = g_octreeRange.xyz / float3(depthShift, depthShift, depthShift);
 
-        uint3 distCheck = uint3(center <= inpos.xyz);
+        int3 distCheck = int3(center <= inpos.xyz);
 
-        float3 signvec = 2 * distCheck - uint3(1, 1, 1); 
+        float3 signvec = 2 * distCheck - int3(1, 1, 1); 
 
         center += childRange * signvec;
 
-        distCheck *= uint3(1, 2, 4); 
+        distCheck *= int3(1, 2, 4); 
 
         offset = distCheck.x + distCheck.y + distCheck.z; 
 
@@ -130,6 +130,7 @@ inline uint calcDepth(float3 inpos)
 
         if (!(node.x & (1 << offset)))
             break;
+
 
         for (int i = 0; i < offset; ++i)
         {
@@ -140,6 +141,12 @@ inline uint calcDepth(float3 inpos)
         ++depth;
         nextIndex += node.y + childNr;
         node = treeStructure.Load(int2(nextIndex, 0));
+
+        if(node.x&0xff00)   //leaf node
+        {
+            return g_maxLod; 
+        }
+
     }
     return depth; 
 }
@@ -327,6 +334,12 @@ void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<Pos
     
     float2 adaptedRadius = calcSplatSize(depth);
     float2 adaptedDiameter = adaptedRadius + adaptedRadius;
+
+
+
+    float tmp = (1.0f * depth) / g_maxLod;
+
+    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
 
     output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
     output.tex.xy = float2(-1, -1);

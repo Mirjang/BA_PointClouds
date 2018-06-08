@@ -57,7 +57,6 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-	
 
 
 	//create here
@@ -108,75 +107,5 @@ void Kmeans_ClusterSplats::draw(ID3D11DeviceContext* const context)
 
 
 
-	drawConstants.slope = tan(g_screenParams.fov / 2);
-	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
-
-	if (settings.drawFixedDepth)
-	{
-		drawRecursiveFixedDepth(context, 0, 0);
-	}
-	else
-	{
-		drawRecursive(context, 0, XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
-	}
-
-
-}
-
-void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, const XMVECTOR& cameraPos, int depth)
-{
-	settings.LOD = max(settings.LOD, depth);
-
-
-	//thats how you turn an AABB into BS
-
-	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
-	XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
-
-	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
-	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
-
-	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
-
-
-	/*
-	if (XMVector3Dot(distance, XMLoadFloat4(&Effects::cbPerObj.camDir)).m128_f32[0] < worldradius) //z coord is behind camera
-	{
-	return;
-	}
-	*/
-
-	float worldradius = g_renderSettings.splatSize * (1 << octree->reachedDepth - depth);
-
-	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
-
-	settings.nodesDrawn++;
-
-	Effects::SetSplatSize(worldradius);
-	Effects::cbPerLOD.currentLOD = depth;
-	Effects::UpdatePerLODBuffer(context);
-
-	LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
-	context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
-	context->Draw(vb.size, 0);
-	g_statistics.verticesDrawn += vb.size;
-
-	if (pixelsize > g_lodSettings.pixelThreshhold && vertexBuffers[nodeIndex].children)
-	{
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->cellsizeForDepth[depth + 1]) / 2;
-		UINT8 numchildren = 0;
-
-		for (int i = 0; i < 8; ++i)
-		{
-			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
-			{
-				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
-				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
-
-				++numchildren;
-			}
-		}
-
-	}
 
 }

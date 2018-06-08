@@ -7,7 +7,7 @@
 
 struct PerNodeData
 {
-	UINT16 childBits = 0; //first 8 bits are padding
+	UINT16 childBits = 0; //first 8 bits are 0xff if node is leaf, 0 else
 	UINT16 firstChildOffset = 0;
 	PerNodeData() {}
 

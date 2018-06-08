@@ -4,6 +4,8 @@
 
 #include "LodUtils.h"
 
+#include <Eigen/dense>
+
 #include <DirectXMath.h>
 
 
@@ -22,13 +24,11 @@ public:
 
 private:
 
-	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
-	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth);
 
 	struct TweakSettings
 	{
-
+		
 		//----creation---
 		UINT32 gridResolution = 128;
 		/*

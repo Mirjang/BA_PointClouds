@@ -218,6 +218,14 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 
 	if (node.data.marked)
 	{
+		//for completeness, these cb vars are not used in adaptive splatsize calculation
+		settings.nodesDrawn++;
+		Effects::SetSplatSize(g_renderSettings.splatSize);	
+		Effects::cbPerLOD.currentLOD = depth;
+		Effects::UpdatePerLODBuffer(context);
+
+
+
 		settings.LOD = max(settings.LOD, depth);
 
 		node.data.marked = false; 
@@ -287,19 +295,20 @@ void Nested_Octree_PossionDisk::drawRecursiveFixedDepth(ID3D11DeviceContext* con
 void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center, const XMVECTOR& cameraPos)
 {
 	XMMATRIX wvpMat = XMLoadFloat4x4(&Effects::cbPerObj.wvpMat); 
+
+	wvpMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat) * XMLoadFloat4x4(&Effects::cbPerObj.viewMat);
+
 	center.m128_f32[3] = 1.0f;
 
 
 	{	//check if object is in view frustrum 
-		// thats how you turn an AABB into BS
-
 		XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, wvpMat);
 
 		//clipping 
 		float dist = octree->range.x;
 
 		//is BS in front of camera? 
-		if (- dist * sqrt(2.0f) > octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+		if (- dist * sqrt(2.0f) > octreeCenterCamSpace.m128_f32[2]) //object is behind camera
 		{
 			return;
 		}
@@ -330,6 +339,7 @@ void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center
 		centerBuffer.pop();
 
 		OctreeVectorNode<LOD_Utils::VertexBuffer>& node = vertexBuffers[currentIndex];
+		node.data.marked = true;
 
 
 		if (currentIndex > nextLevelIndex)
@@ -339,16 +349,18 @@ void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center
 		}
 	//	std::cout << currentIndex << std::endl; 
 
-		node.data.marked = true;
 
 		PerNodeData nodeDesc;
-		nodeDesc.firstChildOffset = indexbuffer.size() + 1; 
 
-		char childCounter = 0;
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (4 << currentDepth); //range/ (2^(depth+1)
 
 		if (node.children)
 		{
+			char childCounter = 0;
+			XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (4 << currentDepth); //range/ (2^(depth+1)
+
+
+			nodeDesc.firstChildOffset = indexbuffer.size() + 1;
+
 			for (int i = 0; i < 8; ++i)
 			{
 				if (node.children&(1 << i)) //child exists
@@ -366,22 +378,28 @@ void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center
 
 					float boundingDiameter = sqrt(2.0f) * dist;
 
-					//check if child lies in ViewFrustrum
+					//TODO: check if child lies in ViewFrustrum
 
-					if (-boundingDiameter < octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+					bool frustumCheckFailed =
+						abs(octreeCenterCamSpace.m128_f32[0] / octreeCenterCamSpace.m128_f32[3]) > boundingDiameter // left/right
+						|| abs(octreeCenterCamSpace.m128_f32[1] / octreeCenterCamSpace.m128_f32[3]) > boundingDiameter // top/bottom
+						|| - boundingDiameter > octreeCenterCamSpace.m128_f32[2] / octreeCenterCamSpace.m128_f32[3]; //behind camera
+
+					if ( true || !frustumCheckFailed) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 					{
 						//float distance = XMVector3Length(childCenter - cameraPos).m128_f32[0];
 
 						float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - currentDepth));
-						float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / octreeCenterCamSpace.m128_f32[2];
+						worldradius = octree->cellsizeForDepth[currentDepth].x;
+
+						float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 
 						if (pixelsize > g_lodSettings.pixelThreshhold) // --> expand node
 						{
 
 							nodeDesc.childBits |= 1 << i; //set flag at child location 
 
-							indexbuffer.push(node.firstChildIndex + childCounter++);
-
+							indexbuffer.push(node.firstChildIndex + childCounter);
 
 							XMFLOAT3 childCenter3f;
 							XMStoreFloat3(&childCenter3f, childCenter);
@@ -389,9 +407,17 @@ void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center
 						}
 
 					}
+					++childCounter;
+
 				}//end foreach existing child
 			}
 		}
+		else //leaf node
+		{
+			nodeDesc.childBits = 0xff00;
+		}
+
+
 		visibleNodesBlob.push_back(nodeDesc);
 	}
 
