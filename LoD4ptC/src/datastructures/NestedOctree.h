@@ -245,6 +245,7 @@ public:
 			{
 				currentNode.data = assignFunction(pNode, assignFunctionArgs...);
 			}
+			currentNode.firstChildIndex = currenIndex + nodebuffer.size() + 1;
 
 			int childCounter = 0; 
 			for (int i = 0; i < 8; ++i)
@@ -253,8 +254,6 @@ public:
 				{
 					currentNode.children |= 1 << i; //set flag at child location 
 
-					if(!currentNode.firstChildIndex)//only set for the first child (other children will be directly after first child (Breadth first)
-						currentNode.firstChildIndex = currenIndex + nodebuffer.size()+1;
 					nodebuffer.push(pNode->children[i]); 
 				}
 			}

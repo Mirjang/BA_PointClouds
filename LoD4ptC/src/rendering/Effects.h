@@ -56,8 +56,8 @@ namespace Effects
 
 	__declspec(align(16)) struct ShaderSettings
 	{
-		XMFLOAT3 octreeMin; 
-		XMFLOAT3 octreeSize; 
+		XMFLOAT4 octreeMin; 
+		XMFLOAT4 octreeSize; 
 		XMFLOAT2 splatSize;
 		float pixelThreshhold; 
 		float screenheightDiv2; 

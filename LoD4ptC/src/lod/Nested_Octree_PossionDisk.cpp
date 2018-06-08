@@ -17,6 +17,10 @@ Nested_Octree_PossionDisk::Nested_Octree_PossionDisk()
 Nested_Octree_PossionDisk::~Nested_Octree_PossionDisk()
 {
 
+	visibleNodesBlob.clear();
+	SafeRelease(visibleNodesSRV);
+	SafeRelease(visibleNodesTexture);
+
 	for (auto it : vertexBuffers)
 	{
 		SafeRelease(it.data.buffer);
@@ -65,7 +69,7 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 	//render loop
 
-
+	this->device = device; 
 
 	octree = new NestedOctree<Vertex>(vertices, 
 		Nested_Octree_PossionDisk::settings.gridResolution,
@@ -98,8 +102,9 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 	g_renderSettings.splatSize = octree->cellsizeForDepth[octree->reachedDepth].x; // basic sice recomendation
 
 	Effects::cbShaderSettings.maxLOD = octree->reachedDepth; 
-	Effects::cbShaderSettings.octreeSize = octree->range; 
-	Effects::cbShaderSettings.octreeMin = octree->boundsMin; 
+	XMStoreFloat4(&Effects::cbShaderSettings.octreeSize, XMLoadFloat3(&octree->range)); 
+	XMStoreFloat4(&Effects::cbShaderSettings.octreeMin, XMLoadFloat3(&octree->boundsMin));
+
 	g_statistics.maxDepth = octree->reachedDepth; 
 	std::cout << "=======================DONE========================\n" << std::endl;
 
@@ -115,8 +120,13 @@ void Nested_Octree_PossionDisk::recreate(ID3D11Device* const device, vector<Vert
 	}
 	vertexBuffers.clear();
 
+	visibleNodesBlob.clear();
+	SafeRelease(visibleNodesSRV);
+	SafeRelease(visibleNodesTexture);
+
 	create(device, vertices);
 }
+
 
 void Nested_Octree_PossionDisk::draw(ID3D11DeviceContext* const context)
 {
@@ -129,108 +139,99 @@ void Nested_Octree_PossionDisk::draw(ID3D11DeviceContext* const context)
 
 
 	drawConstants.slope = tan(g_screenParams.fov / 2);
-	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
+	drawConstants.pixelSizeConstant = g_screenParams.height / 2.0f;
+
+
+	traverseTreeAndMarkVisibleNodes(XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos));
+
+
+	if (!visibleNodesBlob.size()) //object is not visible
+	{
+		return; 
+	}
+
+	D3D11_TEXTURE1D_DESC desc = { 0 };
+	desc.ArraySize = 1;
+	desc.Width = visibleNodesBlob.size();
+	desc.Format = DXGI_FORMAT_R16G16_UINT;
+	desc.Usage = D3D11_USAGE_IMMUTABLE;
+	desc.MipLevels = 1; 
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE; 
+
+	
+
+
+
+	D3D11_SUBRESOURCE_DATA data = { 0 };
+	data.pSysMem = visibleNodesBlob.data();
+
+	HRESULT hr; 
+
+	hr = device->CreateTexture1D(&desc, &data, &visibleNodesTexture);
+
+	if (FAILED(hr))
+	{
+		std::cout << "Failed to upload visible node structure" << std::endl; 
+
+		std::cin.get();
+	}
+
+
+	/*
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc; 
+	srvDesc.Format = DXGI_FORMAT_R16G16_UINT;
+	srvDesc.Texture1D.MipLevels = 1;
+	srvDesc.Texture1D.MostDetailedMip = 0; 
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D; */
+
+	hr = device->CreateShaderResourceView(visibleNodesTexture, NULL, &visibleNodesSRV); 
+
+	if (FAILED(hr))
+	{
+		std::cout << "Failed to create visible node structure SRV" << std::endl;
+
+		std::cin.get();
+	}
+
+	context->GSSetShaderResources(0, 1, &visibleNodesSRV); 
 
 	if (settings.drawFixedDepth)
 	{
-
-
-		drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0); 
-		/*
-		char mark = (vertexBuffers[0].data.marked + 1)%256; 
-		traverseTreeAndMarkVisibleNodes(XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos)); 
-
-		D3D11_TEXTURE1D_DESC desc = { 0 };
-		desc.ArraySize = 1; 
-		desc.Width = visibleNodesBlob.size(); 
-		desc.Format = DXGI_FORMAT_R32_TYPELESS; 
-		desc.Usage = D3D11_USAGE_DEFAULT; 
-	
-		D3D11_SUBRESOURCE_DATA data = { 0 }; 
-		data.pSysMem = visibleNodesBlob.data(); 
-
-		device->CreateTexture1D(&desc, &data, &visibleNodesTexture); 
-
-		for (auto node : vertexBuffers)
-		{
-			LOD_Utils::VertexBuffer& vb = node.data; 
-
-			if (vb.marked == mark)
-			{
-				context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
-				context->Draw(vb.size, 0);
-				g_statistics.verticesDrawn += vb.size;
-			}
-		}
-
-		visibleNodesBlob.clear();
-		SafeRelease(visibleNodesTexture); 
-		*/
+		drawRecursiveFixedDepth(context, 0, 0);
 	}
 	else
 	{
-		drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
+		drawRecursive(context, 0, 0);
 	}
+
+	visibleNodesBlob.clear();
+	SafeRelease(visibleNodesSRV);
+	SafeRelease(visibleNodesTexture);
+	
 
 
 }
 
-void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
-	settings.LOD = max(settings.LOD, depth);
+	OctreeVectorNode<LOD_Utils::VertexBuffer>& node = vertexBuffers[nodeIndex]; 
 
-
-	//thats how you turn an AABB into BS
-
-	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
-	XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
-
-	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
-	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
-
-	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
-
-	octreeCenterWorldpos.m128_f32[3] = 1.0f; 
-
-	
-
-	XMVECTOR octreeCenterCamSpace = XMVector4Transform(octreeCenterWorldpos, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
-
-	//clipping 
-	float dist = octree->range.x / (1 << depth);
-	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2] / octreeCenterWorldpos.m128_f32[3]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+	if (node.data.marked)
 	{
-		return;
-	}
+		settings.LOD = max(settings.LOD, depth);
 
-	float worldradius = g_renderSettings.splatSize * (1 << octree->reachedDepth - depth);
-
-	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
-
-	settings.nodesDrawn++;
-
-	Effects::SetSplatSize(worldradius);
-	Effects::cbPerLOD.currentLOD = depth;
-	Effects::UpdatePerLODBuffer(context);
-
-	LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
-	context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
-	context->Draw(vb.size, 0);
-	g_statistics.verticesDrawn += vb.size;
-
-	if (pixelsize > g_lodSettings.pixelThreshhold && vertexBuffers[nodeIndex].children)
-	{
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth); 
-		UINT8 numchildren = 0;
-
+		node.data.marked = false; 
+		++settings.nodesDrawn;
+		context->IASetVertexBuffers(0, 1, &node.data.buffer, &drawConstants.strides, &drawConstants.offset);
+		context->Draw(node.data.size, 0);
+		g_statistics.verticesDrawn += node.data.size;
+		char numChildren = 0; 
 		for (int i = 0; i < 8; ++i)
 		{
-			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+			if (node.children&(1 << i)) //child exists
 			{
-				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
-				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
-
-				++numchildren;
+				drawRecursive(context, node.firstChildIndex + numChildren, depth+1);
+				++numChildren;
 			}
 		}
 
@@ -241,12 +242,20 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 
 void Nested_Octree_PossionDisk::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
+	LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+	
+	if (!vb.marked)
+	{
+		return; 
+	}
 
-	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
+	vb.marked = false; 
+
+	if (depth <= settings.fixedDepth || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
 
-		float worldradius = g_renderSettings.splatSize * (1<<octree->reachedDepth - depth);
+		float worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth));
 
 
 		Effects::SetSplatSize(worldradius);
@@ -254,7 +263,6 @@ void Nested_Octree_PossionDisk::drawRecursiveFixedDepth(ID3D11DeviceContext* con
 		Effects::UpdatePerLODBuffer(context);
 
 
-		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
 		context->Draw(vb.size, 0);
@@ -278,107 +286,175 @@ void Nested_Octree_PossionDisk::drawRecursiveFixedDepth(ID3D11DeviceContext* con
 
 void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center, const XMVECTOR& cameraPos)
 {
+	XMMATRIX wvpMat = XMLoadFloat4x4(&Effects::cbPerObj.wvpMat); 
+	center.m128_f32[3] = 1.0f;
+
+
+	{	//check if object is in view frustrum 
+		// thats how you turn an AABB into BS
+
+		XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, wvpMat);
+
+		//clipping 
+		float dist = octree->range.x;
+
+		//is BS in front of camera? 
+		if (- dist * sqrt(2.0f) > octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+		{
+			return;
+		}
+
+	}
+
 
 	std::queue<XMFLOAT3> centerBuffer; 
 	std::queue<UINT32> indexbuffer;
 
 	UINT32 currentDepth = 0; 
 
-	UINT32 nextLevelIndex = 0; 
+	UINT32 nextLevelIndex = vertexBuffers[0].firstChildIndex -1; //-1 so we can use > instead of >= when checking if we are at the next lvl
 
 	indexbuffer.push(0);
-	XMFLOAT3 center3f;
-	XMStoreFloat3(&center3f, center); 
-	centerBuffer.push(center3f); 
+	XMFLOAT3 rootCenter3f;
+	XMStoreFloat3(&rootCenter3f, center);
+	centerBuffer.push(rootCenter3f);
+
 
 	while (!indexbuffer.empty())
 	{
-
 		UINT32 currentIndex = indexbuffer.front();
 		indexbuffer.pop();
 
-		center3f = centerBuffer.front(); 
+		XMFLOAT3& center3f = centerBuffer.front();
 		center = XMLoadFloat3(&center3f); 
 		centerBuffer.pop();
 
+		OctreeVectorNode<LOD_Utils::VertexBuffer>& node = vertexBuffers[currentIndex];
 
-		if (currentIndex == nextLevelIndex)
+
+		if (currentIndex > nextLevelIndex)
 		{
-			++currentDepth; 
-			nextLevelIndex = 0; 
+			++currentDepth;
+			nextLevelIndex = node.firstChildIndex - 1;	//-1 so we can use > instead of >= when checking if we are at the next lvl
 		}
+	//	std::cout << currentIndex << std::endl; 
 
-		OctreeVectorNode<LOD_Utils::VertexBuffer>& node = vertexBuffers[currentIndex]; 
-		node.data.marked = (node.data.marked + 1) % 256;
+		node.data.marked = true;
 
 		PerNodeData nodeDesc;
-		nodeDesc.firstChildOffset = indexbuffer.size(); 
+		nodeDesc.firstChildOffset = indexbuffer.size() + 1; 
 
-		int childCounter = 0;
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << currentDepth);
+		char childCounter = 0;
+		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (4 << currentDepth); //range/ (2^(depth+1)
 
-
-		for (int i = 0; i < 8; ++i)
+		if (node.children)
 		{
-			if ( node.children&(1<<i)) //child exists
+			for (int i = 0; i < 8; ++i)
 			{
-				// thats how you turn an AABB into BS
-				XMVECTOR childCenter = center + nextLevelCenterOffset * LOD_Utils::signVector(i); 
-				XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
-				XMVECTOR octreeCenterWorldpos = XMVector3Transform(childCenter, worldMat);
-
-				XMFLOAT3& cellsize3f = octree->cellsizeForDepth[currentDepth];
-				XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
-
-				XMVECTOR distance = octreeCenterWorldpos - cameraPos;
-
-				childCenter.m128_f32[3] = 1.0f;
-
-
-				XMVECTOR octreeCenterCamSpace = XMVector4Transform(childCenter, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
-
-				//clipping 
-				float dist = octree->range.x / (1 << currentDepth);
-
-				
-				//check if child lies in ViewFrustrum
-				if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2] / octreeCenterWorldpos.m128_f32[3]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+				if (node.children&(1 << i)) //child exists
 				{
+					// thats how you turn an AABB into BS
+					XMVECTOR childCenter = center + nextLevelCenterOffset * LOD_Utils::signVector(i);
 
-					float worldradius = g_renderSettings.splatSize * (1 << octree->reachedDepth - currentDepth);
+					childCenter.m128_f32[3] = 1.0f;	//dont think i need to do perspective division but just in case
 
-					float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
 
-					settings.nodesDrawn++;
+					XMVECTOR octreeCenterCamSpace = XMVector4Transform(childCenter, wvpMat);
 
-					if (pixelsize > g_lodSettings.pixelThreshhold && node.children)
+					//clipping 
+					float dist = octree->range.x / (2 << currentDepth); // 1<<depth+1
+
+					float boundingDiameter = sqrt(2.0f) * dist;
+
+					//check if child lies in ViewFrustrum
+
+					if (-boundingDiameter < octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 					{
+						//float distance = XMVector3Length(childCenter - cameraPos).m128_f32[0];
 
-						nodeDesc.childBits |= 1 << i; //set flag at child location 
+						float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - currentDepth));
+						float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / octreeCenterCamSpace.m128_f32[2];
 
-						if (!nodeDesc.firstChildOffset)//only set for the first child (other children will be directly after first child (Breadth first)
-							nodeDesc.firstChildOffset = indexbuffer.size() + childCounter;
-						childCounter++;
-
-						if (!nextLevelIndex)
+						if (pixelsize > g_lodSettings.pixelThreshhold) // --> expand node
 						{
-							nextLevelIndex = currentIndex + nodeDesc.firstChildOffset;
+
+							nodeDesc.childBits |= 1 << i; //set flag at child location 
+
+							indexbuffer.push(node.firstChildIndex + childCounter++);
+
+
+							XMFLOAT3 childCenter3f;
+							XMStoreFloat3(&childCenter3f, childCenter);
+							centerBuffer.push(childCenter3f);
 						}
 
-						indexbuffer.push(currentIndex + nodeDesc.firstChildOffset);
-						XMFLOAT3 childCenter3f;
-						XMStoreFloat3(&childCenter3f, childCenter);
-						centerBuffer.push(childCenter3f);
 					}
-
-				}
+				}//end foreach existing child
 			}
 		}
-		
 		visibleNodesBlob.push_back(nodeDesc);
-
 	}
 
+}
 
+
+/* old draw recursive code
+settings.LOD = max(settings.LOD, depth);
+
+
+//thats how you turn an AABB into BS
+
+XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
+XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
+
+XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
+XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
+
+XMVECTOR distance = octreeCenterWorldpos - cameraPos;
+
+octreeCenterWorldpos.m128_f32[3] = 1.0f;
+
+
+
+XMVECTOR octreeCenterCamSpace = XMVector4Transform(octreeCenterWorldpos, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
+
+//clipping 
+float dist = octree->range.x / (1 << depth);
+if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2] / octreeCenterCamSpace.m128_f32[3]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+{
+	return;
+}
+
+float worldradius = g_renderSettings.splatSize * (1 << octree->reachedDepth - depth);
+
+float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
+
+settings.nodesDrawn++;
+
+Effects::SetSplatSize(worldradius);
+Effects::cbPerLOD.currentLOD = depth;
+Effects::UpdatePerLODBuffer(context);
+
+LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
+context->Draw(vb.size, 0);
+g_statistics.verticesDrawn += vb.size;
+
+if (pixelsize > g_lodSettings.pixelThreshhold && vertexBuffers[nodeIndex].children)
+{
+	XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
+	UINT8 numchildren = 0;
+
+	for (int i = 0; i < 8; ++i)
+	{
+		if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+		{
+			XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
+			drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
+
+			++numchildren;
+		}
+	}
 
 }
+*/

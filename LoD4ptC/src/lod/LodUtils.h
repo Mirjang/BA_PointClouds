@@ -15,7 +15,7 @@ namespace LOD_Utils
 	{
 		ID3D11Buffer* buffer; 
 		UINT32 size; 
-		char marked = 0; 
+		bool marked = false; 
 
 		VertexBuffer() {}
 		VertexBuffer(ID3D11Buffer* buffer, UINT32 size) : buffer(buffer), size(size)
@@ -27,7 +27,11 @@ namespace LOD_Utils
 
 	inline DirectX::XMVECTOR signVector(UINT index)
 	{
-		return XMVectorSet(index & 1 ? 1.0f : -1.0f, index & 2 ? 1.0f : -1.0f, index & 4 ? 1 : -1.0f, 1.0f); 
+		return XMVectorSet(
+			index & 1 ? 1.0f : -1.0f,
+			index & 2 ? 1.0f : -1.0f,
+			index & 4 ? 1.0f : -1.0f, 
+			1.0f); 
 	}
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device);

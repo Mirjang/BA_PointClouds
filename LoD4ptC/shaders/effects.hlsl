@@ -32,8 +32,8 @@ cbuffer perObject : register(b1)
 
 cbuffer shaderSettings : register(b2)
 {
-	float3 g_octreeMin; 
-	float3 g_octreeRange; 
+	float4 g_octreeMin; 
+	float4 g_octreeRange; 
     float2 g_splatSize;
     float g_pixelThreshhold;
     float g_screenHeightDiv2; 
@@ -41,7 +41,7 @@ cbuffer shaderSettings : register(b2)
     uint g_maxLod; 
 };
 
-Texture1D<uint> treeStructure : register(t0); 
+Texture1D<uint2> treeStructure : register(t0); 
 
 
 //--------------------------------------------------------------------------------------
@@ -97,6 +97,61 @@ struct PosWorldNorColTex
 // Functions
 //--------------------------------------------------------------------------------------
 
+inline uint calcDepth(float3 inpos)
+{
+
+    uint depth = 0; 
+
+    uint2 node = treeStructure.Load(int2(0, 0)); //x: child bits, y: first child offset
+    uint nextIndex = 0;
+
+    float3 center = g_octreeMin.xyz + g_octreeRange.xyz / 2;
+
+    while (node.x)
+    {
+        uint offset = 0;
+
+
+        uint depthShift = (4 << depth); 
+        //determine subgrid of current pt
+        float3 childRange = g_octreeRange.xyz / float3(depthShift, depthShift, depthShift);
+
+        uint3 distCheck = uint3(center <= inpos.xyz);
+
+        float3 signvec = 2 * distCheck - uint3(1, 1, 1); 
+
+        center += childRange * signvec;
+
+        distCheck *= uint3(1, 2, 4); 
+
+        offset = distCheck.x + distCheck.y + distCheck.z; 
+
+        uint childNr = 0;
+
+        if (!(node.x & (1 << offset)))
+            break;
+
+        for (int i = 0; i < offset; ++i)
+        {
+            if (node.x & (1 << i)) //skip children that come before the cell the pt lies in
+                ++childNr;
+        }
+
+        ++depth;
+        nextIndex += node.y + childNr;
+        node = treeStructure.Load(int2(nextIndex, 0));
+    }
+    return depth; 
+}
+
+inline float2 calcSplatSize(uint depth)
+{
+    
+    float scale = (1 << g_maxLod - depth);
+    return g_splatSize * float2(scale, scale);
+}
+
+
 inline float4 lightning_phong(float3 worldPos, float3 normal)
 {
     float3 r = reflect(-g_lightDir.xyz, normal);
@@ -107,13 +162,12 @@ inline float4 lightning_phong(float3 worldPos, float3 normal)
     float cspec = 0.4f;
     float espec = 200; // specular exponent
     float camb = 0.15f;
-    float cglow = 0.0f;
 
 
 	//return g_Diffuse.Sample(samAnisotropic, Input.Tex);
     return (cdiff * saturate(dot(normal, g_lightDir.xyz))
 		+ cspec * pow(saturate(dot(r, v)), espec)
-		+ cglow) * g_lightColor;
+		+ camb) * g_lightColor;
 };
 
 
@@ -222,76 +276,24 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
 void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
 
-	uint depth = 0; 
-	
-	float4 inpos = input[0].pos; 
-
-	uint data = treeStructure.Load(int2(0, 0));
-	uint nextIndex = 0; 
-	uint children = data >> 16; //Upper half
-	uint firstChildIndex = 0; //lower half
-	uint offset = 0;
-	float3 center = g_octreeMin + g_octreeRange / 2; 
-
-	while (children)
-	{
-		++depth; 
-		data = treeStructure.Load(int2(nextIndex,0));
-		children = data >> 16; //Upper half
-		firstChildIndex = data & 0xFFFF; //lower half
-
-		uint childCount = 1; 
-		for (int i = 0; i < offset; ++i)
-		{
-			if (children&i)
-				++childCount; 
-		}
-
-		nextIndex += firstChildIndex + childCount;
-
-
-		float childRange = g_octreeRange.x / (2 << depth);
-
-		if (inpos.x > center.x)
-		{
-			center.x += childRange; 
-			offset += 1; 
-		}
-		else
-		{
-			center.x -= childRange;
-		}
-		if (inpos.y > center.y)
-		{
-			center.y += childRange; 
-			offset += 2;
-		}
-		else
-		{
-			center.y += childRange; 
-		}
-		if (inpos.z > center.z)
-		{
-			offset += 4;
-			center.z += childRange; 
-		}
-		else
-		{
-			center.z -= childRange; 
-		}
-
-		children &= 1 << offset; 
-	}
-
-	float2 adaptedRadius = g_splatSize * (1 << g_maxLod - depth) ;
-	float2 adaptedDiameter = adaptedRadius + adaptedRadius;
-
 	PosWorldNorColTex output;
 	output.pos = mul(input[0].pos, m_wvp);
 	output.normal = float3(0, 0, 0);
 	output.posWorld = float3(0, 0, 0);
 	output.color = input[0].color;
 
+    float depth = calcDepth(input[0].pos.xyz);
+
+
+        
+    float tmp = (1.0f * depth) / g_maxLod;
+
+    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+    
+
+    
+    float2 adaptedRadius = calcSplatSize(depth);
+    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
     output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
     output.tex.xy = float2(-1, -1);
@@ -321,21 +323,9 @@ void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<Pos
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float depth = output.pos.z / output.pos.w;
-
-    float2 adaptedRadius = g_splatSize;
+    float depth = calcDepth(input[0].pos.xyz);
     
-    for (int i = g_maxLod; i; --i)
-    {
-        if (g_pixelThreshhold < (g_splatSize.x * depth * 1080 / 2))
-        {
-            float scale = 2 << (g_maxLod - i);
-            adaptedRadius = g_splatSize * float2(scale, scale);
-            break;
-        }
-    }
-
-
+    float2 adaptedRadius = calcSplatSize(depth);
     float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
     output.pos.xy += float2(-1, 1) * adaptedRadius; //left up

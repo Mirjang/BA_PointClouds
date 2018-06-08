@@ -27,12 +27,13 @@ public:
 
 private: 
 
-	void traverseTreeAndMarkVisibleNodes(XMVECTOR& center, const XMVECTOR& cameraPos);
+	inline void traverseTreeAndMarkVisibleNodes(XMVECTOR& center, const XMVECTOR& cameraPos);
 	std::vector<PerNodeData> visibleNodesBlob; 
-	ID3D11Texture1D* visibleNodesTexture;
+	ID3D11Texture1D* visibleNodesTexture = nullptr;
+	ID3D11ShaderResourceView* visibleNodesSRV = nullptr;
 
 
-	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
+	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth);
 
 
 	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth);
@@ -74,7 +75,7 @@ private:
 	struct DrawConstants
 	{
 		float slope;
-		float heightDiv2DivSlope;
+		float pixelSizeConstant;
 		UINT strides = sizeof(Vertex);
 		UINT offset = 0;
 

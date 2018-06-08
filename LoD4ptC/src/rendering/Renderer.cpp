@@ -6,6 +6,8 @@
 
 #include "Vertex.h"
 
+#define _DEBUG
+
 using namespace DirectX;
 
 Renderer::Renderer(HWND* _phWindow, int* _pScreen_width, int* _pScreen_heigth) :phWindow(_phWindow), pScreen_width(_pScreen_width), pScreen_heigth(_pScreen_heigth)

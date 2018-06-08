@@ -87,9 +87,9 @@ public:
 	ID3D11Device* d3dDevice = NULL;
 	ID3D11DeviceContext* d3dContext = NULL;
 	IDXGISwapChain* swapChain = NULL;
-#ifdef _DEBUG
+
 	ID3D11Debug* d3dDebug = NULL;
-#endif // _DEBUG
+
 
 	std::map<std::string, PointCloud*> meshDict; 
 

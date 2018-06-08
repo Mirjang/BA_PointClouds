@@ -6,8 +6,7 @@
 
 
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd){
 
 	//debug console
 	AllocConsole();
@@ -19,8 +18,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	g_hInstance = hInstance;
 
-	g_screenParams.width = 1680;
-	g_screenParams.height = 1050;
+	g_screenParams.width = 1920;
+	g_screenParams.height = 1080;
 	g_screenParams.nearPlane = 0.01f;
 	g_screenParams.farPlane = 1000.0f;
 	g_screenParams.fov = XMConvertToRadians(45.0f);
@@ -44,7 +43,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwBar* twLODSettings = TwNewBar("LOD");
 
 
-	TwAddVarRW(twRenderSettings, "Level of Detail", TW_TYPE_UINT32, &g_renderSettings.lod, "readonly=false");
 	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
 	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, ARRAYSIZE(splatTypeEV));
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.renderMode, NULL);
@@ -154,6 +152,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	delete g_renderer; 
 	DestroyWindow(g_hWindow); 
 	
+	if (g_activeObject)
+	{
+		delete g_activeObject;
+	}
+
 	std::exit(0);
 }
 
