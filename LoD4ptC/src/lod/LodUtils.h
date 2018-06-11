@@ -25,6 +25,12 @@ namespace LOD_Utils
 
 	};
 
+	struct VarSizeVertexBudder : VertexBuffer
+	{
+		float pixelSize; 
+	};
+
+
 	inline DirectX::XMVECTOR signVector(UINT index)
 	{
 		return XMVectorSet(

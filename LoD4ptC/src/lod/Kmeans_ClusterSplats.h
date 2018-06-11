@@ -25,7 +25,9 @@ public:
 
 private:
 
+	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
+	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth);
 
 	struct TweakSettings
 	{
@@ -60,7 +62,7 @@ private:
 	};
 	static TweakSettings settings;
 
-	std::vector<OctreeVectorNode<LOD_Utils::VertexBuffer>> vertexBuffers;
+	std::vector<OctreeVectorNode<LOD_Utils::VarSizeVertexBudder>> vertexBuffers;
 
 	NestedOctree<EllipticalVertex>* octree; 
 

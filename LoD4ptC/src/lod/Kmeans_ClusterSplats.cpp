@@ -111,13 +111,122 @@ void Kmeans_ClusterSplats::recreate(ID3D11Device* const device, vector<Vertex>& 
 
 void Kmeans_ClusterSplats::draw(ID3D11DeviceContext* const context)
 {
-
 	settings.nodesDrawn = 0;
 	settings.LOD = 0;
 
 	Effects::g_pCurrentPass->apply(context);
 
+	drawConstants.slope = tan(g_screenParams.fov / 2);
+	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
+
+	if (settings.drawFixedDepth)
+	{
+		drawRecursiveFixedDepth(context, 0, 0);
+	}
+	else
+	{
+		drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
+	}
+}
+
+void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+{
+	settings.LOD = max(settings.LOD, depth);
 
 
+
+	//thats how you turn an AABB into BS
+
+	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
+	XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
+
+	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
+	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
+
+	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
+
+
+	//clipping 
+	XMVECTOR octreeCenterCamSpace = XMVector4Transform(octreeCenterWorldpos, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
+
+	//clipping 
+	float dist = octree->range.x / (1 << depth);
+	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2] / octreeCenterWorldpos.m128_f32[3]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+	{
+		return;
+	}
+
+	float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+
+	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
+
+
+
+	if (pixelsize < vertexBuffers[nodeIndex].data.pixelSize * g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
+	{
+		settings.nodesDrawn++;
+		Effects::SetSplatSize(worldradius);
+		Effects::cbPerLOD.currentLOD = depth;
+		Effects::UpdatePerLODBuffer(context);
+
+		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
+		context->Draw(vb.size, 0);
+		g_statistics.verticesDrawn += vb.size;
+
+	}
+	else
+	{
+		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
+		UINT8 numchildren = 0;
+
+		for (int i = 0; i < 8; ++i)
+		{
+			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+			{
+				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
+				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
+
+				++numchildren;
+			}
+		}
+
+	}
 
 }
+
+
+void Kmeans_ClusterSplats::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
+{
+
+	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
+	{
+		settings.nodesDrawn++;
+
+		float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+		Effects::SetSplatSize(worldradius);
+		Effects::cbPerLOD.currentLOD = depth;
+		Effects::UpdatePerLODBuffer(context);
+
+
+		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+
+		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
+		context->Draw(vb.size, 0);
+		g_statistics.verticesDrawn += vb.size;
+	}
+	if (depth != settings.fixedDepth)
+	{
+		UINT8 numchildren = 0;
+
+		for (int i = 0; i < 8; ++i)
+		{
+			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+			{
+				drawRecursiveFixedDepth(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, depth + 1);
+				++numchildren;
+			}
+		}
+	}
+}
+
