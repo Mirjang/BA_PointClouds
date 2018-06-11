@@ -65,7 +65,7 @@ extern UserInput g_userInput;
 struct RenderSettings 
 {
 	int lod = 0;	//LOD to be rendered
-	SplatType renderMode = SplatType::QUAD_SPLAT;
+	SplatType splatMode = SplatType::QUAD_SPLAT;
 	float splatSize = 0.0100f;
 	bool determineSplatsize = false; 
 	bool useLight = false; 

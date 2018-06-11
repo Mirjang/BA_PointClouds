@@ -40,7 +40,10 @@ struct SphereVertex : Vertex
 
 struct EllipticalVertex : Vertex
 {
-	DirectX::XMFLOAT3 axis1, axis2; 
+	EllipticalVertex() :Vertex() {};
+	EllipticalVertex(const Vertex& baseVert); 
+
+	DirectX::XMFLOAT3 major, minor; 
 };
 
 struct EllipsoidVertex : Vertex

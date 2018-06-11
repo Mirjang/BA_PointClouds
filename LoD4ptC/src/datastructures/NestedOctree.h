@@ -50,12 +50,14 @@ enum OctreeFlags
 	createCube = 0x00,
 	createAdaptive = 0x01 << 0,
 
-	dfEuclididan = 0x01 << 1, 
+	dfEuclididan = 0x01 << 1,
 	dfManhattan = 0x01 << 2,
 
+	neighbourhoodSimple = 0x01 << 3,
+	neighbourhoodFull = 0x01 << 4,
 
 
-	defaultFlags = createCube | dfEuclididan
+	defaultFlags = createCube | dfEuclididan | neighbourhoodFull
 };
 
 
@@ -129,7 +131,7 @@ public:
 	//end test
 	
 	//int64 just in case, since we are using UINT32 for girdresolution 
-	INT64 gridNeighboursAdj[6];
+	std::vector<int> gridNeighboursAdj; 
 //	INT64 gridNeighboursAdjAndDiag[18]; //...way too many checks
 
 
@@ -142,12 +144,47 @@ public:
 			return;
 		}
 
-		gridNeighboursAdj[0] = 1;
-		gridNeighboursAdj[1] = -1;
-		gridNeighboursAdj[2] = gridResolution; 
-		gridNeighboursAdj[3] = -gridResolution; 
-		gridNeighboursAdj[4] = gridResolution * gridResolution; 
-		gridNeighboursAdj[5] = -gridResolution * gridResolution; 
+
+		gridNeighboursAdj.push_back(GridIndex( 1,  0,  0));
+		gridNeighboursAdj.push_back(GridIndex(-1,  0,  0));
+		gridNeighboursAdj.push_back(GridIndex( 0,  1,  0));
+		gridNeighboursAdj.push_back(GridIndex( 0, -1,  0));
+		gridNeighboursAdj.push_back(GridIndex( 0,  0,  1));
+		gridNeighboursAdj.push_back(GridIndex( 0,  0, -1));
+
+		if (flags&OctreeFlags::neighbourhoodFull)
+		{
+			//edges
+			gridNeighboursAdj.push_back(GridIndex( 1,  1, 0));
+			gridNeighboursAdj.push_back(GridIndex(-1,  1, 0));
+			gridNeighboursAdj.push_back(GridIndex( 1, -1, 0));
+			gridNeighboursAdj.push_back(GridIndex(-1, -1, 0));
+
+			gridNeighboursAdj.push_back(GridIndex( 1, 0,  1));
+			gridNeighboursAdj.push_back(GridIndex(-1, 0,  1));
+			gridNeighboursAdj.push_back(GridIndex( 1, 0, -1));
+			gridNeighboursAdj.push_back(GridIndex(-1, 0, -1));
+
+			gridNeighboursAdj.push_back(GridIndex(0,  1,  1));
+			gridNeighboursAdj.push_back(GridIndex(0, -1,  1));
+			gridNeighboursAdj.push_back(GridIndex(0,  1, -1));
+			gridNeighboursAdj.push_back(GridIndex(0, -1, -1));
+
+
+			//corners
+
+			gridNeighboursAdj.push_back(GridIndex(-1,  1,  1));
+			gridNeighboursAdj.push_back(GridIndex(-1, -1,  1));
+			gridNeighboursAdj.push_back(GridIndex(-1,  1, -1));
+			gridNeighboursAdj.push_back(GridIndex(-1, -1, -1));
+
+			
+			gridNeighboursAdj.push_back(GridIndex(1,  1,  1));
+			gridNeighboursAdj.push_back(GridIndex(1, -1,  1));
+			gridNeighboursAdj.push_back(GridIndex(1,  1, -1));
+			gridNeighboursAdj.push_back(GridIndex(1, -1, -1));
+		}
+
 
 		root = new NestedOctreeNode<Type>();
 		++numNodes;
@@ -534,7 +571,7 @@ private:
 			else	// current grid is free, check neighbours
 			{
 				bool canInsert = true; 
-				for (int i = 0; i < ARRAYSIZE(gridNeighboursAdj) && canInsert; ++i)
+				for (int i = 0; i < gridNeighboursAdj.size() && canInsert; ++i)
 				{
 					INT64 index = gridIndex + gridNeighboursAdj[i]; 
 

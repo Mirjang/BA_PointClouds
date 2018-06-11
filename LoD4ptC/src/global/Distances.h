@@ -11,5 +11,8 @@ namespace Distances
 
 	extern bool distanceCheckManhattan(const DirectX::XMVECTOR& p1, const DirectX::XMVECTOR& p2, const DirectX::XMVECTOR& minDist);
 
+	extern float distanceEuclidian(const DirectX::XMVECTOR& p1, const DirectX::XMVECTOR& p2);
+	extern float distanceManhattan(const DirectX::XMVECTOR& p1, const DirectX::XMVECTOR& p2);
+
 
 }

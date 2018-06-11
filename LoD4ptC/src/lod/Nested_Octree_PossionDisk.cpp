@@ -76,7 +76,7 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 		Nested_Octree_PossionDisk::settings.expansionThreshold, 
 		Nested_Octree_PossionDisk::settings.maxDepth,
 		OctreeCreationMode::CreatePossionDisk,
-		OctreeFlags::createCube | settings.distanceFunction);	//depending on vert count this may take a while
+		OctreeFlags::createCube | settings.distanceFunction | OctreeFlags::neighbourhoodFull);	//depending on vert count this may take a while
 
 
 
@@ -139,7 +139,7 @@ void Nested_Octree_PossionDisk::draw(ID3D11DeviceContext* const context)
 
 
 	drawConstants.slope = tan(g_screenParams.fov / 2);
-	drawConstants.pixelSizeConstant = g_screenParams.height / 2.0f;
+	drawConstants.pixelSizeConstant = g_screenParams.height / (2.0f * drawConstants.slope);
 
 
 	traverseTreeAndMarkVisibleNodes(XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos));
@@ -219,7 +219,6 @@ void Nested_Octree_PossionDisk::drawRecursive(ID3D11DeviceContext* const context
 	if (node.data.marked)
 	{
 		//for completeness, these cb vars are not used in adaptive splatsize calculation
-		settings.nodesDrawn++;
 		Effects::SetSplatSize(g_renderSettings.splatSize);	
 		Effects::cbPerLOD.currentLOD = depth;
 		Effects::UpdatePerLODBuffer(context);
@@ -374,23 +373,23 @@ void Nested_Octree_PossionDisk::traverseTreeAndMarkVisibleNodes(XMVECTOR& center
 					XMVECTOR octreeCenterCamSpace = XMVector4Transform(childCenter, wvpMat);
 
 					//clipping 
-					float dist = octree->range.x / (2 << currentDepth); // 1<<depth+1
+					float dist = octree->range.x / (1 << currentDepth); // 1<<depth+1
 
-					float boundingDiameter = sqrt(2.0f) * dist;
+					float boundingDiameter = sqrt(2.0f) * dist *2  +1.0f;
 
 					//TODO: check if child lies in ViewFrustrum
 
+					XMVECTOR projectedCenter = octreeCenterCamSpace / octreeCenterCamSpace.m128_f32[3]; 
+
 					bool frustumCheckFailed =
-						abs(octreeCenterCamSpace.m128_f32[0] / octreeCenterCamSpace.m128_f32[3]) > boundingDiameter // left/right
-						|| abs(octreeCenterCamSpace.m128_f32[1] / octreeCenterCamSpace.m128_f32[3]) > boundingDiameter // top/bottom
-						|| - boundingDiameter > octreeCenterCamSpace.m128_f32[2] / octreeCenterCamSpace.m128_f32[3]; //behind camera
+						(abs(projectedCenter.m128_f32[0]) > boundingDiameter // left/right
+						&& abs(projectedCenter.m128_f32[1]) > boundingDiameter) // top/bottom
+						|| projectedCenter.m128_f32[2] + boundingDiameter < 0; //behind camera
 
-					if ( true || !frustumCheckFailed) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+					if (true || !frustumCheckFailed) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 					{
-						//float distance = XMVector3Length(childCenter - cameraPos).m128_f32[0];
-
+			
 						float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - currentDepth));
-						worldradius = octree->cellsizeForDepth[currentDepth].x;
 
 						float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 

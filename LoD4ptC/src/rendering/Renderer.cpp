@@ -154,6 +154,7 @@ void Renderer::reloadShaders()
 	//create pass based on g_renderSettings
 
 	//TODO: there will be different passes based on selected LOD strategy
+	//ok this part is now officially a mess
 	std::string vsname, gsname, psname;
 
 
@@ -163,7 +164,17 @@ void Renderer::reloadShaders()
 	{
 		if (g_renderSettings.determineSplatsize)
 		{
-			gsname = "GS_LIT_ADAPTIVESPLATSIZE";
+
+			if (g_renderSettings.drawLOD)
+			{
+				gsname = "GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
+				vsname = "VS_PASSTHROUGH";
+			}
+			else
+			{
+				gsname = "GS_LIT_ADAPTIVESPLATSIZE";
+			}
+
 		}
 		else
 		{
@@ -174,7 +185,16 @@ void Renderer::reloadShaders()
 	{
 		if (g_renderSettings.determineSplatsize)
 		{
-			gsname = "GS_UNLIT_ADAPTIVESPLATSIZE";
+			if (g_renderSettings.drawLOD)
+			{
+				gsname = "GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
+				vsname = "VS_PASSTHROUGH";
+			}
+			else
+			{
+				gsname = "GS_UNLIT_ADAPTIVESPLATSIZE";
+			}
+
 		}
 		else
 		{
@@ -183,7 +203,7 @@ void Renderer::reloadShaders()
 	}
 
 
-	switch (g_renderSettings.renderMode)
+	switch (g_renderSettings.splatMode)
 	{
 	case QUAD_SPLAT:
 	{

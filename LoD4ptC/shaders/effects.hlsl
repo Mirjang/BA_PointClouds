@@ -93,6 +93,38 @@ struct PosWorldNorColTex
     float2 tex : TEXCOORD; //UV coords to determine if pixel is in circle
 };
 
+
+struct PosNorColEllipticalAxis
+{
+    float4 pos : POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+    float3 major : TANGENT0;
+    float3 minor : TANGENT1;
+};
+
+struct PosWorldNorColEllipticalAxisTex
+{
+    float4 pos : SV_POSITION;
+    float3 posWorld : POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+    float3 major : TANGENT0;
+    float3 minor : TANGENT1; 
+    float2 tex : TEXCOORD; //UV coords to determine if pixel is in circle
+};
+
+
+struct PosWorldNorColTexRadXY
+{
+    float4 pos : SV_POSITION;
+    float3 posWorld : POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+    float2 tex : TEXCOORD0; //UV coords to determine if pixel is in circle
+    float2 radXY : TEXCOORD1; 
+};
+
 //--------------------------------------------------------------------------------------
 // Functions
 //--------------------------------------------------------------------------------------
@@ -129,7 +161,7 @@ inline uint calcDepth(float3 inpos)
         uint childNr = 0;
 
         if (!(node.x & (1 << offset)))
-            break;
+            return depth;
 
 
         for (int i = 0; i < offset; ++i)
@@ -157,7 +189,6 @@ inline float2 calcSplatSize(uint depth)
     float scale = (1 << g_maxLod - depth);
     return g_splatSize * float2(scale, scale);
 }
-
 
 inline float4 lightning_phong(float3 worldPos, float3 normal)
 {
@@ -216,6 +247,19 @@ PosNorCol VS_APPLY_DEPTHCOLOR(float4 inPos : POSITION, float3 inNormal : NORMAL,
     return output;
 }
 
+PosNorColEllipticalAxis VS_ELLIPTICAL_PASSTHROUGH(PosNorColEllipticalAxis input)
+{
+    input.pos.w = 1.0f; 
+    return input; 
+}
+
+PosNorColEllipticalAxis VS_ELLIPTICAL_APPLY_DEPTHCOLOR(PosNorColEllipticalAxis input)
+{
+    input.pos.w = 1.0f;
+    float tmp = (1.0f * g_LODdepth) / g_maxLod;
+    input.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+    return input;
+}
 
 //--------------------------------------------------------------------------------------
 // Geometry Shaders
@@ -289,6 +333,41 @@ void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<P
 	output.posWorld = float3(0, 0, 0);
 	output.color = input[0].color;
 
+    float depth = calcDepth(input[0].pos.xyz);    
+
+    
+    float2 adaptedRadius = calcSplatSize(depth);
+    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
+
+    output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += adaptedDiameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+
+}
+
+//only color for no lighting calculates splat size on the fly (for subsampling techniques) 
+[maxvertexcount(4)]
+void GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.normal = float3(0, 0, 0);
+    output.posWorld = float3(0, 0, 0);
+    output.color = input[0].color;
+
     float depth = calcDepth(input[0].pos.xyz);
 
 
@@ -335,7 +414,38 @@ void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<Pos
     float2 adaptedRadius = calcSplatSize(depth);
     float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
+    output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
 
+    output.pos.y -= adaptedDiameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += adaptedDiameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= adaptedDiameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+
+}
+
+//only color for no lighting 
+[maxvertexcount(4)]
+void GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
+    output.color = input[0].color;
+
+    float depth = calcDepth(input[0].pos.xyz);
+    
+    float2 adaptedRadius = calcSplatSize(depth);
+    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
     float tmp = (1.0f * depth) / g_maxLod;
 
@@ -358,6 +468,41 @@ void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<Pos
     OutStream.Append(output);
 
 }
+
+[maxvertexcount(4)]
+void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<PosWorldNorColTexRadXY> OutStream)
+{
+    PosWorldNorColTexRadXY output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
+    output.color = input[0].color;
+
+    
+    float3 major = mul(input[0].major, (float3x3) m_world);
+    float3 minor = mul(input[0].minor, (float3x3) m_world);
+    
+    output.radXY = max(major.xy, minor.xy); 
+    float2 diameter = output.radXY + output.radXY;
+
+    output.pos.xy += float2(-1, 1) * output.radXY; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos.y -= diameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += diameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= diameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+}
+
+
 
 
 //--------------------------------------------------------------------------------------
@@ -392,6 +537,42 @@ float4 PS_CIRCLE_PHONG(PosWorldNorColTex input) : SV_TARGET
         return float4(0, 0, 0, 0); 
     }
 
+    return lightning_phong(input.posWorld, input.normal) * input.color;
+}
+
+float4 PS_QUADELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
+{
+    return input.color;
+}
+
+
+float4 PS_QUADELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
+{
+    return lightning_phong(input.posWorld, input.normal) * input.color;
+}
+
+float4 PS_ELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
+{
+    //point in ellipse checl 
+    float2 val = input.tex * input.tex / input.radXY;
+    if(val.x + val.y > 1.0f)
+    {
+        discard; 
+        return float4(0, 0, 0, 0);
+    }
+
+    return input.color;
+}
+
+
+float4 PS_ELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
+{
+    float2 val = input.tex * input.tex / input.radXY;
+    if (val.x + val.y > 1.0f)
+    {
+        discard;
+        return float4(0, 0, 0, 0);
+    }
     return lightning_phong(input.posWorld, input.normal) * input.color;
 }
 

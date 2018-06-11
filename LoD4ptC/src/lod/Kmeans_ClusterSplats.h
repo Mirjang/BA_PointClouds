@@ -8,6 +8,7 @@
 
 #include <DirectXMath.h>
 
+#include "../datastructures/NestedOctree.h"
 
 class Kmeans_ClusterSplats :
 	public LOD
@@ -31,6 +32,12 @@ private:
 		
 		//----creation---
 		UINT32 gridResolution = 128;
+
+		UINT32 iterations = 16; 
+		UINT32 centroidsPerNode = 15000; 
+
+		bool simpleDistance = true; 
+
 		/*
 		* expand node after this many vertices have allocated a duplicate position
 		* a flat surface in a 128^3 grid would have roughly 16k (128^2) verts)
@@ -39,7 +46,7 @@ private:
 		//maximum depth for octree 
 		UINT32 maxDepth = 16;
 
-		UINT64 distanceFunction = OctreeFlags::dfEuclididan;
+		//UINT64 distanceFunction = OctreeFlags::dfEuclididan;
 
 		//----rendering---
 		int fixedDepth = 0;
@@ -55,6 +62,7 @@ private:
 
 	std::vector<OctreeVectorNode<LOD_Utils::VertexBuffer>> vertexBuffers;
 
+	NestedOctree<EllipticalVertex>* octree; 
 
 	struct DrawConstants
 	{

@@ -28,7 +28,6 @@ namespace Effects
 	ShaderSettings cbShaderSettings;
 	PerLOD cbPerLOD; 
 
-
 	ID3D11Buffer* cbPerObjectBuffer = NULL;
 	ID3D11Buffer* cbPerLODBuffer = NULL;
 	ID3D11Buffer* cbShaderSettingsBuffer = NULL;
@@ -37,14 +36,16 @@ namespace Effects
 	std::unordered_map<std::string, ID3D11GeometryShader*> geometryShaders;
 	std::unordered_map<std::string, ID3D11PixelShader*> pixelShaders;
 
-	ID3D11InputLayout* layout;
+	ID3D11InputLayout* pILDefaultLayout;
+	ID3D11InputLayout* pILEllipsisLayout;
+
 
 	std::vector<ID3DBlob*> shaderblobs;
 
-	Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate)
+	Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate, LayoutType lt)
 	{
 		Pass* pass = new Pass();
-
+		pass->layoutType = lt; 
 
 		auto vs = vertexShaders.find(VSname);
 		if (vs == vertexShaders.end())
@@ -120,7 +121,6 @@ namespace Effects
 
 		int bufferctr = 0;
 		shaderblobs.resize(config::GS_NAMES.size() + config::GS_NAMES.size() + config::PS_NAMES.size()); //alloc space for all shader blobs
-
 		//load vertex shaders
 		for each (const std::string& name in config::VS_NAMES)
 		{
@@ -145,7 +145,7 @@ namespace Effects
 			//create input layout based on 1st vertex shader... every shader gets same input... kinda dumb but CreateInputLayout requires a shader blob
 			if (!bufferctr)
 			{
-				hr = device->CreateInputLayout(config::LAYOUT_POS3_NOR3_COL4, config::layoutSize, shaderblobs[bufferctr]->GetBufferPointer(), shaderblobs[bufferctr]->GetBufferSize(), &layout);
+				hr = device->CreateInputLayout(config::LAYOUT_POS3_NOR3_COL4, config::layoutSize, shaderblobs[bufferctr]->GetBufferPointer(), shaderblobs[bufferctr]->GetBufferSize(), &pILDefaultLayout);
 				if (FAILED(hr))
 				{
 					std::cout << "failed to create InputLayout " << hr << std::endl;
@@ -153,8 +153,18 @@ namespace Effects
 				}
 			}
 
+			if (!strcmp(name.c_str(), "VS_ELLIPTICAL_PASSTHROUGH"))
+			{
+				hr = device->CreateInputLayout(config::LAYOUT_POS3_NOR3_COL4_AXIS3_AXIS3, config::layoutSizeElliptical, shaderblobs[bufferctr]->GetBufferPointer(), shaderblobs[bufferctr]->GetBufferSize(), &pILEllipsisLayout);
+				if (FAILED(hr))
+				{
+					std::cout << "failed to create Ellipsis InputLayout " << hr << std::endl;
+					std::cin.get();
+				}
+			}
+
 			bufferctr++;
-		}
+		}		
 
 		//load geometry shaders
 		for each (const std::string& name in config::GS_NAMES)
@@ -207,7 +217,7 @@ namespace Effects
 
 	void deinit()
 	{
-		SafeRelease(layout);
+		SafeRelease(pILDefaultLayout);
 
 		SafeRelease(RS_STATE.CULL_FRONT_CW);
 		SafeRelease(RS_STATE.CULL_BACK_CW);
@@ -268,7 +278,22 @@ namespace Effects
 
 	void Pass::apply(ID3D11DeviceContext* const context)
 	{
-		context->IASetInputLayout(layout);
+		switch (layoutType)
+		{
+		case Effects::LayoutDefault:
+		{
+			context->IASetInputLayout(pILDefaultLayout);
+			break; 
+		}
+		case Effects::LayoutEllipsis:
+		{
+			context->IASetInputLayout(pILEllipsisLayout);
+			break;
+		}
+		default:
+			throw "HERE BE DRAGONS!!!"; 
+		}
+
 		context->RSSetState(RS_STATE);
 
 		context->VSSetShader(VS, nullptr, 0);

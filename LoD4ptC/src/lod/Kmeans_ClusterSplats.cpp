@@ -26,12 +26,17 @@ TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 {
 	TwBar* tweakBar = TwNewBar("Octree Possion Disk");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.gridResolution, NULL);
+	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.iterations, NULL);
+	TwAddVarRW(tweakBar, "Centroids per node", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.centroidsPerNode, NULL);
+	TwAddVarRW(tweakBar, "simpleDistance", TW_TYPE_BOOLCPP, &Kmeans_ClusterSplats::settings.simpleDistance, NULL);
+
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.expansionThreshold, NULL);
+
 	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.maxDepth, NULL);
 
 	TwEnumVal distanceFunctionEV[] = { { OctreeFlags::dfEuclididan, "Euclidian distance" },{ OctreeFlags::dfManhattan, "Manhattan distance" } };
 	TwType twDistanceFunction = TwDefineEnum("Distance Function", distanceFunctionEV, ARRAYSIZE(distanceFunctionEV));
-	TwAddVarRW(tweakBar, "Distance Function", twDistanceFunction, &settings.distanceFunction, NULL);
+//	TwAddVarRW(tweakBar, "Distance Function", twDistanceFunction, &settings.distanceFunction, NULL);
 
 
 	TwAddSeparator(tweakBar, "sep", NULL);
@@ -50,17 +55,24 @@ TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 // pray for -O3
 void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& vertices)
 {
-	HRESULT hr;
-
 	std::cout << "\n===================================================" << std::endl;
 	std::cout << "Creating Octree_PossionDisk" << std::endl;
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-
-
 	//create here
 
+	std::vector<EllipticalVertex> initalEllpticalVerts;	//at max LOD verts = circles (ellipsoid w/ major/minor  unit length and orthogonal to normal 
+
+	initalEllpticalVerts.reserve(vertices.size()); 
+
+	for (auto vert : vertices)
+	{
+		initalEllpticalVerts.push_back(EllipticalVertex(vert)); 
+	}
+
+
+	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createAdaptive); 
 
 
 

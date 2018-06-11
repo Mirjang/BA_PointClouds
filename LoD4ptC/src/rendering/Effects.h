@@ -77,6 +77,12 @@ namespace Effects
 		bsShaderSettings = 0x02
 	};
 
+	enum LayoutType
+	{
+		LayoutDefault, 
+		LayoutEllipsis, 
+	};
+
 	namespace config {
 		extern const wchar_t SHADER_FILE[];
 		extern const std::vector<std::string> VS_NAMES;
@@ -97,7 +103,9 @@ namespace Effects
 	extern ID3D11Buffer* cbPerLODBuffer;
 	extern ID3D11Buffer* cbShaderSettingsBuffer;
 
-	extern ID3D11InputLayout* layout;
+	extern ID3D11InputLayout* pILDefaultLayout;
+	extern ID3D11InputLayout* pILEllipsisLayout;
+
 	extern std::vector<ID3DBlob*> shaderblobs;
 
 
@@ -128,7 +136,7 @@ namespace Effects
 	*Returns Pass based on given config.. not sure if i should compile shaders here, 
 	*for testing tho shaders are compiled once Effects::init() is called which gives immidiate feedback if a shader is bad
 	*/
-	extern Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate);
+	extern Pass* createPass(std::string VSname, std::string PSname, std::string GSname, ID3D11RasterizerState* RSstate, LayoutType layoutType = LayoutDefault);
 
 
 	struct Pass
@@ -138,6 +146,8 @@ namespace Effects
 		ID3D11PixelShader* PS = nullptr; 
 
 		ID3D11RasterizerState* RS_STATE = nullptr; 
+
+		LayoutType layoutType = LayoutType::LayoutDefault; 
 
 		void apply(ID3D11DeviceContext* const context);
 
