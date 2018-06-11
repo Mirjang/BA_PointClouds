@@ -83,7 +83,7 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created Octree w/ Possion Disk Sampling with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
-	std::cout << "Took: " << elapsed.count() << "ms" << std::endl;
+	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
 
 
 

@@ -56,7 +56,7 @@ TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 	std::cout << "\n===================================================" << std::endl;
-	std::cout << "Creating Octree_PossionDisk" << std::endl;
+	std::cout << "Creating Octree_Kmeans" << std::endl;
 
 	auto start = std::chrono::high_resolution_clock::now();
 
@@ -78,8 +78,8 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-//	std::cout << "Created Octree w/ Possion Disk Sampling with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
-	std::cout << "Took: " << elapsed.count() << "ms" << std::endl;
+	std::cout << "Created Octree w/ Kmeans splats with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
+	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
 
 
 

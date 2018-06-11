@@ -64,7 +64,7 @@ void Nested_Octree_Naive_Avg::create(ID3D11Device* const device, vector<Vertex>&
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created OctreeV1 with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes<< std::endl;
-	std::cout << "Took: " << elapsed.count() << "ms" << std::endl; 
+	std::cout << "Took: " << elapsed.count() << "s" << std::endl; 
 
 
 	//load to GPU
