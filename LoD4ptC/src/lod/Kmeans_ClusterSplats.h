@@ -1,31 +1,33 @@
 #pragma once
-
-#include "LOD.h"
-
-#include "LodUtils.h"
-
 #include <Eigen/dense>
-
 #include <DirectXMath.h>
 
+#include "LOD.h"
+#include "LodUtils.h"
 #include "../datastructures/NestedOctree.h"
+
+typedef Eigen::Matrix<float, 9, 1> Vec9f;
 
 struct Centroid
 {
-	Centroid() : pos(0,0,0), normalPolar(0,0), color(0,0,0,0)
+	Centroid()
 	{
 
+	}
+
+	Centroid(float x, float y, float z) : Centroid()
+	{
+		features << x, y, z; 
 	}
 
 	Centroid(const DirectX::XMVECTOR& pos) : Centroid()
 	{
-		XMStoreFloat3(&this->pos, pos); 
+		features << pos.m128_f32[0], pos.m128_f32[1], pos.m128_f32[0]; 
 	}
 
-	DirectX::XMFLOAT3 pos; 
-	DirectX::XMFLOAT2 normalPolar; 
-	DirectX::XMFLOAT4 color; 
+	Vec9f features; 
 };
+
 
 class Kmeans_ClusterSplats :
 	public LOD
@@ -42,13 +44,15 @@ public:
 
 private:
 
-	inline void initCentroids(CXMVECTOR& min, CXMVECTOR& max, const UINT& numCentroids, std::vector<Centroid>& centroids);
+	inline void runKMEANS(std::vector<Vec9f>& verts, std::vector<EllipticalVertex>& outVec);
 
-	inline void updateCentroids(std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>& verts, const std::vector<UINT32>& vertCentroidTable);
+	inline void initCentroids(const Vec9f& min, const Vec9f& max, const UINT& numCentroids, std::vector<Centroid>& centroids);
 
-	inline void updateObservations(const std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>&verts, std::vector<UINT32>& vertCentroidTable);
+	inline void updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts, const std::vector<UINT32>& vertCentroidTable);
 
-	inline void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<EllipticalVertex>&verts, const std::vector<UINT32>& vertCentroidTable); 
+	inline void updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable);
+
+	inline void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<EllipticalVertex>& outVerts);
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
@@ -60,8 +64,8 @@ private:
 		//----creation---
 		UINT32 gridResolution = 128;
 
-		UINT32 iterations = 16; 
-		UINT32 centroidsPerNode = 15000; 
+		UINT32 iterations = 10; 
+		UINT32 centroidsPerNode = 500; 
 
 		bool simpleDistance = true; 
 
@@ -69,7 +73,7 @@ private:
 		* expand node after this many vertices have allocated a duplicate position
 		* a flat surface in a 128^3 grid would have roughly 16k (128^2) verts)
 		*/
-		UINT32 expansionThreshold = 2048;
+		UINT32 expansionThreshold = 5000;
 		//maximum depth for octree 
 		UINT32 maxDepth = 16;
 

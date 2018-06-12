@@ -40,6 +40,11 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 		lod = new Nested_Octree_PossionDisk();
 		break;
 	}
+	case LODMode::NO_KMEANS: 
+	{
+		lod = new Kmeans_ClusterSplats(); 
+		break; 
+	}
 	default:
 		lod = new No_LOD();
 		break;

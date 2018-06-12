@@ -6,6 +6,9 @@
 #include <chrono>
 #include <random>
 #include <cfloat>
+#include <stack>
+
+#include <Eigen/Eigenvalues>
 
 #include "../rendering/Effects.h"
 
@@ -26,7 +29,7 @@ Kmeans_ClusterSplats::~Kmeans_ClusterSplats()
 Kmeans_ClusterSplats::TweakSettings Kmeans_ClusterSplats::settings;
 TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 {
-	TwBar* tweakBar = TwNewBar("Octree Possion Disk");
+	TwBar* tweakBar = TwNewBar("K-Means");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.gridResolution, NULL);
 	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.iterations, NULL);
 	TwAddVarRW(tweakBar, "Centroids per node", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.centroidsPerNode, NULL);
@@ -73,23 +76,80 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 		initalEllpticalVerts.push_back(EllipticalVertex(vert)); 
 	}
 
-
-	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createAdaptive); 
+	/*
+	* Create and push down is broken and i wana test the kmeans impl
+	* this HAS to be changed later
+	* as it will rape the performance 
+	* not that the kmeans will have good perf anyawys, but this NEEDS TO BE FIXED, DO YOU HEAR ME FUTURE ME?!?
+	*/
+	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateNaiveAverage, OctreeFlags::createAdaptive); 
 
 	createConstants.maxSpacialRange = max(octree->range.x, max(octree->range.y, octree->range.z)); 
 
 
 	//run kmeans per octree node BOTTOM UP (for reasons of improving quality later)(performance will be crap tho) 
+	//there is no clustering in leaf nodes ATM to preserve original samples at max LOD
+	std::stack<NestedOctreeNode<EllipticalVertex>*> stack;
+	if(!octree->root->isLeaf()) //point cloud too small -> LOD is unnecessary
+		stack.push(octree->root); 
 
-	std::priority_queue<NestedOctreeNode<EllipticalVertex>*> queue;
-
-	queue.push(octree->root); 
-
-	while (!queue.empty())
+	while (!stack.empty())
 	{
-		NestedOctreeNode<EllipticalVertex>* node = queue.top(); 
+		NestedOctreeNode<EllipticalVertex>* node = stack.top(); 
 
-		if(node->)
+		if (node->allChildrenLeafOrMarked())
+		{
+			stack.pop();
+
+			std::vector<EllipticalVertex>& verts = node->data; 
+			std::vector<Vec9f> featureVecs; 
+			// ok so im really hacking around here.. this node should be empty unless during expansion one of the child nodes didnt get enough verts
+			//in this case we will prob. delete vital verts that cannot be restored ... this is just a temporary hack until i fix the fucking octree insertion
+			verts.clear(); 
+
+			UINT32 vertOffset = 0; 
+
+			for (int i = 0; i < 8; ++i) //collect all child verts
+			{
+				NestedOctreeNode<EllipticalVertex>* child = node->children[i];
+				if (child)
+				{
+					child->marked = false; 
+
+					UINT32 vertIndex = 0;
+					for(; vertIndex < child->data.size(); ++vertIndex)
+					{
+						featureVecs.push_back(Vec9f());
+
+						const EllipticalVertex& vert = child->data[vertIndex];
+
+						//add normals in polar coords
+						XMVECTOR polarcoords =  LOD_Utils::cartToPolatNormal(XMLoadFloat3(&vert.normal));
+
+						featureVecs[vertOffset + vertIndex] << vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
+							vert.color.x, vert.color.y, vert.color.z, vert.color.w; 
+					}
+
+					vertOffset += vertIndex; 
+				}
+			}
+
+			//MAGIC
+			runKMEANS(featureVecs, verts);
+			node->marked = true; 
+		}
+		else	//add all children to queue w/ higher priority
+		{
+			for (int i = 0; i < 8; ++i) //collect all child verts
+			{
+				NestedOctreeNode<EllipticalVertex>* child = node->children[i];
+				if (child && !child->isLeaf())
+				{
+					stack.push(child); 
+				}
+			}
+
+		}
 	}
 
 
@@ -127,31 +187,74 @@ void Kmeans_ClusterSplats::recreate(ID3D11Device* const device, vector<Vertex>& 
 	create(device, vertices);
 }
 
-
-void Kmeans_ClusterSplats::initCentroids(CXMVECTOR& min, CXMVECTOR& max, const UINT& numCentroids, std::vector<Centroid>& centroids)
+void Kmeans_ClusterSplats::runKMEANS(std::vector<Vec9f>& verts, std::vector<EllipticalVertex>& outVec)
 {
-	float range = XMVector3Length((max - min)/numCentroids * 1.5f).m128_f32[0] ;	//lets have some minimum spacing between initila centroids, shall we? 
+//	std::cout << "kmeans" << std::endl; 
+	Vec9f vmin = verts[0]; 
+	Vec9f vmax = vmin; 
+	for (int i = 0; i < verts.size(); ++i)
+	{
+		vmin = vmin.cwiseMin(verts[i]); 
+		vmax = vmax.cwiseMax(verts[i]); 
+	}
+
+	Vec9f range = vmax - vmin; 
+
+	createConstants.maxSpacialRange = max(range(0), max(range(1), range(2))); 
+
+	std::vector<Centroid> centroids; 
+	std::vector<UINT32> vertCentroidTable; 
+	vertCentroidTable.resize(verts.size()); 
+
+	initCentroids(vmin, vmax, min(settings.centroidsPerNode, verts.size() / 2), centroids);
+
+
+	for (UINT32 i = 0; i < settings.iterations; ++i)
+	{
+//		auto start = std::chrono::high_resolution_clock::now();
+
+		updateObservations(centroids, verts, vertCentroidTable); 
+//		std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
+
+//		std::cout << "Observations: " << elapsed.count() << std::endl; 
+
+//		start = std::chrono::high_resolution_clock::now();
+
+		updateCentroids(centroids, verts, vertCentroidTable); 
+//		std::chrono::duration<double> elapsed2 = std::chrono::high_resolution_clock::now() - start;
+//		std::cout << "Observations: " << elapsed2.count() << std::endl;
+
+
+	}
+
+	centroidsToEllipticalSplats(centroids, verts, vertCentroidTable, outVec); 
+
+
+}
+
+void Kmeans_ClusterSplats::initCentroids(const Vec9f& vmin, const Vec9f& vmax, const UINT& numCentroids, std::vector<Centroid>& centroids)
+{
+
+//	float range = XMVector3Length((max - min)/numCentroids * 1.5f).m128_f32[0];	//lets have some minimum spacing between initila centroids, shall we? 
 	std::default_random_engine xgen,ygen,zgen;
 
-	std::uniform_real_distribution<float> xdist(min.m128_f32[0], max.m128_f32[0]); 
-	std::uniform_real_distribution<float> ydist(min.m128_f32[1], max.m128_f32[1]);
-	std::uniform_real_distribution<float> zdist(min.m128_f32[2], max.m128_f32[2]);
+	std::uniform_real_distribution<float> xdist(vmin(0), vmax(0)); 
+	std::uniform_real_distribution<float> ydist(vmin(1), vmin(1));
+	std::uniform_real_distribution<float> zdist(vmin(2), vmin(2));
 
 
-	for (int i = 0; i < numCentroids; ++i)
+	for (UINT32 i = 0; i < numCentroids; ++i)
 	{
-		Centroid cent(XMVectorSet(xdist(xgen), ydist(ygen), zdist(zgen), 0));
-
-		XMVECTOR vcentpos = XMLoadFloat3(&cent.pos);
+		Centroid cent(xdist(xgen), ydist(ygen), zdist(zgen));
 
 		bool add = true;
 
 		for (auto c : centroids)	//check that we dont have two centroids on the same spot
 		{
 
-			if (XMVector3Equal(vcentpos, XMLoadFloat3(&c.pos)))
+			if (cent.features == c.features)
 			{
-				--i;
+			//	--i; // rnd numbers are taking too long... 
 				add = false;
 				break;
 			}
@@ -162,57 +265,52 @@ void Kmeans_ClusterSplats::initCentroids(CXMVECTOR& min, CXMVECTOR& max, const U
 	}
 }
 
-void Kmeans_ClusterSplats::updateCentroids(std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>& verts,const std::vector<UINT32>& vertCentroidTable)
+void Kmeans_ClusterSplats::updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts,const std::vector<UINT32>& vertCentroidTable)
 {
 
 	std::vector<UINT32> centroidMembers; 
 	centroidMembers.resize(centroids.size());
 
-	ZeroMemory(centroids.data(), centroids.size() * sizeof(Centroid));
+	for (int i = 0; i < centroids.size(); ++i)
+	{
+		centroids[i].features << 0, 0, 0, 0, 0, 0, 0, 0, 0; 
+	}
 
 
 	for(int i = 0; i<verts.size(); ++i)
 	{
 		Centroid& cent = centroids[vertCentroidTable[i]]; 
-		const EllipticalVertex& vert = verts[i]; 
 		++centroidMembers[vertCentroidTable[i]]; 
-		//add pos
-		XMStoreFloat3(&cent.pos, XMLoadFloat3(&cent.pos) + XMLoadFloat3(&vert.pos));
-		//add normals in polar coords
-		XMStoreFloat2(&cent.normalPolar, XMLoadFloat2(&cent.normalPolar) + LOD_Utils::cartToPolatNormal(XMLoadFloat3(&vert.normal)));
-
-		//add colors
-		XMStoreFloat4(&cent.color, XMLoadFloat4(&cent.color) + XMLoadFloat4(&vert.color));
+		
+		cent.features += verts[i];
 	}
 
 	//divide components by #of verts in cluster
-	for (int i = 0; i < centroids.size; ++i)
+	for (int i = 0; i < centroids.size(); ++i)
 	{
-		Centroid& cent = centroids[i];
-		XMStoreFloat3(&cent.pos, XMLoadFloat3(&cent.pos) / centroidMembers[i]);
-		XMStoreFloat2(&cent.normalPolar, XMLoadFloat2(&cent.normalPolar) / centroidMembers[i]);
-		XMStoreFloat4(&cent.color, XMLoadFloat4(&cent.color) / centroidMembers[i]);
+		if (!centroidMembers[i]) continue; //very degenerate cluster ?
+		centroids[i].features /= centroidMembers[i];
 	}
 }
 
 //Distance: xyz are divided by max(x,y,z) of the bounding box, normals and colors are already in a normalized space
-void Kmeans_ClusterSplats::updateObservations(const std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>&verts, std::vector<UINT32>& vertCentroidTable)
+void Kmeans_ClusterSplats::updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable)
 {
 	UINT32 minDistIndex = -1; // this will throw an OOB exception if something goes wrong... hopefully 
 	float minDist = FLT_MAX; 
 
 	for (int i = 0; i < verts.size(); ++i)
 	{
-		XMVECTOR vertPos = XMLoadFloat3(&verts[i].pos);
-		XMVECTOR vertNorPolar = LOD_Utils::cartToPolatNormal(XMLoadFloat3(&verts[i].normal)); 
-		XMVECTOR vertColor = XMLoadFloat4(&verts[i].color); 
+		Vec9f vert = verts[i]; 
+		vert(0) /= createConstants.maxSpacialRange; 
+		vert(1) /= createConstants.maxSpacialRange;
+		vert(2) /= createConstants.maxSpacialRange;
+
 
 		for (int c = 0;  c < centroids.size(); ++c)
 		{
 			//use squared dist for all components
-			float distance = XMVector3LengthSq((vertPos - XMLoadFloat3(&centroids[c].pos) / createConstants.maxSpacialRange)).m128_f32[0]; 
-			distance += XMVector2LengthSq(vertNorPolar - XMLoadFloat2(&centroids[c].normalPolar)).m128_f32[0]; 
-			distance += XMVector4LengthSq(vertColor - XMLoadFloat4(&centroids[c].color)).m128_f32[0]; 
+			float distance = vert.dot(centroids[c].features); 
 
 			if (distance < minDist)
 			{
@@ -220,15 +318,84 @@ void Kmeans_ClusterSplats::updateObservations(const std::vector<Centroid>& centr
 				minDistIndex = c; 
 			}
 		}
-
 		vertCentroidTable[i] = minDistIndex; 
+
 		minDistIndex = -1; 
 		minDist = FLT_MAX;
 	}
 }
 
-void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<EllipticalVertex>&verts, const std::vector<UINT32>& vertCentroidTable)
+void Kmeans_ClusterSplats::centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<EllipticalVertex>& outVerts)
 {
+	std::vector<Eigen::Matrix<float, Eigen::Dynamic, 3>> vertsPerCentroid;
+	
+
+	for (int i = 0; i < centroids.size(); ++i)
+	{
+		vertsPerCentroid.push_back(Eigen::Matrix<float, Eigen::Dynamic, 3>()); 
+	}
+
+	//sort verts according to correstponding centroid
+	for (int i = 0; i < verts.size(); ++i)
+	{
+		assert(vertCentroidTable[i] < centroids.size());
+
+		Eigen::Matrix<float, Eigen::Dynamic, 3>& mat = vertsPerCentroid[vertCentroidTable[i]]; 
+
+		Eigen::Vector3f vec;
+		vec << verts[i](0), verts[i](1), verts[i](2);
+
+		mat.conservativeResize(mat.rows() + 1, 3); 
+		mat.row(mat.rows() - 1) = vec.transpose(); 
+	}
+	//replace set of all child verts w/ calculated cluster splats
+	verts.clear();
+
+	for (int i = 0; i < centroids.size(); ++i)
+	{
+		if (vertsPerCentroid[i].rows() - 1) continue; //very degenerate cluster? immpossibru unless clusters>verts? 
+		outVerts.push_back(EllipticalVertex());
+
+		const Centroid& cent = centroids[i]; 
+		
+
+		EllipticalVertex& newVert = outVerts[i];
+		newVert.pos.x = cent.features(0); 
+		newVert.pos.y = cent.features(1);
+		newVert.pos.z = cent.features(2);
+		XMStoreFloat3(&newVert.normal, LOD_Utils::polarToCartNormal(XMVectorSet(cent.features(3), cent.features(4), 0, 0)));
+		newVert.color.x = cent.features(5); 
+		newVert.color.y = cent.features(6);
+		newVert.color.z = cent.features(7);
+		newVert.color.w = cent.features(8);
+
+		
+		//PCA to determine major and minor of the resultion elliptical splat
+		Eigen::Vector3f centroid;
+
+		centroid << cent.features(0), cent.features(1), cent.features(2); 
+		
+		// centering
+		Eigen::MatrixXf centeredVerts = vertsPerCentroid[i].rowwise() - centroid.transpose(); 
+
+		Eigen::Matrix<float, 3, 3> covariance = centeredVerts.adjoint() * centeredVerts; 
+
+		covariance /= (centeredVerts.rows() - 1); 
+
+		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca(covariance); 
+
+		Eigen::Matrix3f eigenVectors = pca.eigenvectors(); 
+
+		pca.eigenvalues()(0);
+		newVert.major.x = eigenVectors(0, 0) * pca.eigenvalues()(0);
+		newVert.major.y = eigenVectors(1, 0) * pca.eigenvalues()(0);
+		newVert.major.z = eigenVectors(2, 0) * pca.eigenvalues()(0);
+
+		newVert.minor.x = eigenVectors(0, 1) * pca.eigenvalues()(1);
+		newVert.minor.y = eigenVectors(1, 1) * pca.eigenvalues()(1);
+		newVert.minor.z = eigenVectors(2, 1) * pca.eigenvalues()(1);
+
+	}
 
 }
 

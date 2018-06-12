@@ -96,7 +96,7 @@ struct PosWorldNorColTex
 
 struct PosNorColEllipticalAxis
 {
-    float4 pos : POSITION;
+    float4 pos : SV_POSITION;
     float3 normal : NORMAL;
     float4 color : COLOR;
     float3 major : TANGENT0;
@@ -214,37 +214,20 @@ inline float4 lightning_phong(float3 worldPos, float3 normal)
 //--------------------------------------------------------------------------------------
 
 //magic happens in GS
-PosNorCol VS_PASSTHROUGH(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
+PosNorCol VS_PASSTHROUGH(PosNorCol input)
 {
-    PosNorCol output;
-
-    inPos.w = 1.0f;
-
-    output.pos = inPos;
-    output.normal = inNormal;
-    
-    output.color = inColor;
-    
-
-    return output;
+    input.pos.w = 1.0f;
+    return input;
 }
 
 //sets color based on LOD
-PosNorCol VS_APPLY_DEPTHCOLOR(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
+PosNorCol VS_APPLY_DEPTHCOLOR(PosNorCol input)
 {
-    PosNorCol output;
-
-    inPos.w = 1.0f;
-
-    output.pos = inPos;
-    output.normal = inNormal;
-    
+    input.pos.w = 1.0f;     
     float tmp = (1.0f * g_LODdepth) / g_maxLod; 
+    input.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);  
 
-    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
-    
-
-    return output;
+    return input;
 }
 
 PosNorColEllipticalAxis VS_ELLIPTICAL_PASSTHROUGH(PosNorColEllipticalAxis input)

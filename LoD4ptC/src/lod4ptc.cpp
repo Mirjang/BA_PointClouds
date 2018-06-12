@@ -67,7 +67,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twSceneSettings, "ResetCamera", TW_TYPE_BOOLCPP, &g_userInput.resetCamera, "");
 
 
-	TwEnumVal lodTypeEV[] = { { LODMode::NONE, "None" },{ LODMode::NESTED_OCTREE_NAIVE, "Nested Octree: Naive" },{ LODMode::NESTED_OCTREE_POSSIONDISK, "Nested Octree: Possion Disk" },{ LODMode::K_MEANS, "k-means" }/*,{ LODMode::EGGS, "Eggs" } */};
+	TwEnumVal lodTypeEV[] = { { LODMode::NONE, "None" },{ LODMode::NESTED_OCTREE_NAIVE, "Nested Octree: Naive" },{ LODMode::NESTED_OCTREE_POSSIONDISK, "Nested Octree: Possion Disk" },{ LODMode::NO_KMEANS, "k-means" }/*,{ LODMode::EGGS, "Eggs" } */};
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
 	TwAddVarRW(twLODSettings, "LOD Mode", twLODMode, &g_lodSettings.mode, NULL);
 	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
@@ -259,6 +259,11 @@ void update()
 		case NESTED_OCTREE_POSSIONDISK:
 		{
 			g_lodSettings.twImplSettingsBar = Nested_Octree_PossionDisk::setUpTweakBar();
+			break;
+		}
+		case NO_KMEANS:
+		{
+			g_lodSettings.twImplSettingsBar = Kmeans_ClusterSplats::setUpTweakBar();
 			break;
 		}
 		default:

@@ -96,7 +96,7 @@ struct NestedOctreeNode
 	{
 		for (int i = 0; i < 8; ++i)
 		{
-			if (children[i] && !(children[i].marked || children[i].isLeaf())
+			if (children[i] && !(children[i]->marked || children[i]->isLeaf()))
 				return false;
 		}
 		return true;
@@ -106,7 +106,7 @@ struct NestedOctreeNode
 	{
 		for (int i = 0; i < 8; ++i)
 		{
-			if (children[i] && !children[i].marked)
+			if (children[i] && !children[i]->marked)
 				return false;
 		}
 		return true;
@@ -116,7 +116,7 @@ struct NestedOctreeNode
 	{
 		for (int i = 0; i < 8; ++i)
 		{
-			if (children[i] && !children[i].isLeaf())
+			if (children[i] && !children[i]->isLeaf())
 				return false; 
 		}
 		return true; 
