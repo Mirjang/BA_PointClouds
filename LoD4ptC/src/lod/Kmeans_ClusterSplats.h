@@ -10,6 +10,23 @@
 
 #include "../datastructures/NestedOctree.h"
 
+struct Centroid
+{
+	Centroid() : pos(0,0,0), normalPolar(0,0), color(0,0,0,0)
+	{
+
+	}
+
+	Centroid(const DirectX::XMVECTOR& pos) : Centroid()
+	{
+		XMStoreFloat3(&this->pos, pos); 
+	}
+
+	DirectX::XMFLOAT3 pos; 
+	DirectX::XMFLOAT2 normalPolar; 
+	DirectX::XMFLOAT4 color; 
+};
+
 class Kmeans_ClusterSplats :
 	public LOD
 {
@@ -24,6 +41,14 @@ public:
 	virtual void draw(ID3D11DeviceContext* const context) override;
 
 private:
+
+	inline void initCentroids(CXMVECTOR& min, CXMVECTOR& max, const UINT& numCentroids, std::vector<Centroid>& centroids);
+
+	inline void updateCentroids(std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>& verts, const std::vector<UINT32>& vertCentroidTable);
+
+	inline void updateObservations(const std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>&verts, std::vector<UINT32>& vertCentroidTable);
+
+	inline void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<EllipticalVertex>&verts, const std::vector<UINT32>& vertCentroidTable); 
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
@@ -75,7 +100,10 @@ private:
 
 	} drawConstants;
 
-
+	struct CreateConstants
+	{
+		float maxSpacialRange; 
+	}createConstants;
 
 };
 

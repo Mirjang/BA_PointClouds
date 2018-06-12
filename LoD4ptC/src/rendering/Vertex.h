@@ -3,6 +3,7 @@
 
 #include <DirectXMath.h>
 
+
 struct Vertex
 {
 public:
@@ -33,20 +34,26 @@ public:
 	DirectX::XMFLOAT4 color; 
 };
 
-struct SphereVertex : Vertex
+struct SphereVertex : public Vertex
 {
 	float radius; 
 };
 
-struct EllipticalVertex : Vertex
+struct EllipticalVertex : public Vertex
 {
 	EllipticalVertex() :Vertex() {};
 	EllipticalVertex(const Vertex& baseVert); 
 
+	EllipticalVertex(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3& normal, const DirectX::XMFLOAT4& color)
+		: Vertex(pos, normal, color), major(1, 0, 0), minor(0, 1, 0)
+	{
+
+	}
+
 	DirectX::XMFLOAT3 major, minor; 
 };
 
-struct EllipsoidVertex : Vertex
+struct EllipsoidVertex : public Vertex
 {
 	float x, y, z; 
 };

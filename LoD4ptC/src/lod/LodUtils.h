@@ -5,6 +5,7 @@
 
 #include <DirectXMath.h>
 #include <iostream>
+#include <cmath>
 
 #include "../datastructures/NestedOctree.h"
 
@@ -39,6 +40,24 @@ namespace LOD_Utils
 			index & 4 ? 1.0f : -1.0f, 
 			1.0f); 
 	}
+
+
+	inline DirectX::XMVECTOR cartToPolatNormal(const DirectX::XMVECTOR& normal)
+	{
+		float zenith = acosf(normal.m128_f32[1]);
+		float azimuth = atan2f(normal.m128_f32[1],  normal.m128_f32[0]);
+		return XMVectorSet(zenith, azimuth, 0, 0); 
+	}
+
+
+	inline DirectX::XMVECTOR polarToCartNormal(const DirectX::XMVECTOR& normal)
+	{
+		float x = sinf(normal.m128_f32[0]) * cosf(normal.m128_f32[1]); 
+		float y = sinf(normal.m128_f32[0]) * sinf(normal.m128_f32[1]);
+		float z = cosf(normal.m128_f32[0]); 
+		return XMVectorSet(x, y, z, 0); 
+	}
+
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device);
 

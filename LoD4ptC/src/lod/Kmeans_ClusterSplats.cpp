@@ -4,6 +4,8 @@
 #include <sstream>
 #include <cstdlib>
 #include <chrono>
+#include <random>
+#include <cfloat>
 
 #include "../rendering/Effects.h"
 
@@ -74,6 +76,22 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createAdaptive); 
 
+	createConstants.maxSpacialRange = max(octree->range.x, max(octree->range.y, octree->range.z)); 
+
+
+	//run kmeans per octree node BOTTOM UP (for reasons of improving quality later)(performance will be crap tho) 
+
+	std::priority_queue<NestedOctreeNode<EllipticalVertex>*> queue;
+
+	queue.push(octree->root); 
+
+	while (!queue.empty())
+	{
+		NestedOctreeNode<EllipticalVertex>* node = queue.top(); 
+
+		if(node->)
+	}
+
 
 
 
@@ -108,6 +126,113 @@ void Kmeans_ClusterSplats::recreate(ID3D11Device* const device, vector<Vertex>& 
 
 	create(device, vertices);
 }
+
+
+void Kmeans_ClusterSplats::initCentroids(CXMVECTOR& min, CXMVECTOR& max, const UINT& numCentroids, std::vector<Centroid>& centroids)
+{
+	float range = XMVector3Length((max - min)/numCentroids * 1.5f).m128_f32[0] ;	//lets have some minimum spacing between initila centroids, shall we? 
+	std::default_random_engine xgen,ygen,zgen;
+
+	std::uniform_real_distribution<float> xdist(min.m128_f32[0], max.m128_f32[0]); 
+	std::uniform_real_distribution<float> ydist(min.m128_f32[1], max.m128_f32[1]);
+	std::uniform_real_distribution<float> zdist(min.m128_f32[2], max.m128_f32[2]);
+
+
+	for (int i = 0; i < numCentroids; ++i)
+	{
+		Centroid cent(XMVectorSet(xdist(xgen), ydist(ygen), zdist(zgen), 0));
+
+		XMVECTOR vcentpos = XMLoadFloat3(&cent.pos);
+
+		bool add = true;
+
+		for (auto c : centroids)	//check that we dont have two centroids on the same spot
+		{
+
+			if (XMVector3Equal(vcentpos, XMLoadFloat3(&c.pos)))
+			{
+				--i;
+				add = false;
+				break;
+			}
+		}
+		if (add)
+			centroids.push_back(cent);	
+
+	}
+}
+
+void Kmeans_ClusterSplats::updateCentroids(std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>& verts,const std::vector<UINT32>& vertCentroidTable)
+{
+
+	std::vector<UINT32> centroidMembers; 
+	centroidMembers.resize(centroids.size());
+
+	ZeroMemory(centroids.data(), centroids.size() * sizeof(Centroid));
+
+
+	for(int i = 0; i<verts.size(); ++i)
+	{
+		Centroid& cent = centroids[vertCentroidTable[i]]; 
+		const EllipticalVertex& vert = verts[i]; 
+		++centroidMembers[vertCentroidTable[i]]; 
+		//add pos
+		XMStoreFloat3(&cent.pos, XMLoadFloat3(&cent.pos) + XMLoadFloat3(&vert.pos));
+		//add normals in polar coords
+		XMStoreFloat2(&cent.normalPolar, XMLoadFloat2(&cent.normalPolar) + LOD_Utils::cartToPolatNormal(XMLoadFloat3(&vert.normal)));
+
+		//add colors
+		XMStoreFloat4(&cent.color, XMLoadFloat4(&cent.color) + XMLoadFloat4(&vert.color));
+	}
+
+	//divide components by #of verts in cluster
+	for (int i = 0; i < centroids.size; ++i)
+	{
+		Centroid& cent = centroids[i];
+		XMStoreFloat3(&cent.pos, XMLoadFloat3(&cent.pos) / centroidMembers[i]);
+		XMStoreFloat2(&cent.normalPolar, XMLoadFloat2(&cent.normalPolar) / centroidMembers[i]);
+		XMStoreFloat4(&cent.color, XMLoadFloat4(&cent.color) / centroidMembers[i]);
+	}
+}
+
+//Distance: xyz are divided by max(x,y,z) of the bounding box, normals and colors are already in a normalized space
+void Kmeans_ClusterSplats::updateObservations(const std::vector<Centroid>& centroids, const std::vector<EllipticalVertex>&verts, std::vector<UINT32>& vertCentroidTable)
+{
+	UINT32 minDistIndex = -1; // this will throw an OOB exception if something goes wrong... hopefully 
+	float minDist = FLT_MAX; 
+
+	for (int i = 0; i < verts.size(); ++i)
+	{
+		XMVECTOR vertPos = XMLoadFloat3(&verts[i].pos);
+		XMVECTOR vertNorPolar = LOD_Utils::cartToPolatNormal(XMLoadFloat3(&verts[i].normal)); 
+		XMVECTOR vertColor = XMLoadFloat4(&verts[i].color); 
+
+		for (int c = 0;  c < centroids.size(); ++c)
+		{
+			//use squared dist for all components
+			float distance = XMVector3LengthSq((vertPos - XMLoadFloat3(&centroids[c].pos) / createConstants.maxSpacialRange)).m128_f32[0]; 
+			distance += XMVector2LengthSq(vertNorPolar - XMLoadFloat2(&centroids[c].normalPolar)).m128_f32[0]; 
+			distance += XMVector4LengthSq(vertColor - XMLoadFloat4(&centroids[c].color)).m128_f32[0]; 
+
+			if (distance < minDist)
+			{
+				minDist = distance; 
+				minDistIndex = c; 
+			}
+		}
+
+		vertCentroidTable[i] = minDistIndex; 
+		minDistIndex = -1; 
+		minDist = FLT_MAX;
+	}
+}
+
+void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<EllipticalVertex>&verts, const std::vector<UINT32>& vertCentroidTable)
+{
+
+}
+
+
 
 void Kmeans_ClusterSplats::draw(ID3D11DeviceContext* const context)
 {
