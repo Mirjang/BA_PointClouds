@@ -92,11 +92,48 @@ struct NestedOctreeNode
 		}
 	}
 
+	bool allChildrenLeafOrMarked()
+	{
+		for (int i = 0; i < 8; ++i)
+		{
+			if (children[i] && !(children[i].marked || children[i].isLeaf())
+				return false;
+		}
+		return true;
+	}
+
+	bool allChildrenMarked()
+	{
+		for (int i = 0; i < 8; ++i)
+		{
+			if (children[i] && !children[i].marked)
+				return false;
+		}
+		return true;
+	}
+
+	bool allChildrenLeafs()
+	{
+		for (int i = 0; i < 8; ++i)
+		{
+			if (children[i] && !children[i].isLeaf())
+				return false; 
+		}
+		return true; 
+	}
+
+	bool isLeaf()
+	{
+		for (int i = 0; i < 8; ++i)
+		{
+			if (children[i]) return false; 
+		}
+		return true; 
+	}
 
 	//000 = left/down/front
 	NestedOctreeNode<Type>* children[8];
 	std::vector<Type> data; //data tbd via subsampling/averaging/pca etc.. or actual input (at leaves)--- (Mis)used as buffer during creation !
-
 
 	bool marked = false; 
 
