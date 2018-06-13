@@ -158,73 +158,94 @@ void Renderer::reloadShaders()
 	std::string vsname, gsname, psname;
 
 
-	vsname = g_renderSettings.drawLOD ? "VS_APPLY_DEPTHCOLOR" : "VS_PASSTHROUGH";
-
-	if (g_renderSettings.useLight)
+	if (g_lodSettings.mode == LODMode::NO_KMEANS)	//or any method that uses elliptical splats
 	{
-		if (g_renderSettings.determineSplatsize)
-		{
+		vsname = g_renderSettings.drawLOD ? "VS_ELLIPTICAL_APPLY_DEPTHCOLOR" : "VS_ELLIPTICAL_PASSTHROUGH";
 
-			if (g_renderSettings.drawLOD)
-			{
-				gsname = "GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
-				vsname = "VS_PASSTHROUGH";
-			}
-			else
-			{
-				gsname = "GS_LIT_ADAPTIVESPLATSIZE";
-			}
+		gsname = "GS_ELLIPTICAL"; 
 
-		}
-		else
+		switch (g_renderSettings.splatMode)
 		{
-			gsname = "GS_LIT";
+		case QUAD_SPLAT:
+		{
+			psname = g_renderSettings.useLight ? "PS_QUADELLIPSE_PHONG" : "PS_QUADELLIPSE_NOLIGHT";
+			break;
 		}
+		case CIRCLE_SPLAT:
+		{
+			psname = g_renderSettings.useLight ? "PS_ELLIPSE_PHONG" : "PS_ELLIPSE_NOLIGHT";
+			break;
+		}
+		}
+		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE, Effects::LayoutEllipsis);
+
 	}
 	else
 	{
-		if (g_renderSettings.determineSplatsize)
+
+
+		vsname = g_renderSettings.drawLOD ? "VS_APPLY_DEPTHCOLOR" : "VS_PASSTHROUGH";
+
+		if (g_renderSettings.useLight)
 		{
-			if (g_renderSettings.drawLOD)
+			if (g_renderSettings.determineSplatsize)
 			{
-				gsname = "GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
-				vsname = "VS_PASSTHROUGH";
+
+				if (g_renderSettings.drawLOD)
+				{
+					gsname = "GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
+					vsname = "VS_PASSTHROUGH";
+				}
+				else
+				{
+					gsname = "GS_LIT_ADAPTIVESPLATSIZE";
+				}
+
 			}
 			else
 			{
-				gsname = "GS_UNLIT_ADAPTIVESPLATSIZE";
+				gsname = "GS_LIT";
 			}
-
 		}
 		else
 		{
-			gsname = "GS_UNLIT";
+			if (g_renderSettings.determineSplatsize)
+			{
+				if (g_renderSettings.drawLOD)
+				{
+					gsname = "GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
+					vsname = "VS_PASSTHROUGH";
+				}
+				else
+				{
+					gsname = "GS_UNLIT_ADAPTIVESPLATSIZE";
+				}
+
+			}
+			else
+			{
+				gsname = "GS_UNLIT";
+			}
 		}
+
+
+		switch (g_renderSettings.splatMode)
+		{
+		case QUAD_SPLAT:
+		{
+			psname = g_renderSettings.useLight ? "PS_QUAD_PHONG" : "PS_QUAD_NOLIGHT";
+
+
+			break;
+		}
+		case CIRCLE_SPLAT:
+		{
+			psname = g_renderSettings.useLight ? "PS_CIRCLE_PHONG" : "PS_CIRCLE_NOLIGHT";
+			break;
+		}
+		}
+		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE);
 	}
-
-
-	switch (g_renderSettings.splatMode)
-	{
-	case QUAD_SPLAT:
-	{
-		psname = g_renderSettings.useLight ? "PS_QUAD_PHONG" : "PS_QUAD_NOLIGHT";
-
-
-		break; 
-	}	
-	case CIRCLE_SPLAT:
-	{
-		psname = g_renderSettings.useLight ? "PS_CIRCLE_PHONG" : "PS_CIRCLE_NOLIGHT";
-		break;
-	}
-	case ELLIPTIC_SPLAT:
-	{
-		throw("Not implemented"); 
-		break;
-	}
-	}
-
-	Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE);
 
 
 

@@ -32,7 +32,8 @@ TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 	TwBar* tweakBar = TwNewBar("K-Means");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.gridResolution, NULL);
 	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.iterations, NULL);
-	TwAddVarRW(tweakBar, "Centroids per node", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.centroidsPerNode, NULL);
+	TwAddVarRW(tweakBar, "Upsample Rate", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.upsampleRate, NULL);
+	TwAddVarRW(tweakBar, "Max Centroids per node", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.maxCentroidsPerNode, NULL);
 	TwAddVarRW(tweakBar, "simpleDistance", TW_TYPE_BOOLCPP, &Kmeans_ClusterSplats::settings.simpleDistance, NULL);
 
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.expansionThreshold, NULL);
@@ -82,7 +83,7 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 	* as it will rape the performance 
 	* not that the kmeans will have good perf anyawys, but this NEEDS TO BE FIXED, DO YOU HEAR ME FUTURE ME?!?
 	*/
-	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateNaiveAverage, OctreeFlags::createAdaptive); 
+	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createAdaptive); 
 
 	createConstants.maxSpacialRange = max(octree->range.x, max(octree->range.y, octree->range.z)); 
 
@@ -167,7 +168,7 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
-
+	octree->getStructureAsVector<LOD_Utils::VarSizeVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createEllipsisVertexBufferFromNode, device);
 
 	//Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
 	//g_statistics.maxDepth = octree->reachedDepth;
@@ -206,7 +207,9 @@ void Kmeans_ClusterSplats::runKMEANS(std::vector<Vec9f>& verts, std::vector<Elli
 	std::vector<UINT32> vertCentroidTable; 
 	vertCentroidTable.resize(verts.size()); 
 
-	initCentroids(vmin, vmax, min(settings.centroidsPerNode, verts.size() / 2), centroids);
+
+	//creates rnd cluster centers: (verts.size()+ settings.upsampleRate-1) ensures the result is >= 1
+	initCentroids(vmin, vmax, min(settings.maxCentroidsPerNode, (verts.size()+ settings.upsampleRate-1) / settings.upsampleRate ), centroids);
 
 
 	for (UINT32 i = 0; i < settings.iterations; ++i)
@@ -353,7 +356,7 @@ void Kmeans_ClusterSplats::centroidsToEllipticalSplats(const std::vector<Centroi
 
 	for (int i = 0; i < centroids.size(); ++i)
 	{
-		if (vertsPerCentroid[i].rows() - 1) continue; //very degenerate cluster? immpossibru unless clusters>verts? 
+		if (!(vertsPerCentroid[i].rows() - 1)) continue; //very degenerate cluster? immpossibru unless clusters>verts? 
 		outVerts.push_back(EllipticalVertex());
 
 		const Centroid& cent = centroids[i]; 
@@ -454,7 +457,7 @@ void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UIN
 
 
 
-	if (pixelsize < vertexBuffers[nodeIndex].data.pixelSize * g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
+	if (pixelsize < vertexBuffers[nodeIndex].data.maxPixelWorldSize * g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
 		Effects::SetSplatSize(worldradius);

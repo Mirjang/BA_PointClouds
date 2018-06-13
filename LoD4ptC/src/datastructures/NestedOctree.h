@@ -271,7 +271,7 @@ public:
 		{
 		case CreateAndPushDown:
 		{
-			createAndPushDown(data);
+			createAndPushDown(root, data, vmin);
 			break;
 		}
 		case CreateNaiveAverage:
@@ -369,11 +369,148 @@ private:
 	DistanceCheck distanceCheck = &Distances::distanceCheckEuclidian; 
 
 
-	inline void createAndPushDown(const std::vector<Type>& data)
+	inline void createAndPushDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
-		for (auto it : data)
+
+		if (depth > reachedDepth)
 		{
-			insert(root, it, XMLoadFloat3(&boundsMin));
+			reachedDepth = depth;
+			XMVECTOR newCellsize = XMLoadFloat3(&range) / ((1 << depth) * gridResolution);	//[was] NOT SURE ABOUT THIS [fixed it, now im a bit more sure]
+
+			cellsizeForDepth.push_back(XMFLOAT3());
+			XMStoreFloat3(&cellsizeForDepth[depth], newCellsize);
+
+			cellMidpointForDepth.push_back(XMFLOAT3());
+
+			XMStoreFloat3(&cellMidpointForDepth[depth], XMLoadFloat3(&range) / (2 << depth));
+		}
+
+		// gridRes^3 hashmap w/ chaining
+		// use id as hash function, since we already compute the key (= grid index) 
+		auto hash_ID = [](UINT32 x)->size_t {return x; };
+		//such beautiful
+		std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)> insertMap[8] =
+		{
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID),
+			std::unordered_map < UINT32, std::vector<Type>, decltype(hash_ID)>(gridResolution*gridResolution / 8, hash_ID)
+		};
+
+		UINT32 subGridOverlapps[8] = { 0 };
+
+		std::vector<Type> subGridData[8]; //Stores verts in case the tree needs to be expanded
+
+		XMVECTOR cellsize = XMLoadFloat3(&cellsizeForDepth[depth]);
+
+
+		for (auto vert : data)
+		{
+			XMVECTOR relPos = XMLoadFloat3(&vert.pos) - gridStart;
+
+			XMVECTOR cellIndex = relPos / cellsize;
+
+
+			//point location in the inscribed grid (gridresolution) <<-- make this float safe
+			UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
+				+ gridResolution * static_cast<UINT32>(XMVectorGetY(cellIndex))
+				+ gridResolution * gridResolution * static_cast<UINT32>(XMVectorGetZ(cellIndex));
+
+			//0-8 which node this vert will go to if the tree is expanded here
+			UINT32 subGridIndex = calculateSubgridIndex(relPos, depth);
+
+			auto result = insertMap[subGridIndex].find(gridIndex);
+			if (result != insertMap[subGridIndex].end())
+			{
+				result->second.push_back(vert);
+			}
+			else
+			{
+				std::vector<Type> newVec;
+				newVec.push_back(vert);
+				insertMap[subGridIndex].insert(std::pair<UINT32, std::vector<Type>>(gridIndex, newVec));
+			}
+		}
+
+		for (int i = 0; i < 8; ++i)
+		{
+			for (auto it : insertMap[i])
+			{
+
+				for (Type& vert : it.second)
+				{
+					//Type& vert = it->second;
+
+					subGridData[i].push_back(vert);
+				}
+				//END TEST
+
+				subGridOverlapps[i] += it.second.size() - 1; //first element in grid is ok
+
+			}
+			insertMap[i].clear();
+		}
+
+
+		bool expandNode = false;
+		for (int i = 0; i < 8; ++i)
+		{
+			if (subGridOverlapps[i] > expansionThreshold)
+			{
+				expandNode = true;
+				break;
+			}
+		}
+
+		if (expandNode&&depth != maxDepth)
+		{
+			for (int i = 0; i < 8; ++i)// expand node(s) where to many overlapps occured
+			{
+				if (!subGridData[i].empty())
+				{
+					pNode->children[i] = new NestedOctreeNode<Type>();
+					++numNodes;
+
+					if (subGridData[i].size() > expansionThreshold)	//these nodes migth have to bee expanded even further
+					{
+						XMFLOAT3 gridStart3f, gridMidpoint3f;
+
+						XMStoreFloat3(&gridMidpoint3f, gridStart + XMLoadFloat3(&range) / (2 << depth));
+						XMStoreFloat3(&gridStart3f, gridStart);
+
+
+						XMVECTOR subridstart = gridStart +
+							(XMLoadFloat3(&range) / (2 << depth))*XMVectorSet(i & 0x01 ? 1 : 0, i & 0x02 ? 1 : 0, i & 0x04 ? 1 : 0, 0);
+
+						createAndPushDown(pNode->children[i], subGridData[i], subridstart, depth + 1); //recurse one level 
+
+					}
+					else   //this will not be expanded -> leaf node -> no need for additional traversal 
+					{
+						//this node should be empty
+						pNode->children[i]->data.insert(pNode->children[i]->data.end(), subGridData[i].begin(), subGridData[i].end());
+					}
+				}
+
+				subGridData[i].clear();	//release unneeded space asap
+										//	delete subGridData[i];
+			}
+		}
+		else
+		{
+			pNode->data.clear();
+			pNode->data = data;
+
+			for (int i = 0; i < 8; ++i)
+			{
+				subGridData[i].clear();
+				//delete subGridData[i];
+			}
+
 		}
 	}
 

@@ -65,7 +65,8 @@ private:
 		UINT32 gridResolution = 128;
 
 		UINT32 iterations = 10; 
-		UINT32 centroidsPerNode = 500; 
+		UINT32 upsampleRate = 8; 
+		UINT32 maxCentroidsPerNode = 500; 
 
 		bool simpleDistance = true; 
 
@@ -91,7 +92,7 @@ private:
 	};
 	static TweakSettings settings;
 
-	std::vector<OctreeVectorNode<LOD_Utils::VarSizeVertexBudder>> vertexBuffers;
+	std::vector<OctreeVectorNode<LOD_Utils::VarSizeVertexBuffer>> vertexBuffers;
 
 	NestedOctree<EllipticalVertex>* octree; 
 

@@ -33,6 +33,40 @@ namespace LOD_Utils
 
 	}
 
+	VarSizeVertexBuffer createEllipsisVertexBufferFromNode(NestedOctreeNode<EllipticalVertex>* pNode, ID3D11Device* device)
+	{
+		XMVECTOR boundingSphere = XMVectorZero();
+		for (auto vert : pNode->data)
+		{
+			boundingSphere = XMVectorMax(boundingSphere, XMLoadFloat3(&vert.major)); 
+		}
+
+
+		HRESULT result;
+		ID3D11Buffer* vbuffer = nullptr;
+
+		//create vertex buffer
+		D3D11_BUFFER_DESC descVertexBuffer;
+		ZeroMemory(&descVertexBuffer, sizeof(D3D11_BUFFER_DESC));
+		descVertexBuffer.Usage = D3D11_USAGE_DEFAULT;
+		descVertexBuffer.ByteWidth = pNode->data.size() * sizeof(EllipticalVertex);
+		descVertexBuffer.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+		D3D11_SUBRESOURCE_DATA dataVertexBuffer;
+		ZeroMemory(&dataVertexBuffer, sizeof(D3D11_SUBRESOURCE_DATA));
+		dataVertexBuffer.pSysMem = pNode->data.data();
+
+		result = device->CreateBuffer(&descVertexBuffer, &dataVertexBuffer, &vbuffer);
+
+		if (FAILED(result))
+		{
+			std::cout << "failed to create vertex buffer " << result << std::endl;
+			std::cin.get();
+		}
+
+		return VarSizeVertexBuffer(vbuffer, pNode->data.size(), XMVector3Length(boundingSphere).m128_f32[0]);
+
+	}
 
 	void printTreeStructure(const std::vector<OctreeVectorNode<VertexBuffer>>& verts, UINT32 nodeIndex, UINT32 maxDepth, UINT32 depth)
 	{

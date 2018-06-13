@@ -26,9 +26,14 @@ namespace LOD_Utils
 
 	};
 
-	struct VarSizeVertexBudder : VertexBuffer
+	struct VarSizeVertexBuffer : VertexBuffer
 	{
-		float pixelSize; 
+		VarSizeVertexBuffer() : VertexBuffer() {}
+		VarSizeVertexBuffer(ID3D11Buffer* buffer, UINT32 size, float pixelBouzndingRadius) : VertexBuffer( buffer, size), maxPixelWorldSize(pixelBouzndingRadius * 2)
+		{
+
+		}
+		float maxPixelWorldSize; 
 	};
 
 
@@ -60,6 +65,8 @@ namespace LOD_Utils
 
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device);
+
+	VarSizeVertexBuffer createEllipsisVertexBufferFromNode(NestedOctreeNode<EllipticalVertex>* pNode, ID3D11Device* device);
 
 	void printTreeStructure(const std::vector<OctreeVectorNode<VertexBuffer>>& verts, UINT32 nodeIndex = 0, UINT32 maxDepth = -1, UINT32 depth = 0);
 

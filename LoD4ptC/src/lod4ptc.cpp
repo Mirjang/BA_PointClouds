@@ -298,6 +298,7 @@ void update()
 			}
 
 			mesh->createLod(g_renderer->d3dDevice, g_lodSettings.mode); 
+			g_renderer->reloadShaders();
 		}
 	}
 	g_lodSettings.recreate = false;	//make sure this is reset... buttons are hard 
