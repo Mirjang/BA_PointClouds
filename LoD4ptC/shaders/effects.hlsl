@@ -99,18 +99,8 @@ struct PosNorColRad
     float4 pos : SV_POSITION;
     float3 normal : NORMAL;
     float4 color : COLOR;
-    float radius : PSIZE;
+    float radius : PSIZE;  //PSIZE doesnt work? qq
 };
-
-struct PosWorldNorColRad
-{
-    float4 pos : SV_POSITION;
-    float3 posWorld : POSITION;
-    float3 normal : NORMAL;
-    float4 color : COLOR;
-    float radius : PSIPSIZE;
-};
-
 
 struct PosNorColEllipticalAxis
 {
@@ -634,26 +624,3 @@ float4 PS_ELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
     }
     return lightning_phong(input.posWorld, input.normal) * input.color;
 }
-
-// STASH
-
-/*
-
-
-//Ditches normals
-PosNorCol VS_SIMPLE(float4 inPos : POSITION, float3 inNormal : NORMAL, float4 inColor : COLOR)
-{
-    PosNorCol output;
-
-    inPos.w = 1.0f;
-
-    output.pos = inPos;
-    output.normal = inNormal;
-    
-    output.color = inColor;
-    
-
-    return output;
-}
-
-*/

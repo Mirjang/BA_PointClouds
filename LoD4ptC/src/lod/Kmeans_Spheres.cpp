@@ -90,9 +90,6 @@ void Kmeans_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices
 
 	initalEllpticalVerts.clear(); 
 
-	createConstants.maxSpacialRange = max(octree->range.x, max(octree->range.y, octree->range.z)); 
-
-
 	//run kmeans per octree node BOTTOM UP (for reasons of improving quality later)(performance will be crap tho) 
 	//there is no clustering in leaf nodes ATM to preserve original samples at max LOD
 	std::stack<NestedOctreeNode<SphereVertex>*> stack;
@@ -200,6 +197,9 @@ void Kmeans_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& vertic
 void Kmeans_Spheres::runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVertex>& outVec)
 {
 //	std::cout << "kmeans" << std::endl; 
+
+	Kmeans kmeans; 
+
 	Vec9f vmin = verts[0]; 
 	Vec9f vmax = vmin; 
 	for (int i = 0; i < verts.size(); ++i)
@@ -210,7 +210,7 @@ void Kmeans_Spheres::runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVert
 
 	Vec9f range = vmax - vmin; 
 
-	createConstants.maxSpacialRange = max(range(0), max(range(1), range(2))); 
+	kmeans.constants.maxSpacialRange = max(range(0), max(range(1), range(2))); 
 
 	std::vector<Centroid> centroids; 
 	std::vector<UINT32> vertCentroidTable; 
@@ -218,126 +218,33 @@ void Kmeans_Spheres::runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVert
 
 
 	//creates rnd cluster centers: (verts.size()+ settings.upsampleRate-1) ensures the result is >= 1
-	initCentroids(vmin, vmax, min(settings.maxCentroidsPerNode, (verts.size()+ settings.upsampleRate-1) / settings.upsampleRate ), centroids);
+	kmeans.initCentroids(vmin, vmax, min(settings.maxCentroidsPerNode, (verts.size()+ settings.upsampleRate-1) / settings.upsampleRate ), centroids);
 
 
 	for (UINT32 i = 0; i < settings.iterations; ++i)
 	{
 //		auto start = std::chrono::high_resolution_clock::now();
 
-		updateObservations(centroids, verts, vertCentroidTable); 
+		kmeans.updateObservations(centroids, verts, vertCentroidTable);
 //		std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 
 //		std::cout << "Observations: " << elapsed.count() << std::endl; 
 
 //		start = std::chrono::high_resolution_clock::now();
 
-		updateCentroids(centroids, verts, vertCentroidTable); 
+		kmeans.updateCentroids(centroids, verts, vertCentroidTable);
 //		std::chrono::duration<double> elapsed2 = std::chrono::high_resolution_clock::now() - start;
 //		std::cout << "Observations: " << elapsed2.count() << std::endl;
 
 
 	}
 
-	centroidsToEllipticalSplats(centroids, verts, vertCentroidTable, outVec); 
+	centroidsToSphereSplats(centroids, verts, vertCentroidTable, outVec); 
 
 
 }
 
-void Kmeans_Spheres::initCentroids(const Vec9f& vmin, const Vec9f& vmax, const UINT& numCentroids, std::vector<Centroid>& centroids)
-{
-
-//	float range = XMVector3Length((max - min)/numCentroids * 1.5f).m128_f32[0];	//lets have some minimum spacing between initila centroids, shall we? 
-	std::default_random_engine xgen,ygen,zgen;
-
-	std::uniform_real_distribution<float> xdist(vmin(0), vmax(0)); 
-	std::uniform_real_distribution<float> ydist(vmin(1), vmin(1));
-	std::uniform_real_distribution<float> zdist(vmin(2), vmin(2));
-
-
-	for (UINT32 i = 0; i < numCentroids; ++i)
-	{
-		Centroid cent(xdist(xgen), ydist(ygen), zdist(zgen));
-
-		bool add = true;
-
-		for (auto c : centroids)	//check that we dont have two centroids on the same spot
-		{
-
-			if (cent.features == c.features)
-			{
-			//	--i; // rnd numbers are taking too long... 
-				add = false;
-				break;
-			}
-		}
-		if (add)
-			centroids.push_back(cent);	
-
-	}
-}
-
-void Kmeans_Spheres::updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts,const std::vector<UINT32>& vertCentroidTable)
-{
-
-	std::vector<UINT32> centroidMembers; 
-	centroidMembers.resize(centroids.size());
-
-	for (int i = 0; i < centroids.size(); ++i)
-	{
-		centroids[i].features << 0, 0, 0, 0, 0, 0, 0, 0, 0; 
-	}
-
-
-	for(int i = 0; i<verts.size(); ++i)
-	{
-		Centroid& cent = centroids[vertCentroidTable[i]]; 
-		++centroidMembers[vertCentroidTable[i]]; 
-		
-		cent.features += verts[i];
-	}
-
-	//divide components by #of verts in cluster
-	for (int i = 0; i < centroids.size(); ++i)
-	{
-		if (!centroidMembers[i]) continue; //very degenerate cluster ?
-		centroids[i].features /= centroidMembers[i];
-	}
-}
-
-//Distance: xyz are divided by max(x,y,z) of the bounding box, normals and colors are already in a normalized space
-void Kmeans_Spheres::updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable)
-{
-	UINT32 minDistIndex = -1; // this will throw an OOB exception if something goes wrong... hopefully 
-	float minDist = FLT_MAX; 
-
-	for (int i = 0; i < verts.size(); ++i)
-	{
-		Vec9f vert = verts[i]; 
-		vert(0) /= createConstants.maxSpacialRange; 
-		vert(1) /= createConstants.maxSpacialRange;
-		vert(2) /= createConstants.maxSpacialRange;
-
-
-		for (int c = 0;  c < centroids.size(); ++c)
-		{
-			//use squared dist for all components
-			float distance = vert.dot(centroids[c].features); 
-
-			if (distance < minDist)
-			{
-				minDist = distance; 
-				minDistIndex = c; 
-			}
-		}
-		vertCentroidTable[i] = minDistIndex; 
-
-		minDistIndex = -1; 
-		minDist = FLT_MAX;
-	}
-}
-
-void Kmeans_Spheres::centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
+void Kmeans_Spheres::centroidsToSphereSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
 {
 	std::vector<Eigen::Matrix<float, Eigen::Dynamic, 3>> vertsPerCentroid;
 	
@@ -413,7 +320,7 @@ void Kmeans_Spheres::draw(ID3D11DeviceContext* const context)
 	Effects::g_pCurrentPass->apply(context);
 
 	drawConstants.slope = tan(g_screenParams.fov / 2);
-	drawConstants.pixelSizeConstant = g_screenParams.height / (2.0f * drawConstants.slope);
+	drawConstants.pixelSizeConstant = g_screenParams.height / (2.0f * drawConstants.slope) * g_renderSettings.splatSize;
 
 	if (settings.drawFixedDepth)
 	{
@@ -452,7 +359,7 @@ void Kmeans_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 no
 		return;
 	}
 
-	float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+	//float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
 
 	float pixelsize = (vertexBuffers[nodeIndex].data.maxPixelWorldSize * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 
@@ -460,7 +367,6 @@ void Kmeans_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 no
 	if (pixelsize <  g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
-		Effects::SetSplatSize(worldradius);
 		Effects::cbPerLOD.currentLOD = depth;
 		Effects::UpdatePerLODBuffer(context);
 

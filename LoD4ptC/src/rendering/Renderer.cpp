@@ -182,8 +182,6 @@ void Renderer::reloadShaders()
 	}
 	else if(g_lodSettings.mode == LODMode::KMEANS_SPHERE)
 	{
-
-
 		vsname = g_renderSettings.drawLOD ? "VS_RADIUS_APPLY_DEPTHCOLOR" : "VS_RADIUS_PASSTHROUGH";
 		gsname = "GS_RADIUS";
 
@@ -192,8 +190,6 @@ void Renderer::reloadShaders()
 		case QUAD_SPLAT:
 		{
 			psname = g_renderSettings.useLight ? "PS_QUAD_PHONG" : "PS_QUAD_NOLIGHT";
-
-
 			break;
 		}
 		case CIRCLE_SPLAT:
@@ -202,7 +198,7 @@ void Renderer::reloadShaders()
 			break;
 		}
 		}
-		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE);
+		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE, Effects::LayoutSpheres);
 	}
 	else
 	{

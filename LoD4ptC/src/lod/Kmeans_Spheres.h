@@ -26,13 +26,7 @@ private:
 
 	inline void runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVertex>& outVec);
 
-	inline void initCentroids(const Vec9f& min, const Vec9f& max, const UINT& numCentroids, std::vector<Centroid>& centroids);
-
-	inline void updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts, const std::vector<UINT32>& vertCentroidTable);
-
-	inline void updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable);
-
-	inline void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts);
+	inline void centroidsToSphereSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts);
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
@@ -85,10 +79,6 @@ private:
 
 	} drawConstants;
 
-	struct CreateConstants
-	{
-		float maxSpacialRange; 
-	}createConstants;
 
 };
 
