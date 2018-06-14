@@ -37,6 +37,7 @@ namespace Effects
 	std::unordered_map<std::string, ID3D11PixelShader*> pixelShaders;
 
 	ID3D11InputLayout* pILDefaultLayout;
+	ID3D11InputLayout* pILSphereLayout;
 	ID3D11InputLayout* pILEllipsisLayout;
 
 
@@ -153,6 +154,18 @@ namespace Effects
 				}
 			}
 
+
+			//dirty layout init
+			if (!strcmp(name.c_str(), "VS_RADIUS_PASSTHROUGH"))
+			{
+				hr = device->CreateInputLayout(config::LAYOUT_POS3_NOR3_COL4_RADIUS1, config::layoutSizeSpherical, shaderblobs[bufferctr]->GetBufferPointer(), shaderblobs[bufferctr]->GetBufferSize(), &pILSphereLayout);
+				if (FAILED(hr))
+				{
+					std::cout << "failed to create Radius InputLayout " << hr << std::endl;
+					std::cin.get();
+				}
+			}
+
 			if (!strcmp(name.c_str(), "VS_ELLIPTICAL_PASSTHROUGH"))
 			{
 				hr = device->CreateInputLayout(config::LAYOUT_POS3_NOR3_COL4_AXIS3_AXIS3, config::layoutSizeElliptical, shaderblobs[bufferctr]->GetBufferPointer(), shaderblobs[bufferctr]->GetBufferSize(), &pILEllipsisLayout);
@@ -162,6 +175,8 @@ namespace Effects
 					std::cin.get();
 				}
 			}
+
+
 
 			bufferctr++;
 		}		
@@ -218,6 +233,9 @@ namespace Effects
 	void deinit()
 	{
 		SafeRelease(pILDefaultLayout);
+		SafeRelease(pILSphereLayout);
+		SafeRelease(pILEllipsisLayout);
+
 
 		SafeRelease(RS_STATE.CULL_FRONT_CW);
 		SafeRelease(RS_STATE.CULL_BACK_CW);
@@ -284,6 +302,11 @@ namespace Effects
 		{
 			context->IASetInputLayout(pILDefaultLayout);
 			break; 
+		}
+		case Effects::LayoutSpheres:
+		{
+			context->IASetInputLayout(pILSphereLayout);
+			break;
 		}
 		case Effects::LayoutEllipsis:
 		{

@@ -80,6 +80,7 @@ namespace Effects
 	enum LayoutType
 	{
 		LayoutDefault, 
+		LayoutSpheres, 
 		LayoutEllipsis, 
 	};
 
@@ -89,8 +90,6 @@ namespace Effects
 		extern const std::vector<std::string> GS_NAMES;
 		extern const std::vector<std::string> PS_NAMES;
 
-		extern const D3D11_INPUT_ELEMENT_DESC LAYOUT_POS3_NOR3_COL4[];
-		extern const int layoutSize;
 	}
 
 	/*pretty sure I´ll only use those*/
@@ -104,6 +103,7 @@ namespace Effects
 	extern ID3D11Buffer* cbShaderSettingsBuffer;
 
 	extern ID3D11InputLayout* pILDefaultLayout;
+	extern ID3D11InputLayout* pILSphereLayout;
 	extern ID3D11InputLayout* pILEllipsisLayout;
 
 	extern std::vector<ID3DBlob*> shaderblobs;

@@ -158,7 +158,7 @@ void Renderer::reloadShaders()
 	std::string vsname, gsname, psname;
 
 
-	if (g_lodSettings.mode == LODMode::NO_KMEANS)	//or any method that uses elliptical splats
+	if (g_lodSettings.mode == LODMode::KMEANS_ELLIPSE)	//or any method that uses elliptical splats
 	{
 		vsname = g_renderSettings.drawLOD ? "VS_ELLIPTICAL_APPLY_DEPTHCOLOR" : "VS_ELLIPTICAL_PASSTHROUGH";
 
@@ -179,6 +179,30 @@ void Renderer::reloadShaders()
 		}
 		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE, Effects::LayoutEllipsis);
 
+	}
+	else if(g_lodSettings.mode == LODMode::KMEANS_SPHERE)
+	{
+
+
+		vsname = g_renderSettings.drawLOD ? "VS_RADIUS_APPLY_DEPTHCOLOR" : "VS_RADIUS_PASSTHROUGH";
+		gsname = "GS_RADIUS";
+
+		switch (g_renderSettings.splatMode)
+		{
+		case QUAD_SPLAT:
+		{
+			psname = g_renderSettings.useLight ? "PS_QUAD_PHONG" : "PS_QUAD_NOLIGHT";
+
+
+			break;
+		}
+		case CIRCLE_SPLAT:
+		{
+			psname = g_renderSettings.useLight ? "PS_CIRCLE_PHONG" : "PS_CIRCLE_NOLIGHT";
+			break;
+		}
+		}
+		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE);
 	}
 	else
 	{

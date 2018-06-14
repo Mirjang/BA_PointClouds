@@ -94,6 +94,24 @@ struct PosWorldNorColTex
 };
 
 
+struct PosNorColRad
+{
+    float4 pos : SV_POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+    float radius : PSIZE;
+};
+
+struct PosWorldNorColRad
+{
+    float4 pos : SV_POSITION;
+    float3 posWorld : POSITION;
+    float3 normal : NORMAL;
+    float4 color : COLOR;
+    float radius : PSIPSIZE;
+};
+
+
 struct PosNorColEllipticalAxis
 {
     float4 pos : SV_POSITION;
@@ -230,6 +248,24 @@ PosNorCol VS_APPLY_DEPTHCOLOR(PosNorCol input)
     return input;
 }
 
+//magic happens in GS
+PosNorColRad VS_RADIUS_PASSTHROUGH(PosNorColRad input)
+{
+    input.pos.w = 1.0f;
+    return input;
+}
+
+//sets color based on LOD
+PosNorColRad VS_RADIUS_APPLY_DEPTHCOLOR(PosNorColRad input)
+{
+    input.pos.w = 1.0f;
+    float tmp = (1.0f * g_LODdepth) / g_maxLod;
+    input.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+
+    return input;
+}
+
+
 PosNorColEllipticalAxis VS_ELLIPTICAL_PASSTHROUGH(PosNorColEllipticalAxis input)
 {
     input.pos.w = 1.0f; 
@@ -276,7 +312,6 @@ void GS_UNLIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> 
 
 }
 
-
 //lit splats
 [maxvertexcount(4)]
 void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
@@ -301,6 +336,36 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
     OutStream.Append(output);
 
     output.pos.y -= g_splatdiameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+}
+
+[maxvertexcount(4)]
+void GS_RADIUS(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
+    output.color = input[0].color;
+
+    float2 radius = mul(input[0].radius, g_splatSize);
+    float2 diameter = radius + radius; 
+
+    output.pos.xy += float2(-1, 1) * radius; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos.y -= diameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += diameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= diameter.y; //right down
     output.tex.xy = float2(1, 1);
     OutStream.Append(output);
 }
@@ -391,7 +456,6 @@ void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<Pos
     output.posWorld = mul(input[0].pos, m_world);
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
-
     float depth = calcDepth(input[0].pos.xyz);
     
     float2 adaptedRadius = calcSplatSize(depth);
@@ -461,11 +525,25 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
+
+    //----
+
+    float3 major = mul(normalize(input[0].major), (float3x3) m_world);
+    float3 minor = mul(normalize(input[0].minor), (float3x3) m_world);
+
+//    major = normalize(input[0].major);
+ //   minor = normalize(input[0].minor); 
     
-    float3 major = mul(input[0].major, (float3x3) m_world);
-    float3 minor = mul(input[0].minor, (float3x3) m_world);
-    
-    output.radXY = max(major.xy, minor.xy); 
+    major = mul(major, length(input[0].major));
+    minor = mul(minor, length(input[0].minor));
+
+   // major = input[0].major; 
+   // minor = input[0].minor; 
+
+    output.radXY = max(abs(major.xy), abs(minor.xy)) * g_splatSize;
+
+   // output.radXY = float2(1, 1) * g_splatSize;
+
     float2 diameter = output.radXY + output.radXY;
 
     output.pos.xy += float2(-1, 1) * output.radXY; //left up
@@ -505,7 +583,6 @@ float4 PS_CIRCLE_NOLIGHT(PosWorldNorColTex input) : SV_TARGET
     return input.color;
 }
 
-
 float4 PS_QUAD_PHONG(PosWorldNorColTex input) : SV_TARGET
 {
     return lightning_phong(input.posWorld, input.normal) * input.color;
@@ -527,7 +604,6 @@ float4 PS_QUADELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
 {
     return input.color;
 }
-
 
 float4 PS_QUADELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
 {

@@ -36,21 +36,24 @@ public:
 
 struct SphereVertex : public Vertex
 {
+	SphereVertex() :Vertex() {};
+	SphereVertex(const Vertex& baseVert);
+
+	SphereVertex(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3& normal, const DirectX::XMFLOAT4& color);
+	
 	float radius; 
 };
 
-struct EllipticalVertex : public Vertex
+struct EllipticalVertex :public Vertex
 {
 	EllipticalVertex() :Vertex() {};
 	EllipticalVertex(const Vertex& baseVert); 
 
-	EllipticalVertex(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3& normal, const DirectX::XMFLOAT4& color)
-		: Vertex(pos, normal, color), major(1, 0, 0), minor(0, 1, 0)
-	{
+	EllipticalVertex(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3& normal, const DirectX::XMFLOAT4& color);
 
-	}
 
-	DirectX::XMFLOAT3 major, minor; 
+	DirectX::XMFLOAT3 major; 
+	DirectX::XMFLOAT3 minor; 
 };
 
 struct EllipsoidVertex : public Vertex

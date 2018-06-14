@@ -26,10 +26,10 @@ namespace LOD_Utils
 
 	};
 
-	struct VarSizeVertexBuffer : VertexBuffer
+	struct EllipticalVertexBuffer : VertexBuffer
 	{
-		VarSizeVertexBuffer() : VertexBuffer() {}
-		VarSizeVertexBuffer(ID3D11Buffer* buffer, UINT32 size, float pixelBouzndingRadius) : VertexBuffer( buffer, size), maxPixelWorldSize(pixelBouzndingRadius * 2)
+		EllipticalVertexBuffer() : VertexBuffer() {}
+		EllipticalVertexBuffer(ID3D11Buffer* buffer, UINT32 size, float pixelBouzndingRadius) : VertexBuffer( buffer, size), maxPixelWorldSize(pixelBouzndingRadius * 2)
 		{
 
 		}
@@ -47,7 +47,7 @@ namespace LOD_Utils
 	}
 
 
-	inline DirectX::XMVECTOR cartToPolatNormal(const DirectX::XMVECTOR& normal)
+	inline DirectX::XMVECTOR cartToPolarNormal(const DirectX::XMVECTOR& normal)
 	{
 		float zenith = acosf(normal.m128_f32[1]);
 		float azimuth = atan2f(normal.m128_f32[1],  normal.m128_f32[0]);
@@ -66,7 +66,10 @@ namespace LOD_Utils
 
 	VertexBuffer createVertexBufferFromNode(NestedOctreeNode<Vertex>* pNode, ID3D11Device* device);
 
-	VarSizeVertexBuffer createEllipsisVertexBufferFromNode(NestedOctreeNode<EllipticalVertex>* pNode, ID3D11Device* device);
+	EllipticalVertexBuffer createEllipsisVertexBufferFromNode(NestedOctreeNode<EllipticalVertex>* pNode, ID3D11Device* device);
+
+	EllipticalVertexBuffer createSphereVertexBufferFromNode(NestedOctreeNode<SphereVertex>* pNode, ID3D11Device* device);
+
 
 	void printTreeStructure(const std::vector<OctreeVectorNode<VertexBuffer>>& verts, UINT32 nodeIndex = 0, UINT32 maxDepth = -1, UINT32 depth = 0);
 

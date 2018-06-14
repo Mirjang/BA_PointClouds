@@ -72,7 +72,13 @@
     <ClCompile Include="src\lod\Octree_Naive_Avg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\lod\Kmeans_ClusterSplats.cpp">
+    <ClCompile Include="src\lod\Kmeans_Spheres.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lod\Kmeans_Ellipses.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\datastructures\Kmeans.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -135,9 +141,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\lod\Octree_Naive_Avg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\lod\Kmeans_ClusterSplats.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="libs\Eigen\src\Cholesky\LDLT.h">
@@ -951,6 +954,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="libs\Eigen\src\UmfPackSupport\UmfPackSupport.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\Kmeans_Spheres.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\Kmeans_Ellipses.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\datastructures\Kmeans.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

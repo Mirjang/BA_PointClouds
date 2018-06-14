@@ -6,35 +6,15 @@
 #include "LodUtils.h"
 #include "../datastructures/NestedOctree.h"
 
-typedef Eigen::Matrix<float, 9, 1> Vec9f;
-
-struct Centroid
-{
-	Centroid()
-	{
-
-	}
-
-	Centroid(float x, float y, float z) : Centroid()
-	{
-		features << x, y, z; 
-	}
-
-	Centroid(const DirectX::XMVECTOR& pos) : Centroid()
-	{
-		features << pos.m128_f32[0], pos.m128_f32[1], pos.m128_f32[0]; 
-	}
-
-	Vec9f features; 
-};
+#include "../datastructures/Kmeans.h"
 
 
-class Kmeans_ClusterSplats :
+class Kmeans_Ellipses :
 	public LOD
 {
 public:
-	Kmeans_ClusterSplats();
-	~Kmeans_ClusterSplats();
+	Kmeans_Ellipses();
+	~Kmeans_Ellipses();
 
 
 	virtual void create(ID3D11Device* const device, vector<Vertex>& vertices) override;
@@ -66,7 +46,7 @@ private:
 
 		UINT32 iterations = 10; 
 		UINT32 upsampleRate = 8; 
-		UINT32 maxCentroidsPerNode = 500; 
+		UINT32 maxCentroidsPerNode = 7500; 
 
 		bool simpleDistance = true; 
 
@@ -92,15 +72,15 @@ private:
 	};
 	static TweakSettings settings;
 
-	std::vector<OctreeVectorNode<LOD_Utils::VarSizeVertexBuffer>> vertexBuffers;
+	std::vector<OctreeVectorNode<LOD_Utils::EllipticalVertexBuffer>> vertexBuffers;
 
 	NestedOctree<EllipticalVertex>* octree; 
 
 	struct DrawConstants
 	{
 		float slope;
-		float heightDiv2DivSlope;
-		UINT strides = sizeof(Vertex);
+		float pixelSizeConstant;
+		UINT strides = sizeof(EllipticalVertex);
 		UINT offset = 0;
 
 	} drawConstants;

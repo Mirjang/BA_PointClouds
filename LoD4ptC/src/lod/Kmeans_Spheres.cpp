@@ -1,4 +1,4 @@
-#include "Kmeans_ClusterSplats.h"
+#include "Kmeans_Spheres.h"
 
 #include <iostream>
 #include <sstream>
@@ -15,30 +15,30 @@
 using namespace DirectX; 
 
 
-Kmeans_ClusterSplats::Kmeans_ClusterSplats()
+Kmeans_Spheres::Kmeans_Spheres()
 {
 }
 
 
-Kmeans_ClusterSplats::~Kmeans_ClusterSplats()
+Kmeans_Spheres::~Kmeans_Spheres()
 {
 }
 
 
 
-Kmeans_ClusterSplats::TweakSettings Kmeans_ClusterSplats::settings;
-TwBar* Kmeans_ClusterSplats::setUpTweakBar()
+Kmeans_Spheres::TweakSettings Kmeans_Spheres::settings;
+TwBar* Kmeans_Spheres::setUpTweakBar()
 {
-	TwBar* tweakBar = TwNewBar("K-Means");
-	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.gridResolution, NULL);
-	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.iterations, NULL);
-	TwAddVarRW(tweakBar, "Upsample Rate", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.upsampleRate, NULL);
-	TwAddVarRW(tweakBar, "Max Centroids per node", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.maxCentroidsPerNode, NULL);
-	TwAddVarRW(tweakBar, "simpleDistance", TW_TYPE_BOOLCPP, &Kmeans_ClusterSplats::settings.simpleDistance, NULL);
+	TwBar* tweakBar = TwNewBar("K-Means Spheres");
+	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Kmeans_Spheres::settings.gridResolution, NULL);
+	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Kmeans_Spheres::settings.iterations, NULL);
+	TwAddVarRW(tweakBar, "Upsample Rate", TW_TYPE_UINT32, &Kmeans_Spheres::settings.upsampleRate, NULL);
+	TwAddVarRW(tweakBar, "Max Centroids per node", TW_TYPE_UINT32, &Kmeans_Spheres::settings.maxCentroidsPerNode, NULL);
+	TwAddVarRW(tweakBar, "simpleDistance", TW_TYPE_BOOLCPP, &Kmeans_Spheres::settings.simpleDistance, NULL);
 
-	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.expansionThreshold, NULL);
+	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Kmeans_Spheres::settings.expansionThreshold, NULL);
 
-	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Kmeans_ClusterSplats::settings.maxDepth, NULL);
+	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Kmeans_Spheres::settings.maxDepth, NULL);
 
 	TwEnumVal distanceFunctionEV[] = { { OctreeFlags::dfEuclididan, "Euclidian distance" },{ OctreeFlags::dfManhattan, "Manhattan distance" } };
 	TwType twDistanceFunction = TwDefineEnum("Distance Function", distanceFunctionEV, ARRAYSIZE(distanceFunctionEV));
@@ -46,12 +46,12 @@ TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 
 
 	TwAddSeparator(tweakBar, "sep", NULL);
-	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Kmeans_ClusterSplats::settings.fixedDepth, NULL);
-	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Kmeans_ClusterSplats::settings.drawFixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Kmeans_Spheres::settings.fixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Kmeans_Spheres::settings.drawFixedDepth, NULL);
 
 	TwAddSeparator(tweakBar, "sep2", NULL);
-	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Kmeans_ClusterSplats::settings.LOD, NULL);
-	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Kmeans_ClusterSplats::settings.nodesDrawn, NULL);
+	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Kmeans_Spheres::settings.LOD, NULL);
+	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Kmeans_Spheres::settings.nodesDrawn, NULL);
 
 
 	return tweakBar;
@@ -59,22 +59,22 @@ TwBar* Kmeans_ClusterSplats::setUpTweakBar()
 }
 
 // pray for -O3
-void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& vertices)
+void Kmeans_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 	std::cout << "\n===================================================" << std::endl;
-	std::cout << "Creating Octree_Kmeans" << std::endl;
+	std::cout << "Creating kmeans_spheres" << std::endl;
 
 	auto start = std::chrono::high_resolution_clock::now();
 
 	//create here
 
-	std::vector<EllipticalVertex> initalEllpticalVerts;	//at max LOD verts = circles (ellipsoid w/ major/minor  unit length and orthogonal to normal 
+	std::vector<SphereVertex> initalEllpticalVerts;	//at max LOD verts = circles (ellipsoid w/ major/minor  unit length and orthogonal to normal 
 
 	initalEllpticalVerts.reserve(vertices.size()); 
 
 	for (auto vert : vertices)
 	{
-		initalEllpticalVerts.push_back(EllipticalVertex(vert)); 
+		initalEllpticalVerts.push_back(SphereVertex(vert)); 
 	}
 
 	/*
@@ -82,27 +82,32 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 	* this HAS to be changed later
 	* as it will rape the performance 
 	* not that the kmeans will have good perf anyawys, but this NEEDS TO BE FIXED, DO YOU HEAR ME FUTURE ME?!?
+	*
+	* This is future me, i think i fixed it some time ago, cant remember :O
 	*/
-	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createAdaptive); 
+	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube);
+
+
+	initalEllpticalVerts.clear(); 
 
 	createConstants.maxSpacialRange = max(octree->range.x, max(octree->range.y, octree->range.z)); 
 
 
 	//run kmeans per octree node BOTTOM UP (for reasons of improving quality later)(performance will be crap tho) 
 	//there is no clustering in leaf nodes ATM to preserve original samples at max LOD
-	std::stack<NestedOctreeNode<EllipticalVertex>*> stack;
+	std::stack<NestedOctreeNode<SphereVertex>*> stack;
 	if(!octree->root->isLeaf()) //point cloud too small -> LOD is unnecessary
 		stack.push(octree->root); 
 
 	while (!stack.empty())
 	{
-		NestedOctreeNode<EllipticalVertex>* node = stack.top(); 
+		NestedOctreeNode<SphereVertex>* node = stack.top(); 
 
 		if (node->allChildrenLeafOrMarked())
 		{
 			stack.pop();
 
-			std::vector<EllipticalVertex>& verts = node->data; 
+			std::vector<SphereVertex>& verts = node->data; 
 			std::vector<Vec9f> featureVecs; 
 			// ok so im really hacking around here.. this node should be empty unless during expansion one of the child nodes didnt get enough verts
 			//in this case we will prob. delete vital verts that cannot be restored ... this is just a temporary hack until i fix the fucking octree insertion
@@ -112,7 +117,7 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 			for (int i = 0; i < 8; ++i) //collect all child verts
 			{
-				NestedOctreeNode<EllipticalVertex>* child = node->children[i];
+				NestedOctreeNode<SphereVertex>* child = node->children[i];
 				if (child)
 				{
 					child->marked = false; 
@@ -120,15 +125,19 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 					UINT32 vertIndex = 0;
 					for(; vertIndex < child->data.size(); ++vertIndex)
 					{
-						featureVecs.push_back(Vec9f());
 
 						const EllipticalVertex& vert = child->data[vertIndex];
 
 						//add normals in polar coords
-						XMVECTOR polarcoords =  LOD_Utils::cartToPolatNormal(XMLoadFloat3(&vert.normal));
+						XMVECTOR polarcoords =  LOD_Utils::cartToPolarNormal(XMLoadFloat3(&vert.normal));
 
-						featureVecs[vertOffset + vertIndex] << vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
+						Vec9f featureVec;
+						featureVec<< vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
 							vert.color.x, vert.color.y, vert.color.z, vert.color.w; 
+
+						featureVecs.push_back(featureVec);
+
+
 					}
 
 					vertOffset += vertIndex; 
@@ -143,7 +152,7 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 		{
 			for (int i = 0; i < 8; ++i) //collect all child verts
 			{
-				NestedOctreeNode<EllipticalVertex>* child = node->children[i];
+				NestedOctreeNode<SphereVertex>* child = node->children[i];
 				if (child && !child->isLeaf())
 				{
 					stack.push(child); 
@@ -157,7 +166,7 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-	std::cout << "Created Octree w/ Kmeans splats with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
+	std::cout << "Created Octree w/ Kmeans spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
 	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
 
 
@@ -168,15 +177,15 @@ void Kmeans_ClusterSplats::create(ID3D11Device* const device, vector<Vertex>& ve
 
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
-	octree->getStructureAsVector<LOD_Utils::VarSizeVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createEllipsisVertexBufferFromNode, device);
+	octree->getStructureAsVector<LOD_Utils::EllipticalVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createSphereVertexBufferFromNode, device);
 
-	//Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
-	//g_statistics.maxDepth = octree->reachedDepth;
+	Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
+	g_statistics.maxDepth = octree->reachedDepth;
 	std::cout << "=======================DONE========================\n" << std::endl;
 
 }
 
-void Kmeans_ClusterSplats::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
+void Kmeans_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 
 	for (auto it : vertexBuffers)
@@ -188,7 +197,7 @@ void Kmeans_ClusterSplats::recreate(ID3D11Device* const device, vector<Vertex>& 
 	create(device, vertices);
 }
 
-void Kmeans_ClusterSplats::runKMEANS(std::vector<Vec9f>& verts, std::vector<EllipticalVertex>& outVec)
+void Kmeans_Spheres::runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVertex>& outVec)
 {
 //	std::cout << "kmeans" << std::endl; 
 	Vec9f vmin = verts[0]; 
@@ -235,7 +244,7 @@ void Kmeans_ClusterSplats::runKMEANS(std::vector<Vec9f>& verts, std::vector<Elli
 
 }
 
-void Kmeans_ClusterSplats::initCentroids(const Vec9f& vmin, const Vec9f& vmax, const UINT& numCentroids, std::vector<Centroid>& centroids)
+void Kmeans_Spheres::initCentroids(const Vec9f& vmin, const Vec9f& vmax, const UINT& numCentroids, std::vector<Centroid>& centroids)
 {
 
 //	float range = XMVector3Length((max - min)/numCentroids * 1.5f).m128_f32[0];	//lets have some minimum spacing between initila centroids, shall we? 
@@ -268,7 +277,7 @@ void Kmeans_ClusterSplats::initCentroids(const Vec9f& vmin, const Vec9f& vmax, c
 	}
 }
 
-void Kmeans_ClusterSplats::updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts,const std::vector<UINT32>& vertCentroidTable)
+void Kmeans_Spheres::updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts,const std::vector<UINT32>& vertCentroidTable)
 {
 
 	std::vector<UINT32> centroidMembers; 
@@ -297,7 +306,7 @@ void Kmeans_ClusterSplats::updateCentroids(std::vector<Centroid>& centroids, con
 }
 
 //Distance: xyz are divided by max(x,y,z) of the bounding box, normals and colors are already in a normalized space
-void Kmeans_ClusterSplats::updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable)
+void Kmeans_Spheres::updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable)
 {
 	UINT32 minDistIndex = -1; // this will throw an OOB exception if something goes wrong... hopefully 
 	float minDist = FLT_MAX; 
@@ -328,7 +337,7 @@ void Kmeans_ClusterSplats::updateObservations(const std::vector<Centroid>& centr
 	}
 }
 
-void Kmeans_ClusterSplats::centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<EllipticalVertex>& outVerts)
+void Kmeans_Spheres::centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
 {
 	std::vector<Eigen::Matrix<float, Eigen::Dynamic, 3>> vertsPerCentroid;
 	
@@ -357,12 +366,12 @@ void Kmeans_ClusterSplats::centroidsToEllipticalSplats(const std::vector<Centroi
 	for (int i = 0; i < centroids.size(); ++i)
 	{
 		if (!(vertsPerCentroid[i].rows() - 1)) continue; //very degenerate cluster? immpossibru unless clusters>verts? 
-		outVerts.push_back(EllipticalVertex());
+		outVerts.push_back(SphereVertex());
 
 		const Centroid& cent = centroids[i]; 
 		
 
-		EllipticalVertex& newVert = outVerts[i];
+		SphereVertex& newVert = outVerts[i];
 		newVert.pos.x = cent.features(0); 
 		newVert.pos.y = cent.features(1);
 		newVert.pos.z = cent.features(2);
@@ -387,16 +396,8 @@ void Kmeans_ClusterSplats::centroidsToEllipticalSplats(const std::vector<Centroi
 
 		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca(covariance); 
 
-		Eigen::Matrix3f eigenVectors = pca.eigenvectors(); 
 
-		pca.eigenvalues()(0);
-		newVert.major.x = eigenVectors(0, 0) * pca.eigenvalues()(0);
-		newVert.major.y = eigenVectors(1, 0) * pca.eigenvalues()(0);
-		newVert.major.z = eigenVectors(2, 0) * pca.eigenvalues()(0);
-
-		newVert.minor.x = eigenVectors(0, 1) * pca.eigenvalues()(1);
-		newVert.minor.y = eigenVectors(1, 1) * pca.eigenvalues()(1);
-		newVert.minor.z = eigenVectors(2, 1) * pca.eigenvalues()(1);
+		newVert.radius = pca.eigenvalues()(0); 
 
 	}
 
@@ -404,7 +405,7 @@ void Kmeans_ClusterSplats::centroidsToEllipticalSplats(const std::vector<Centroi
 
 
 
-void Kmeans_ClusterSplats::draw(ID3D11DeviceContext* const context)
+void Kmeans_Spheres::draw(ID3D11DeviceContext* const context)
 {
 	settings.nodesDrawn = 0;
 	settings.LOD = 0;
@@ -412,7 +413,7 @@ void Kmeans_ClusterSplats::draw(ID3D11DeviceContext* const context)
 	Effects::g_pCurrentPass->apply(context);
 
 	drawConstants.slope = tan(g_screenParams.fov / 2);
-	drawConstants.heightDiv2DivSlope = g_screenParams.height / (2.0f * drawConstants.slope);
+	drawConstants.pixelSizeConstant = g_screenParams.height / (2.0f * drawConstants.slope);
 
 	if (settings.drawFixedDepth)
 	{
@@ -424,7 +425,7 @@ void Kmeans_ClusterSplats::draw(ID3D11DeviceContext* const context)
 	}
 }
 
-void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+void Kmeans_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
 	settings.LOD = max(settings.LOD, depth);
 
@@ -442,7 +443,7 @@ void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UIN
 
 
 	//clipping 
-	XMVECTOR octreeCenterCamSpace = XMVector4Transform(octreeCenterWorldpos, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
+	XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
 
 	//clipping 
 	float dist = octree->range.x / (1 << depth);
@@ -453,11 +454,10 @@ void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UIN
 
 	float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
 
-	float pixelsize = (worldradius* drawConstants.heightDiv2DivSlope) / XMVector3Length(distance).m128_f32[0];
+	float pixelsize = (vertexBuffers[nodeIndex].data.maxPixelWorldSize * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 
 
-
-	if (pixelsize < vertexBuffers[nodeIndex].data.maxPixelWorldSize * g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
+	if (pixelsize <  g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
 		Effects::SetSplatSize(worldradius);
@@ -491,7 +491,7 @@ void Kmeans_ClusterSplats::drawRecursive(ID3D11DeviceContext* const context, UIN
 }
 
 
-void Kmeans_ClusterSplats::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
+void Kmeans_Spheres::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
 
 	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)

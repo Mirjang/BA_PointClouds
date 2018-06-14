@@ -17,7 +17,8 @@ enum LODMode
 	OCTREE_NAIVE,
 	NESTED_OCTREE_NAIVE,
 	NESTED_OCTREE_POSSIONDISK,
-	NO_KMEANS
+	KMEANS_SPHERE,
+	KMEANS_ELLIPSE
 };
 
 struct Statistics
@@ -75,7 +76,7 @@ extern RenderSettings g_renderSettings;
 //set by AntTweakBar
 struct LODSettings
 {
-	LODMode mode = LODMode::NO_KMEANS;
+	LODMode mode = LODMode::KMEANS_ELLIPSE;
 	int pixelThreshhold = 1; 
 
 

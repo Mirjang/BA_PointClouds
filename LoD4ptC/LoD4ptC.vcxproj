@@ -151,9 +151,11 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\datastructures\Kmeans.cpp" />
     <ClCompile Include="src\global\Distances.cpp" />
     <ClCompile Include="src\datastructures\NestedOctree.cpp" />
-    <ClCompile Include="src\lod\Kmeans_ClusterSplats.cpp" />
+    <ClCompile Include="src\lod\Kmeans_Ellipses.cpp" />
+    <ClCompile Include="src\lod\Kmeans_Spheres.cpp" />
     <ClCompile Include="src\lod\LodUtils.cpp" />
     <ClCompile Include="src\lod\Nested_Octree_Naive_Avg.cpp" />
     <ClCompile Include="src\lod\Nested_Octree_PossionDisk.cpp" />
@@ -172,6 +174,7 @@
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\datastructures\Kmeans.h" />
     <ClInclude Include="libs\Eigen\src\Cholesky\LDLT.h" />
     <ClInclude Include="libs\Eigen\src\Cholesky\LLT.h" />
     <ClInclude Include="libs\Eigen\src\Cholesky\LLT_LAPACKE.h" />
@@ -445,7 +448,8 @@
     <ClInclude Include="libs\Eigen\src\UmfPackSupport\UmfPackSupport.h" />
     <ClInclude Include="src\global\Distances.h" />
     <ClInclude Include="src\datastructures\NestedOctree.h" />
-    <ClInclude Include="src\lod\Kmeans_ClusterSplats.h" />
+    <ClInclude Include="src\lod\Kmeans_Ellipses.h" />
+    <ClInclude Include="src\lod\Kmeans_Spheres.h" />
     <ClInclude Include="src\lod\LodUtils.h" />
     <ClInclude Include="src\lod\Nested_Octree_Naive_Avg.h" />
     <ClInclude Include="src\lod\LodImplementations.h" />
