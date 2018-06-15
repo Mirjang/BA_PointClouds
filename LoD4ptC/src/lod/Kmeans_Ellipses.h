@@ -24,9 +24,7 @@ public:
 
 private:
 
-	inline void runKMEANS(std::vector<Vec9f>& verts, std::vector<EllipticalVertex>& outVec);
-
-	inline void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<EllipticalVertex>& outVerts);
+	inline void centroidsToEllipticalSplats(const std::vector<Centroid>& centroids, MatX9f&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<EllipticalVertex>& outVerts);
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 

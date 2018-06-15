@@ -24,9 +24,8 @@ public:
 
 private:
 
-	inline void runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVertex>& outVec);
 
-	inline void centroidsToSphereSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts);
+	inline void centroidsToSphereSplats(const std::vector<Centroid>& centroids, MatX9f& verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts);
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 

@@ -4,27 +4,23 @@
 #include <sstream>
 #include <cstdlib>
 #include <chrono>
-#include <random>
 #include <cfloat>
 
 
-void Kmeans::initCentroids(const Vec9f& vmin, const Vec9f& vmax, const UINT32& numCentroids, std::vector<Centroid>& centroids)
+void Kmeans::initCentroids(const UINT32& numCentroids)
 {
 
 	//	float range = XMVector3Length((max - min)/numCentroids * 1.5f).m128_f32[0];	//lets have some minimum spacing between initila centroids, shall we? 
-	std::default_random_engine xgen, ygen, zgen;
-
-	std::uniform_real_distribution<float> xdist(vmin(0), vmax(0));
-	std::uniform_real_distribution<float> ydist(vmin(1), vmin(1));
-	std::uniform_real_distribution<float> zdist(vmin(2), vmin(2));
-
 
 	for (UINT32 i = 0; i < numCentroids; ++i)
 	{
-		Centroid cent(xdist(xgen), ydist(ygen), zdist(zgen));
+		Centroid cent; 
+
+		cent.features = ((Vec9f::Random() + Vec9f::Ones()) /2.0f).cwiseProduct(constants.upperBound) - constants.lowerBound;
 
 		bool add = true;
 
+		/** //remove duplicate centroids
 		for (auto c : centroids)	//check that we dont have two centroids on the same spot
 		{
 
@@ -35,13 +31,32 @@ void Kmeans::initCentroids(const Vec9f& vmin, const Vec9f& vmax, const UINT32& n
 				break;
 			}
 		}
+		/**/
 		if (add)
 			centroids.push_back(cent);
 
 	}
 }
 
-void Kmeans::updateCentroids(std::vector<Centroid>& centroids, const std::vector<Vec9f>& verts, const std::vector<UINT32>& vertCentroidTable)
+void Kmeans::runKMEANS(const MatX9f& verts, UINT32 numCentroids, UINT32 iterations)
+{
+	vertCentroidTable.resize(verts.size());
+	initCentroids(numCentroids);
+
+	for (UINT32 i = 0; i < iterations; ++i)
+	{
+		//		auto start = std::chrono::high_resolution_clock::now();
+		updateObservations(verts);
+		//		std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
+		//		std::cout << "Observations: " << elapsed.count() << std::endl; 
+		//		start = std::chrono::high_resolution_clock::now();
+		updateCentroids(verts);
+		//		std::chrono::duration<double> elapsed2 = std::chrono::high_resolution_clock::now() - start;
+		//		std::cout << "Observations: " << elapsed2.count() << std::endl;
+	}
+}
+
+void Kmeans::updateCentroids(const MatX9f& data)
 {
 
 	std::vector<UINT32> centroidMembers;
@@ -49,16 +64,16 @@ void Kmeans::updateCentroids(std::vector<Centroid>& centroids, const std::vector
 
 	for (int i = 0; i < centroids.size(); ++i)
 	{
-		centroids[i].features << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+		centroids[i].features = Vec9f::Zero();
 	}
 
 
-	for (int i = 0; i < verts.size(); ++i)
+	for (int i = 0; i < data.rows(); ++i)
 	{
 		Centroid& cent = centroids[vertCentroidTable[i]];
 		++centroidMembers[vertCentroidTable[i]];
 
-		cent.features += verts[i];
+		cent.features += data.row(i);
 	}
 
 	//divide components by #of verts in cluster
@@ -73,23 +88,19 @@ void Kmeans::updateCentroids(std::vector<Centroid>& centroids, const std::vector
 }
 
 //Distance: xyz are divided by max(x,y,z) of the bounding box, normals and colors are already in a normalized space
-void Kmeans::updateObservations(const std::vector<Centroid>& centroids, const std::vector<Vec9f>&verts, std::vector<UINT32>& vertCentroidTable)
+void Kmeans::updateObservations(const MatX9f& verts)
 {
 	UINT32 minDistIndex = -1; // this will throw an OOB exception if something goes wrong... hopefully 
 	float minDist = FLT_MAX;
 
-	for (int i = 0; i < verts.size(); ++i)
+	for (int i = 0; i < verts.rows(); ++i)
 	{
-		Vec9f vert = verts[i];
-		vert(0) /= constants.maxSpacialRange;
-		vert(1) /= constants.maxSpacialRange;
-		vert(2) /= constants.maxSpacialRange;
-
-
 		for (int c = 0; c < centroids.size(); ++c)
 		{
 			//use squared dist for all components
-			float distance = vert.dot(centroids[c].features);
+			float distance = (verts.row(i).transpose() - centroids[c].features).squaredNorm();
+
+			//std::cout << distance << std::endl; 
 
 			if (distance < minDist)
 			{

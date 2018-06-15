@@ -104,11 +104,8 @@ void Kmeans_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices
 		{
 			stack.pop();
 
-			std::vector<SphereVertex>& verts = node->data; 
-			std::vector<Vec9f> featureVecs; 
-			// ok so im really hacking around here.. this node should be empty unless during expansion one of the child nodes didnt get enough verts
-			//in this case we will prob. delete vital verts that cannot be restored ... this is just a temporary hack until i fix the fucking octree insertion
-			verts.clear(); 
+			MatX9f featureVecs; 
+
 
 			UINT32 vertOffset = 0; 
 
@@ -119,31 +116,49 @@ void Kmeans_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices
 				{
 					child->marked = false; 
 
+					featureVecs.conservativeResize(featureVecs.rows() + child->data.size(), featureVecs.cols()); 
+
+
 					UINT32 vertIndex = 0;
 					for(; vertIndex < child->data.size(); ++vertIndex)
 					{
 
-						const EllipticalVertex& vert = child->data[vertIndex];
+						const SphereVertex& vert = child->data[vertIndex];
 
 						//add normals in polar coords
 						XMVECTOR polarcoords =  LOD_Utils::cartToPolarNormal(XMLoadFloat3(&vert.normal));
 
-						Vec9f featureVec;
-						featureVec<< vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
-							vert.color.x, vert.color.y, vert.color.z, vert.color.w; 
+						Vec9f fv;
+						fv << vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
+							vert.color.x, vert.color.y, vert.color.z, vert.color.w;
 
-						featureVecs.push_back(featureVec);
+						featureVecs.row(vertOffset + vertIndex) = fv;
 
-
+						 
 					}
 
 					vertOffset += vertIndex; 
 				}
 			}
 
+			Kmeans kmeansCalc(featureVecs, Vec9f::Ones());
+
+			//if for some reason we have very large nodes
+			UINT32 numCentroids = node->allChildrenLeafs() ?
+				min(vertOffset / settings.upsampleRate, settings.maxCentroidsPerNode)
+				: vertOffset / settings.upsampleRate;
+
 			//MAGIC
-			runKMEANS(featureVecs, verts);
+			kmeansCalc.runKMEANS(featureVecs, numCentroids, settings.iterations);
 			node->marked = true; 
+
+			// ok so im really hacking around here.. this node should be empty unless during expansion one of the child nodes didnt get enough verts
+			//in this case we will prob. delete vital verts that cannot be restored ... this is just a temporary hack until i fix the fucking octree insertion
+			node->data.clear();
+
+			centroidsToSphereSplats(kmeansCalc.centroids, featureVecs, kmeansCalc.vertCentroidTable, node->data);
+			featureVecs.resize(0, 0); // release memory
+
 		}
 		else	//add all children to queue w/ higher priority
 		{
@@ -194,57 +209,7 @@ void Kmeans_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& vertic
 	create(device, vertices);
 }
 
-void Kmeans_Spheres::runKMEANS(std::vector<Vec9f>& verts, std::vector<SphereVertex>& outVec)
-{
-//	std::cout << "kmeans" << std::endl; 
-
-	Kmeans kmeans; 
-
-	Vec9f vmin = verts[0]; 
-	Vec9f vmax = vmin; 
-	for (int i = 0; i < verts.size(); ++i)
-	{
-		vmin = vmin.cwiseMin(verts[i]); 
-		vmax = vmax.cwiseMax(verts[i]); 
-	}
-
-	Vec9f range = vmax - vmin; 
-
-	kmeans.constants.maxSpacialRange = max(range(0), max(range(1), range(2))); 
-
-	std::vector<Centroid> centroids; 
-	std::vector<UINT32> vertCentroidTable; 
-	vertCentroidTable.resize(verts.size()); 
-
-
-	//creates rnd cluster centers: (verts.size()+ settings.upsampleRate-1) ensures the result is >= 1
-	kmeans.initCentroids(vmin, vmax, min(settings.maxCentroidsPerNode, (verts.size()+ settings.upsampleRate-1) / settings.upsampleRate ), centroids);
-
-
-	for (UINT32 i = 0; i < settings.iterations; ++i)
-	{
-//		auto start = std::chrono::high_resolution_clock::now();
-
-		kmeans.updateObservations(centroids, verts, vertCentroidTable);
-//		std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-
-//		std::cout << "Observations: " << elapsed.count() << std::endl; 
-
-//		start = std::chrono::high_resolution_clock::now();
-
-		kmeans.updateCentroids(centroids, verts, vertCentroidTable);
-//		std::chrono::duration<double> elapsed2 = std::chrono::high_resolution_clock::now() - start;
-//		std::cout << "Observations: " << elapsed2.count() << std::endl;
-
-
-	}
-
-	centroidsToSphereSplats(centroids, verts, vertCentroidTable, outVec); 
-
-
-}
-
-void Kmeans_Spheres::centroidsToSphereSplats(const std::vector<Centroid>& centroids, std::vector<Vec9f>&verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
+void Kmeans_Spheres::centroidsToSphereSplats(const std::vector<Centroid>& centroids, MatX9f& verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
 {
 	std::vector<Eigen::Matrix<float, Eigen::Dynamic, 3>> vertsPerCentroid;
 	
@@ -255,20 +220,15 @@ void Kmeans_Spheres::centroidsToSphereSplats(const std::vector<Centroid>& centro
 	}
 
 	//sort verts according to correstponding centroid
-	for (int i = 0; i < verts.size(); ++i)
+	for (int i = 0; i < verts.rows(); ++i)
 	{
-		assert(vertCentroidTable[i] < centroids.size());
-
 		Eigen::Matrix<float, Eigen::Dynamic, 3>& mat = vertsPerCentroid[vertCentroidTable[i]]; 
 
-		Eigen::Vector3f vec;
-		vec << verts[i](0), verts[i](1), verts[i](2);
-
 		mat.conservativeResize(mat.rows() + 1, 3); 
-		mat.row(mat.rows() - 1) = vec.transpose(); 
+		mat.row(mat.rows() - 1) = verts.row(i).head(3).transpose(); //pox.xyz per vertex
 	}
 	//replace set of all child verts w/ calculated cluster splats
-	verts.clear();
+	verts.resize(0, 0); 
 
 	for (int i = 0; i < centroids.size(); ++i)
 	{

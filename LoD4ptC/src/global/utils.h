@@ -76,7 +76,7 @@ extern RenderSettings g_renderSettings;
 //set by AntTweakBar
 struct LODSettings
 {
-	LODMode mode = LODMode::KMEANS_ELLIPSE;
+	LODMode mode = LODMode::KMEANS_SPHERE;
 	int pixelThreshhold = 1; 
 
 
