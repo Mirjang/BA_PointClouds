@@ -151,6 +151,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\lod\Regions_Spheres.cpp" />
     <ClCompile Include="src\datastructures\Kmeans.cpp" />
     <ClCompile Include="src\global\Distances.cpp" />
     <ClCompile Include="src\datastructures\NestedOctree.cpp" />
@@ -174,6 +175,7 @@
     <ClCompile Include="src\ressources\tinyply.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\lod\Regions_Spheres.h" />
     <ClInclude Include="src\datastructures\Kmeans.h" />
     <ClInclude Include="libs\Eigen\src\Cholesky\LDLT.h" />
     <ClInclude Include="libs\Eigen\src\Cholesky\LLT.h" />

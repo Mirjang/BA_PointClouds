@@ -81,6 +81,9 @@
     <ClCompile Include="src\datastructures\Kmeans.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\lod\Regions_Spheres.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\model\Camera\Camera.h">
@@ -963,6 +966,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\datastructures\Kmeans.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lod\Regions_Spheres.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

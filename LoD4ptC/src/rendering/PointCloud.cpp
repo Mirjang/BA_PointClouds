@@ -49,6 +49,11 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 	{
 		lod = new Kmeans_Ellipses(); 
 		break; 
+	}	
+	case LODMode::REGIONS_SPHERE:
+	{
+		lod = new Regions_Spheres();
+		break;
 	}
 	default:
 		lod = new No_LOD();

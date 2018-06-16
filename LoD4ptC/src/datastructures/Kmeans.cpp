@@ -16,7 +16,7 @@ void Kmeans::initCentroids(const UINT32& numCentroids)
 	{
 		Centroid cent; 
 
-		cent.features = ((Vec9f::Random() + Vec9f::Ones()) /2.0f).cwiseProduct(constants.upperBound) - constants.lowerBound;
+		cent.features = ((Vec9f::Random() + Vec9f::Ones()) /2.0f).cwiseProduct(constants.invNormalisationConsts) - constants.lowerBound;
 
 		bool add = true;
 

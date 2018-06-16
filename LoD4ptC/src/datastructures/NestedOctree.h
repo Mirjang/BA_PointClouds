@@ -10,11 +10,16 @@
 #include <queue>
 #include <random>
 
+#include <Eigen\dense>
+
+
 #include "../rendering/Vertex.h"
 
 #include "../global/Distances.h"
 
 
+
+#include "Kmeans.h"
 
 
 
@@ -63,9 +68,10 @@ enum OctreeFlags
 
 enum OctreeCreationMode
 {
-	CreateAndPushDown, 
-	CreateNaiveAverage,  
-	CreatePossionDisk
+	CreateAndPushDown,
+	CreateNaiveAverage,
+	CreatePossionDisk,
+	CreateNoAction,
 };
 
 template<class Type>
@@ -338,7 +344,32 @@ public:
 		}
 	}
 
+	inline UINT32 calculateSubgridIndex(XMVECTOR relPos, size_t depth)
+	{
 
+		XMVECTOR vsubgridIndex = XMVectorLess(relPos, XMLoadFloat3(&cellMidpointForDepth[depth]));
+
+		return (XMVectorGetX(vsubgridIndex) ? 0x00 : 0x01) //x
+			| (XMVectorGetY(vsubgridIndex) ? 0x00 : 0x02)  //y
+			| (XMVectorGetZ(vsubgridIndex) ? 0x00 : 0x04); //z
+	}
+
+	//creates Regions bottom up --> tree should be initialized w/ flag: Create and Pushdown
+	void createRegionGrowing(float maxFeatureDist = 1.0f, float featureScaling[9] = { 1,1,1,1,1,1,1,1,1 }, UINT32 maxIterations = 10)
+	{
+
+		for (int i = 0; i < 9; ++i)
+		{
+			regionConstants.scaling(i) = featureScaling[i];
+		}
+
+		regionConstants.maxDist = maxFeatureDist;
+		regionConstants.maxIterations = maxIterations;
+
+
+
+		createRegionGrowing(root, XMLoadFloat3(&boundsMin), 0);
+	}
 
 	NestedOctreeNode<Type>* root = nullptr;
 	size_t numNodes = 0;
@@ -351,16 +382,6 @@ public:
 	std::vector<XMFLOAT3> cellsizeForDepth;
 	std::vector<XMFLOAT3> cellMidpointForDepth;
 
-	inline UINT32 calculateSubgridIndex(XMVECTOR relPos, size_t depth)
-	{
-
-		XMVECTOR vsubgridIndex = XMVectorLess(relPos, XMLoadFloat3(&cellMidpointForDepth[depth]));
-
-		return (XMVectorGetX(vsubgridIndex) ? 0x00 : 0x01) //x
-			| (XMVectorGetY(vsubgridIndex) ? 0x00 : 0x02)  //y
-			| (XMVectorGetZ(vsubgridIndex) ? 0x00 : 0x04); //z
-	}
-
 	XMFLOAT3 boundsMin, boundsMax, range, center;
 
 private:
@@ -368,8 +389,20 @@ private:
 	UINT64 flags = 0x0; 
 	DistanceCheck distanceCheck = &Distances::distanceCheckEuclidian; 
 
+	struct RegionGrowingConstants
+	{
+		Vec9f scaling; 
+		float maxDist; 
+		UINT32 maxIterations; 
+	};
 
-	inline void createAndPushDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
+	RegionGrowingConstants regionConstants;
+
+
+	void createRegionGrowing(NestedOctreeNode<Type>* pNode, XMVECTOR gridStart, size_t depth);
+
+
+	void createAndPushDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
 
 		if (depth > reachedDepth)
@@ -835,6 +868,8 @@ private:
 
 
 	}
+
+
 
 
 	//this is most likely broken by now... use w/ caution 

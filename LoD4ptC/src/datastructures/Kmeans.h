@@ -30,8 +30,6 @@ struct Centroid
 	Vec9f features;
 };
 
-
-
 class Kmeans
 {
 public: 
@@ -46,7 +44,9 @@ public:
 			constants.lowerBound(i) = data.col(i).minCoeff();
 			constants.upperBound(i) = data.col(i).maxCoeff();
 		}
-		constants.normalisationConsts =((constants.upperBound - constants.lowerBound)).cwiseInverse().cwiseProduct(scaleParams);
+
+		constants.invNormalisationConsts = constants.upperBound - constants.lowerBound;
+		constants.normalisationConsts = constants.invNormalisationConsts.cwiseInverse().cwiseProduct(scaleParams);
 		constants.normalisationConsts = constants.normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
 		constants.normalisationConsts = constants.normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
 //	std::cout << data << std::endl; 
@@ -71,6 +71,7 @@ public:
 		Vec9f lowerBound;
 		Vec9f upperBound; 
 		Vec9f normalisationConsts; 
+		Vec9f invNormalisationConsts;
 		Vec9f scaleParams; 
 	};
 	CreateConstants constants; 

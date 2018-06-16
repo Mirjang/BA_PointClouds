@@ -7,3 +7,4 @@
 #include "Nested_Octree_PossionDisk.h"
 #include "Kmeans_Spheres.h"
 #include "Kmeans_Ellipses.h"
+#include "Regions_Spheres.h"
