@@ -9,19 +9,10 @@
 #include <basetsd.h>
 #include <queue>
 #include <random>
-
 #include <Eigen\dense>
-
-
 #include "../rendering/Vertex.h"
-
 #include "../global/Distances.h"
-
-
-
 #include "Kmeans.h"
-
-
 
 //flags indicating if child is at _POS 0 = left/down/front
 
@@ -152,7 +143,6 @@ struct OctreeVectorNode
 	UINT8 children = 0; 
 	UINT32 firstChildIndex = 0; 
 };
-
 
 template<class Type>
 class NestedOctree
@@ -400,7 +390,6 @@ private:
 
 
 	void createRegionGrowing(NestedOctreeNode<Type>* pNode, XMVECTOR gridStart, size_t depth);
-
 
 	void createAndPushDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
@@ -865,12 +854,7 @@ private:
 			}
 
 		}
-
-
 	}
-
-
-
 
 	//this is most likely broken by now... use w/ caution 
 	inline void insert(NestedOctreeNode<Type>* pNode, const Type& data, XMVECTOR gridStart, size_t depth = 0)
