@@ -31,4 +31,16 @@ namespace Distances
 		return DirectX::XMVectorSet(x, y, z, 0);
 	}
 
+
+	inline float zenith(const DirectX::XMFLOAT3& normal)
+	{
+		return acosf(normal.y); 
+	}
+
+
+	inline float azimuth(const DirectX::XMFLOAT3& normal)
+	{
+		return atan2f(normal.y, normal.x); 
+	}
+
 }

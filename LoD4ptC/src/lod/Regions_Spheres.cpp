@@ -88,7 +88,7 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 
 	initalEllpticalVerts.clear();
 
-	float scaling[9] = { 1,1,1,1,1,1,1,1,1 }; 
+	float scaling[9] = { 1,1,1,0,0,0,0,0,0 }; 
 
 	octree->createRegionGrowing(settings.maxFeatureDist, scaling, settings.iterations);
 

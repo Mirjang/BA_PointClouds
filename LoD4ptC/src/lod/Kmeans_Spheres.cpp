@@ -86,8 +86,6 @@ void Kmeans_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices
 	* This is future me, i think i fixed it some time ago, cant remember :O
 	*/
 	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube);
-
-
 	initalEllpticalVerts.clear(); 
 
 	//run kmeans per octree node BOTTOM UP (for reasons of improving quality later)(performance will be crap tho) 

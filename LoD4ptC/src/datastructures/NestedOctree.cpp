@@ -10,11 +10,15 @@
 
 #define RND_SEED 42
 
-#define MIN_CENTROID_SQDIFFERENCE 0.0001f
+#define MIN_CENTROID_SQDIFFERENCE 0.000001f
+
+using namespace DirectX; 
 
 //TODO: split this up into template function since only the last part actually depends on wether Sphere or Elliptical Verts are used
 void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVertex>* pNode, XMVECTOR gridStart, size_t depth)
 {
+	gridResolution = 64; 
+
 	if (pNode->isLeaf()) return; 
 
 	if (!pNode->allChildrenLeafs()) // Bottom up -> leafs first
@@ -41,8 +45,8 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	std::unordered_map < UINT32, std::vector<SphereVertex>, decltype(hash_ID)> vertMap(gridResolution*gridResolution, hash_ID);
 	XMVECTOR cellsize = XMLoadFloat3(&cellsizeForDepth[depth]);
 
-	Vec9f lowerBound = Vec9f::Ones() * -FLT_MAX;
-	Vec9f upperBound = Vec9f::Ones() * FLT_MAX;
+	Vec9f lowerBound = Vec9f::Ones() * FLT_MAX;
+	Vec9f upperBound = Vec9f::Ones() * FLT_MAX * (-1);
 
 	//sort all child verts into grid for --hopefully-- reasonable speed
 	for (int i = 0; i < 8; ++i)
@@ -56,14 +60,12 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 				XMVECTOR cellIndex = relPos / cellsize;
 
 				//add normals in polar coords
-				XMVECTOR polarcoords = Distances::cartToPolarNormal(XMLoadFloat3(&vert.normal));
-
 				Vec9f fv;
-				fv << vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
+				fv << vert.pos.x, vert.pos.y, vert.pos.z, Distances::zenith(vert.normal), Distances::azimuth(vert.normal),
 					vert.color.x, vert.color.y, vert.color.z, vert.color.w;
 
-				lowerBound = fv.cwiseMax(lowerBound); 
-				upperBound = fv.cwiseMin(upperBound); 
+				lowerBound = lowerBound.cwiseMin(fv);
+				upperBound = upperBound.cwiseMax(fv);
 
 				//point location in the inscribed grid (gridresolution) <<-- make this float safe
 				UINT32 gridIndex = static_cast<UINT32>(XMVectorGetX(cellIndex))
@@ -88,14 +90,29 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		}
 	}
 	//clustering
-	float sqMaxDist = regionConstants.maxDist * (1 << depth); 
-	sqMaxDist *= sqMaxDist; 
+	
 	Vec9f invNormalisationConst = (upperBound - lowerBound);
+
+
+
+	float sqMaxDist = regionConstants.maxDist * invNormalisationConst.squaredNorm();
+
+
 	Vec9f normalisationConsts = invNormalisationConst.cwiseInverse();
 	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
 	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
 
 	Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling); 
+
+	Eigen::Vector3f evGridStart;
+	evGridStart << gridStart.m128_f32[0], gridStart.m128_f32[1], gridStart.m128_f32[2];
+
+	Eigen::Vector3f evInvCellsize;
+	evInvCellsize << cellsizeForDepth[depth].x, cellsizeForDepth[depth].y, cellsizeForDepth[depth].z;
+	evInvCellsize = evInvCellsize.cwiseInverse(); 
+	Eigen::Vector3i oneGridGridSQ; 
+	oneGridGridSQ << 1, gridResolution, gridResolution*gridResolution; 
+
 
 	while (!vertMap.empty())
 	{
@@ -118,85 +135,91 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		centroid << centVertex.pos.x, centVertex.pos.y, centVertex.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
 			centVertex.color.x, centVertex.color.y, centVertex.color.z, centVertex.color.w;
 
-		Vec9f lastCentroid = Vec9f::Ones() * FLT_MAX; 
+		Vec9f lastCentroid = Vec9f::Ones() * (upperBound.squaredNorm()+24); // so 1st checl is passed ... using FLT_MAX apperently causes overflow
 
 		MatX9f clusterVerts; 
 
-		//it = 1 <--> last it not in loop, because it also removes vertices from vertMap
-		for (int iteration = 1; iteration<regionConstants.maxIterations && (centroid - lastCentroid).squaredNorm()>MIN_CENTROID_SQDIFFERENCE; ++iteration)
-		{
-			centroidCellIndex = GridIndex(centroid.x(), centroid.y(), centroid.z()); 
+		std::unordered_set<UINT32, decltype(hash_ID)> exploredNodes(1, hash_ID);
+		std::queue<UINT32> frontier;
 
-			std::unordered_set<UINT32> exploredNodes;
-			std::queue<UINT32> frontier; 
+		//it = 1 <--> last it not in loop, because it also removes vertices from vertMap
+		for (size_t iteration = 1; iteration<regionConstants.maxIterations && (centroid - lastCentroid).squaredNorm()>MIN_CENTROID_SQDIFFERENCE; ++iteration)
+		{
+			//calc cell the current centroid is in
+			centroidCellIndex = (centroid.head(3) - evGridStart).cwiseProduct(evInvCellsize).cast<int>().dot(oneGridGridSQ);
+
+			exploredNodes.clear();
+			frontier = std::queue<UINT32>();
 
 			frontier.push(centroidCellIndex);
 			exploredNodes.insert(centroidCellIndex); 
 
 			while (!frontier.empty())
 			{
+
+		//		std::cout << frontier.size()<<  "\n" << exploredNodes.size() << std::endl; 
 				UINT32 currentCellIndex = frontier.front(); 
 				frontier.pop(); 
 
 
 
-				size_t rows = clusterVerts.rows(); 
+				bool expandFrontier = false; 
 
 				auto result = vertMap.find(currentCellIndex);
 
 				if (result != vertMap.end())
 				{
-					for (SphereVertex& vert : result->second)
+					std::vector<SphereVertex>& cellVector = result->second;
+
+					for (const SphereVertex& vert : cellVector)
 					{
-						//add normals in polar coords
-						XMVECTOR polarcoords = Distances::cartToPolarNormal(XMLoadFloat3(&vert.normal));
-
+						//add normals in polar coords	
 						Vec9f fv;
-						fv << vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
+						fv << vert.pos.x, vert.pos.y, vert.pos.z, Distances::zenith(vert.normal), Distances::azimuth(vert.normal),
 							vert.color.x, vert.color.y, vert.color.z, vert.color.w;
-
 
 						if ((fv - centroid).cwiseProduct(normalisationConstScaling).squaredNorm() < sqMaxDist)	//vert is in range
 						{
 							clusterVerts.conservativeResize(clusterVerts.rows() + 1, 9);
 
-							clusterVerts.row(clusterVerts.rows() - 1) = fv.transpose(); 
-
+							clusterVerts.row(clusterVerts.rows() - 1) = fv.transpose();
+							expandFrontier = true; //if we found at least one vert that goes into the cluster -> search adj cells
 						}
 					}
 
+				}//result != vertMap.end()
 
-					if (rows < clusterVerts.rows()) //if we found at least one vert that goes into the cluster -> search adj cells
+				if (expandFrontier || !clusterVerts.rows())	//rows == 0 -> dist too large? 
+				{
+					for (int i = 0; i < gridNeighboursAdj.size(); ++i)
 					{
-						for (int i = 0; i < gridNeighboursAdj.size(); ++i)
+						int newIdx = currentCellIndex + gridNeighboursAdj[i];
+
+						if (newIdx > 0 && newIdx < gridResolution*gridResolution*gridResolution && exploredNodes.find(newIdx) == exploredNodes.end())
 						{
-							int newIdx = currentCellIndex + gridNeighboursAdj[i];
-							if (newIdx > 0 && newIdx < gridResolution*gridResolution*gridResolution && exploredNodes.find(newIdx) == exploredNodes.end())
-							{
-								exploredNodes.insert(newIdx);
-								frontier.push(newIdx);
-							}
+							exploredNodes.insert(newIdx);
+							frontier.push(newIdx);
 						}
 					}
-
-
 				}
 
 			}//END vertexFinding
 
-
 			lastCentroid = centroid;
-
 			centroid = clusterVerts.colwise().sum() / clusterVerts.rows(); 
+	//		std::cout << lastCentroid.transpose() << "\n" << centroid.transpose() << std::endl; 
+	//		std::cout << "rows" << clusterVerts.rows() << std::endl;
+
+			clusterVerts.resize(0, 9); 
 
 		}//END current iteration
 
 		//last iteration
 
-		centroidCellIndex = GridIndex(centroid.x(), centroid.y(), centroid.z());
+		centroidCellIndex = (centroid.head(3) - evGridStart).cwiseProduct(evInvCellsize).cast<int>().dot(oneGridGridSQ);
 
-		std::unordered_set<UINT32> exploredNodes;
-		std::queue<UINT32> frontier;
+		exploredNodes.clear();
+		frontier = std::queue<UINT32>();
 
 		frontier.push(centroidCellIndex);
 		exploredNodes.insert(centroidCellIndex);
@@ -211,14 +234,15 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 			if (result != vertMap.end())
 			{
-				for (auto it = result->second.begin(); it != result->second.end();)
+
+				std::vector<SphereVertex>& cellVector = result->second;
+
+				for (auto it = cellVector.begin(); it != cellVector.end();)
 				{
 					SphereVertex& vert = *it; 
 					//add normals in polar coords
-					XMVECTOR polarcoords = Distances::cartToPolarNormal(XMLoadFloat3(&vert.normal));
-
 					Vec9f fv;
-					fv << vert.pos.x, vert.pos.y, vert.pos.z, polarcoords.m128_f32[0], polarcoords.m128_f32[1],
+					fv << vert.pos.x, vert.pos.y, vert.pos.z, Distances::zenith(vert.normal), Distances::azimuth(vert.normal),
 						vert.color.x, vert.color.y, vert.color.z, vert.color.w;
 
 
@@ -228,7 +252,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 						clusterVerts.row(clusterVerts.rows() - 1) = fv.transpose();
 
-						result->second.erase(it); 
+						cellVector.erase(it);
 					}
 					else
 					{
@@ -236,7 +260,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 					}
 				}
 
-				if (result->second.empty())
+				if (cellVector.empty())
 				{
 					vertMap.erase(currentCellIndex); 
 				}
@@ -246,7 +270,8 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 					for (int i = 0; i < gridNeighboursAdj.size(); ++i)
 					{
 						int newIdx = currentCellIndex + gridNeighboursAdj[i];
-						if (newIdx > 0 && newIdx < gridResolution*gridResolution*gridResolution && exploredNodes.find(newIdx) == exploredNodes.end())
+
+						if (newIdx > 0 && newIdx < gridResolution*gridResolution*gridResolution && exploredNodes.find(newIdx) == exploredNodes.end() && vertMap.find(currentCellIndex) != vertMap.end())
 						{
 							exploredNodes.insert(newIdx);
 							frontier.push(newIdx);
@@ -259,17 +284,6 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 		}//END last iteration
 
-
-		//calc new supervert
-		centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
-
-		Eigen::MatrixX3f spacialMat = clusterVerts.leftCols<3>(); 
-
-		clusterVerts.resize(0, 0); 
-
-		spacialMat = spacialMat.rowwise() - centroid.head(3).transpose(); 
-
-
 		SphereVertex newVert;
 		newVert.pos.x = centroid(0);
 		newVert.pos.y = centroid(1);
@@ -280,11 +294,33 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		newVert.color.z = centroid(7);
 		newVert.color.w = centroid(8);
 
-		Eigen::Matrix3f spacialCovariance = spacialMat.transpose()* spacialMat;
-		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca(spacialCovariance);
 
 
-		newVert.radius = pca.eigenvalues()(0);
+
+		if (clusterVerts.rows() == 1)	//isolated centroid
+		{
+			newVert.radius = 1.0f; 
+		}
+		else
+		{
+			//calc new supervert
+			centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
+
+			Eigen::MatrixX3f spacialMat = clusterVerts.leftCols<3>();
+
+			clusterVerts.resize(0, 0);
+
+			spacialMat = spacialMat.rowwise() - centroid.head(3).transpose();
+
+			Eigen::Matrix3f spacialCovariance = spacialMat.transpose()* spacialMat;
+			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca(spacialCovariance);
+
+
+			newVert.radius = pca.eigenvalues()(0);
+		}
+
+
+		
 
 		pNode->data.push_back(newVert); 
 
