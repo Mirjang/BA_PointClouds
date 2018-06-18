@@ -340,7 +340,7 @@ void GS_RADIUS(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColT
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float2 radius = mul(input[0].radius, g_splatSize);
+    float2 radius = mul(input[0].radius, g_splatradius);
     float2 diameter = radius + radius; 
 
     output.pos.xy += float2(-1, 1) * radius; //left up

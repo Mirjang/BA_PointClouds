@@ -85,7 +85,7 @@ void Kmeans_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices
 	*
 	* This is future me, i think i fixed it some time ago, cant remember :O
 	*/
-	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube);
+	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube |OctreeFlags::neighbourhoodFull);
 	initalEllpticalVerts.clear(); 
 
 	//run kmeans per octree node BOTTOM UP (for reasons of improving quality later)(performance will be crap tho) 
@@ -319,7 +319,7 @@ void Kmeans_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 no
 
 	//float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
 
-	float pixelsize = (vertexBuffers[nodeIndex].data.maxPixelWorldSize * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+	float pixelsize = (vertexBuffers[nodeIndex].data.maxWorldspaceScale * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 
 
 	if (pixelsize <  g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)

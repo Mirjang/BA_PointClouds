@@ -30,8 +30,7 @@ TwBar* Regions_Spheres::setUpTweakBar()
 {
 	TwBar* tweakBar = TwNewBar("K-Means Spheres");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Regions_Spheres::settings.gridResolution, NULL);
-	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.maxFeatureDist, NULL);
-	TwAddVarRW(tweakBar, "Max Centroids per node", TW_TYPE_UINT32, &Regions_Spheres::settings.maxCentroidsPerNode, NULL);
+	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.maxFeatureDist, "min=0.00 max = 1.5 step=0.05");
 	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Regions_Spheres::settings.iterations, NULL);
 
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Spheres::settings.expansionThreshold, NULL);
@@ -88,13 +87,16 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 
 	initalEllpticalVerts.clear();
 
-	float scaling[9] = { 1,1,1,0,0,0,0,0,0 }; 
+	float scaleAllOnes[9] = { 1,1,1,1,1,1,1,1,1 }; 
+	float onlyPos[9] = { 1,1,1,0,0,0,0,0,0 };
+	float onlyNor[9] = { 0,0,0,1,1,1,0,0,0 };
 
-	octree->createRegionGrowing(settings.maxFeatureDist, scaling, settings.iterations);
+
+	octree->createRegionGrowing(settings.maxFeatureDist, scaleAllOnes, settings.iterations);
 
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-	std::cout << "Created Octree w/ Kmeans spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
+	std::cout << "Created Octree w/ Regions spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
 	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
 
 
@@ -230,20 +232,21 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 
 	//clipping 
 	float dist = octree->range.x / (1 << depth);
-	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2] / octreeCenterWorldpos.m128_f32[3]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
+	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 	{
 		return;
 	}
 
-	//float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+	float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
 
-	float pixelsize = (vertexBuffers[nodeIndex].data.maxPixelWorldSize * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+	float pixelsize = (vertexBuffers[nodeIndex].data.maxWorldspaceScale * worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 
 
 	if (pixelsize <  g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
 		Effects::cbPerLOD.currentLOD = depth;
+		Effects::SetSplatSize(worldradius);
 		Effects::UpdatePerLODBuffer(context);
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;

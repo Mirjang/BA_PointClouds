@@ -347,6 +347,8 @@ public:
 	//creates Regions bottom up --> tree should be initialized w/ flag: Create and Pushdown
 	void createRegionGrowing(float maxFeatureDist = 1.0f, float featureScaling[9] = { 1,1,1,1,1,1,1,1,1 }, UINT32 maxIterations = 10)
 	{
+		UINT32 oldRes = gridResolution; //use lower res for more efficient search?
+//		gridResolution /= 2; 
 
 		for (int i = 0; i < 9; ++i)
 		{
@@ -359,6 +361,8 @@ public:
 
 
 		createRegionGrowing(root, XMLoadFloat3(&boundsMin), 0);
+
+		gridResolution = oldRes;
 	}
 
 	NestedOctreeNode<Type>* root = nullptr;

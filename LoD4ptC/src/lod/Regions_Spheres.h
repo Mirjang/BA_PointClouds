@@ -37,7 +37,7 @@ private:
 		//----creation---
 		UINT32 gridResolution = 128;
 
-		float maxFeatureDist = 5.0f; 
+		float maxFeatureDist = 1.0f; 
 		UINT32 maxCentroidsPerNode = 7500;
 		UINT32 iterations = 8;
 		bool simpleDistance = true;
