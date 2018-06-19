@@ -656,14 +656,14 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 
 		}//END last iteration
 
-#ifdef VERBOSE
+//#ifdef VERBOSE
 		if (clusterVerts.rows() == 0)
 		{
 			++fuckupCTR;
 			std::cout << fuckupCTR << " FUUUUCK " << std::endl;
 			continue;
 		}
-#endif // VERBOSE
+//#endif // VERBOSE
 
 		centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
 		EllipticalVertex newVert;
