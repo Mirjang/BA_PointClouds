@@ -2,15 +2,26 @@
 
 #include <Eigen\dense>
 #include <unordered_set>
-#include "../global/Distances.h"
 #include <queue>
 #include <cstdlib>    
 #include <ctime>      
+#include <thread>
+#include <mutex>
+
+#include "../global/Distances.h"
+#include "../global/utils.h"
+
+
 
 #define VERBOSE 
 #undef VERBOSE
 
 #define RND_SEED 42
+
+#define MAX_THREADS 16 
+static std::mutex queueFullMutex;
+static std::mutex addThreadMutex;
+static UINT32 availableThreads = MAX_THREADS; 
 
 #define MIN_CENTROID_SQDIFFERENCE 0.000001f
 
@@ -112,19 +123,50 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 	if (pNode->isLeaf()) return; 
 
-	if (!pNode->allChildrenLeafs()) // Bottom up -> leafs first
+	
+	
+	if (g_lodSettings.useThreads) // MT
 	{
-		for (int i = 0; i < 8; ++i)
-		{
-			if (pNode->children[i])
-			{
-				XMVECTOR subridstart = gridStart +
-					(XMLoadFloat3(&range) / (2 << depth))*XMVectorSet(i & 0x01 ? 1 : 0, i & 0x02 ? 1 : 0, i & 0x04 ? 1 : 0, 0);
 
-				createRegionGrowing(pNode->children[i], subridstart, depth + 1); //next level  
-			}				
+
+		std::vector<std::thread*> theadpool; 
+
+		if (!pNode->allChildrenLeafs()) // Bottom up -> leafs first
+		{
+			for (int i = 0; i < 8; ++i)
+			{
+				if (pNode->children[i])
+				{
+					XMVECTOR subridstart = gridStart +
+						(XMLoadFloat3(&range) / (2 << depth))*XMVectorSet(i & 0x01 ? 1 : 0, i & 0x02 ? 1 : 0, i & 0x04 ? 1 : 0, 0);
+
+					createRegionGrowing(pNode->children[i], subridstart, depth + 1); //next level  
+
+				}
+			}
 		}
-	}	
+
+		for (auto thread : theadpool)
+		{
+			thread->join(); 
+		}
+	}
+	else
+	{
+		if (!pNode->allChildrenLeafs()) // Bottom up -> leafs first
+		{
+			for (int i = 0; i < 8; ++i)
+			{
+				if (pNode->children[i])
+				{
+					XMVECTOR subridstart = gridStart +
+						(XMLoadFloat3(&range) / (2 << depth))*XMVectorSet(i & 0x01 ? 1 : 0, i & 0x02 ? 1 : 0, i & 0x04 ? 1 : 0, 0);
+
+					createRegionGrowing(pNode->children[i], subridstart, depth + 1); //next level  
+				}
+			}
+		}
+	}
 	
 	srand(RND_SEED);
 

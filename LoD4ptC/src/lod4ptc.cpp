@@ -78,6 +78,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	};
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
 	TwAddVarRW(twLODSettings, "LOD Mode", twLODMode, &g_lodSettings.mode, NULL);
+	TwAddVarRW(twLODSettings, "Multithreading", TW_TYPE_BOOLCPP, &g_lodSettings.useThreads, NULL);
 	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
 	TwAddSeparator(twMenuBar, "sep3", "");
 	TwAddVarRW(twLODSettings, "recreate LOD", TW_TYPE_BOOLCPP, &g_lodSettings.recreate, NULL);

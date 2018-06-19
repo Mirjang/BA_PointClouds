@@ -5,7 +5,7 @@
 #include "LOD.h"
 #include "LodUtils.h"
 #include "../datastructures/NestedOctree.h"
-
+#include "../global/utils.h"
 #include "../datastructures/Kmeans.h"
 
 

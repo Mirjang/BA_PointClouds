@@ -25,7 +25,7 @@ int RessourceLoader::loadAsset(const std::string& name, PointCloud* out)
 }
 
 
-// This software is in the public domain. Where that dedication is not
+// (Most of) the code below is in the public domain. Where that dedication is not
 // recognized, you are granted a perpetual, irrevocable license to copy,
 // distribute, and modify this file as you see fit.
 // Authored in 2015 by Dimitri Diakopoulos (http://www.dimitridiakopoulos.com)
