@@ -1,31 +1,29 @@
 #pragma once
+
 #include <Eigen/dense>
 #include <DirectXMath.h>
+
+
 
 #include "LOD.h"
 #include "LodUtils.h"
 #include "../datastructures/NestedOctree.h"
 #include "../global/utils.h"
-#include "../datastructures/Kmeans.h"
 
 
-class Regions_Spheres :
+class Regions_Ellipses :
 	public LOD
 {
 public:
-	Regions_Spheres();
-	~Regions_Spheres();
-
+	Regions_Ellipses();
+	virtual ~Regions_Ellipses();
 
 	virtual void create(ID3D11Device* const device, vector<Vertex>& vertices) override;
 	virtual void recreate(ID3D11Device* const device, vector<Vertex>& vertices) override;
 	static TwBar* setUpTweakBar();
 	virtual void draw(ID3D11DeviceContext* const context) override;
 
-private:
-
-
-	inline void centroidsToSphereSplats(const std::vector<Centroid>& centroids, MatX9f& verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts);
+private: 
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
@@ -37,11 +35,11 @@ private:
 		//----creation---
 		UINT32 gridResolution = 128;
 
-		float maxFeatureDist = 1.0f; 
+		float maxFeatureDist = 1.0f;
 
-		float weightPos = 1.0f; 
-		float weightNormal = 1.0f; 
-		float weightColor = 1.0f; 
+		float weightPos = 1.0f;
+		float weightNormal = 1.0f;
+		float weightColor = 1.0f;
 
 		UINT32 maxCentroidsPerNode = 7500;
 		UINT32 iterations = 8;
@@ -71,17 +69,15 @@ private:
 
 	std::vector<OctreeVectorNode<LOD_Utils::EllipticalVertexBuffer>> vertexBuffers;
 
-	NestedOctree<SphereVertex>* octree;
+	NestedOctree<EllipticalVertex>* octree;
 
 	struct DrawConstants
 	{
 		float slope;
 		float pixelSizeConstant;
-		UINT strides = sizeof(SphereVertex);
+		UINT strides = sizeof(EllipticalVertex);
 		UINT offset = 0;
 
 	} drawConstants;
-
-
 };
 

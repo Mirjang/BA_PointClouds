@@ -73,8 +73,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{ LODMode::NESTED_OCTREE_POSSIONDISK, "Nested Octree: Possion Disk" },
 		{ LODMode::KMEANS_SPHERE, "k-means Spheres" }, 
 		{ LODMode::KMEANS_ELLIPSE, "k-means Ellipses" },
-	{ LODMode::REGIONS_SPHERE, "Regions Spheres" }, 
-	{ LODMode::REGIONS_SPHERE, "Regions Ellipses" }, 
+		{ LODMode::REGIONS_SPHERE, "Regions Spheres" }, 
+		{ LODMode::REGIONS_ELLIPSE, "Regions Ellipses" }, 
 	};
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
 	TwAddVarRW(twLODSettings, "LOD Mode", twLODMode, &g_lodSettings.mode, NULL);
@@ -284,6 +284,11 @@ void update()
 		{
 			g_lodSettings.twImplSettingsBar = Regions_Spheres::setUpTweakBar();
 			break; 
+		}
+		case REGIONS_ELLIPSE:
+		{
+			g_lodSettings.twImplSettingsBar = Regions_Ellipses::setUpTweakBar();
+			break;
 		}
 		default:
 			break;

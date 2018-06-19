@@ -1,4 +1,4 @@
-#include "Regions_Spheres.h"
+#include "Regions_Ellipses.h"
 
 #include <iostream>
 #include <sstream>
@@ -11,40 +11,36 @@
 
 #include "../rendering/Effects.h"
 
-using namespace DirectX;
-
-
-Regions_Spheres::Regions_Spheres()
+Regions_Ellipses::Regions_Ellipses()
 {
 }
 
 
-Regions_Spheres::~Regions_Spheres()
+Regions_Ellipses::~Regions_Ellipses()
 {
 	for (auto it : vertexBuffers)
 	{
-		SafeRelease(it.data.buffer); 
+		SafeRelease(it.data.buffer);
 	}
 	delete octree;
 }
 
 
-
-Regions_Spheres::TweakSettings Regions_Spheres::settings;
-TwBar* Regions_Spheres::setUpTweakBar()
+Regions_Ellipses::TweakSettings Regions_Ellipses::settings;
+TwBar* Regions_Ellipses::setUpTweakBar()
 {
-	TwBar* tweakBar = TwNewBar("Regions Spheres");
-	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Regions_Spheres::settings.gridResolution, NULL);
-	TwAddVarRW(tweakBar, "Wpos", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightPos, "min=0.001 step=0.005");
-	TwAddVarRW(tweakBar, "Wnor", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightNormal, "min=0.00 step=0.005");
-	TwAddVarRW(tweakBar, "Wcol", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightColor, "min=0.00 step=0.005");
+	TwBar* tweakBar = TwNewBar("Regions_Ellipses");
+	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Regions_Ellipses::settings.gridResolution, NULL);
+	TwAddVarRW(tweakBar, "Wpos", TW_TYPE_FLOAT, &Regions_Ellipses::settings.weightPos, "min=0.001 step=0.005");
+	TwAddVarRW(tweakBar, "Wnor", TW_TYPE_FLOAT, &Regions_Ellipses::settings.weightNormal, "min=0.00 step=0.005");
+	TwAddVarRW(tweakBar, "Wcol", TW_TYPE_FLOAT, &Regions_Ellipses::settings.weightColor, "min=0.00 step=0.005");
 
-	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.maxFeatureDist, "min=0.00 step=0.005");
-	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Regions_Spheres::settings.iterations, NULL);
+	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Ellipses::settings.maxFeatureDist, "min=0.00 step=0.005");
+	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Regions_Ellipses::settings.iterations, NULL);
 
-	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Spheres::settings.expansionThreshold, NULL);
+	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Ellipses::settings.expansionThreshold, NULL);
 
-	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Regions_Spheres::settings.maxDepth, NULL);
+	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Regions_Ellipses::settings.maxDepth, NULL);
 
 	TwEnumVal distanceFunctionEV[] = { { OctreeFlags::dfEuclididan, "Euclidian distance" },{ OctreeFlags::dfManhattan, "Manhattan distance" } };
 	TwType twDistanceFunction = TwDefineEnum("Distance Function", distanceFunctionEV, ARRAYSIZE(distanceFunctionEV));
@@ -52,12 +48,12 @@ TwBar* Regions_Spheres::setUpTweakBar()
 
 
 	TwAddSeparator(tweakBar, "sep", NULL);
-	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Spheres::settings.fixedDepth, NULL);
-	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Spheres::settings.drawFixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Ellipses::settings.fixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Ellipses::settings.drawFixedDepth, NULL);
 
 	TwAddSeparator(tweakBar, "sep2", NULL);
-	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Regions_Spheres::settings.LOD, NULL);
-	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Regions_Spheres::settings.nodesDrawn, NULL);
+	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Regions_Ellipses::settings.LOD, NULL);
+	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Regions_Ellipses::settings.nodesDrawn, NULL);
 
 
 	return tweakBar;
@@ -65,22 +61,22 @@ TwBar* Regions_Spheres::setUpTweakBar()
 }
 
 // pray for -O3
-void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices)
+void Regions_Ellipses::create(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 	std::cout << "\n===================================================" << std::endl;
-	std::cout << "Creating kmeans_spheres" << std::endl;
+	std::cout << "Creating Regions_Ellipses" << std::endl;
 
 	auto start = std::chrono::high_resolution_clock::now();
 
 	//create here
 
-	std::vector<SphereVertex> initalEllpticalVerts;	//at max LOD verts = circles (ellipsoid w/ major/minor  unit length and orthogonal to normal 
+	std::vector<EllipticalVertex> initalEllpticalVerts;	//at max LOD verts = circles (ellipsoid w/ major/minor  unit length and orthogonal to normal 
 
 	initalEllpticalVerts.reserve(vertices.size());
 
 	for (auto vert : vertices)
 	{
-		initalEllpticalVerts.push_back(SphereVertex(vert));
+		initalEllpticalVerts.push_back(EllipticalVertex(vert));
 	}
 
 	/*
@@ -91,14 +87,14 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 	*
 	* This is future me, i think i fixed it some time ago, cant remember :O
 	*/
-	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);
+	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);
 
 
 	initalEllpticalVerts.clear();
 	float inputWeights[9] = {
 		settings.weightPos, settings.weightPos, settings.weightPos,
 		settings.weightNormal, settings.weightNormal, settings.weightNormal,
-		settings.weightColor, settings.weightColor, settings.weightColor }; 
+		settings.weightColor, settings.weightColor, settings.weightColor };
 
 	octree->createRegionGrowing(settings.maxFeatureDist, inputWeights, settings.iterations);
 
@@ -115,7 +111,7 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
-	octree->getStructureAsVector<LOD_Utils::EllipticalVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createSphereVertexBufferFromNode, device);
+	octree->getStructureAsVector<LOD_Utils::EllipticalVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createEllipsisVertexBufferFromNode, device);
 
 	Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
 	g_statistics.maxDepth = octree->reachedDepth;
@@ -123,83 +119,8 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 
 }
 
-void Regions_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
-{
 
-	for (auto it : vertexBuffers)
-	{
-		SafeRelease(it.data.buffer);
-	}
-	vertexBuffers.clear();
-	delete octree;
-
-	create(device, vertices);
-}
-
-void Regions_Spheres::centroidsToSphereSplats(const std::vector<Centroid>& centroids, MatX9f& verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
-{
-	std::vector<Eigen::Matrix<float, Eigen::Dynamic, 3>> vertsPerCentroid;
-
-
-	for (int i = 0; i < centroids.size(); ++i)
-	{
-		vertsPerCentroid.push_back(Eigen::Matrix<float, Eigen::Dynamic, 3>());
-	}
-
-	//sort verts according to correstponding centroid
-	for (int i = 0; i < verts.rows(); ++i)
-	{
-		Eigen::Matrix<float, Eigen::Dynamic, 3>& mat = vertsPerCentroid[vertCentroidTable[i]];
-
-		mat.conservativeResize(mat.rows() + 1, 3);
-		mat.row(mat.rows() - 1) = verts.row(i).head(3).transpose(); //pox.xyz per vertex
-	}
-	//replace set of all child verts w/ calculated cluster splats
-	verts.resize(0, 0);
-
-	for (int i = 0; i < centroids.size(); ++i)
-	{
-		if (!(vertsPerCentroid[i].rows() - 1)) continue; //very degenerate cluster? immpossibru unless clusters>verts? 
-		outVerts.push_back(SphereVertex());
-
-		const Centroid& cent = centroids[i];
-
-
-		SphereVertex& newVert = outVerts[i];
-		newVert.pos.x = cent.features(0);
-		newVert.pos.y = cent.features(1);
-		newVert.pos.z = cent.features(2);
-		XMStoreFloat3(&newVert.normal, LOD_Utils::polarToCartNormal(XMVectorSet(cent.features(3), cent.features(4), 0, 0)));
-		newVert.color.x = cent.features(5);
-		newVert.color.y = cent.features(6);
-		newVert.color.z = cent.features(7);
-		newVert.color.w = cent.features(8);
-
-
-		//PCA to determine major and minor of the resultion elliptical splat
-		Eigen::Vector3f centroid;
-
-		centroid << cent.features(0), cent.features(1), cent.features(2);
-
-		// centering
-		Eigen::MatrixXf centeredVerts = vertsPerCentroid[i].rowwise() - centroid.transpose();
-
-		Eigen::Matrix<float, 3, 3> covariance = centeredVerts.adjoint() * centeredVerts;
-
-		covariance /= (centeredVerts.rows() - 1);
-
-		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca(covariance);
-
-
-		newVert.radius = pca.eigenvalues()(0);
-
-	}
-
-}
-
-
-
-void Regions_Spheres::draw(ID3D11DeviceContext* const context)
+void Regions_Ellipses::draw(ID3D11DeviceContext* const context)
 {
 	settings.nodesDrawn = 0;
 	settings.LOD = 0;
@@ -219,7 +140,7 @@ void Regions_Spheres::draw(ID3D11DeviceContext* const context)
 	}
 }
 
-void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
+void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
 	settings.LOD = max(settings.LOD, depth);
 
@@ -283,15 +204,27 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 	}
 
 }
+void Regions_Ellipses::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
+{
 
+	for (auto it : vertexBuffers)
+	{
+		SafeRelease(it.data.buffer);
+	}
+	vertexBuffers.clear();
 
-void Regions_Spheres::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
+	delete octree; 
+
+	create(device, vertices);
+}
+
+void Regions_Ellipses::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
 
 	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
-		float worldradius; 
+		float worldradius;
 		if (vertexBuffers[nodeIndex].children)
 		{
 			worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
@@ -300,7 +233,6 @@ void Regions_Spheres::drawRecursiveFixedDepth(ID3D11DeviceContext* const context
 		{
 			worldradius = g_renderSettings.splatSize;
 		}
-
 		Effects::SetSplatSize(worldradius);
 		Effects::cbPerLOD.currentLOD = depth;
 		Effects::UpdatePerLODBuffer(context);

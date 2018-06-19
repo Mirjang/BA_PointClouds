@@ -55,6 +55,11 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 		lod = new Regions_Spheres();
 		break;
 	}
+	case LODMode::REGIONS_ELLIPSE:
+	{
+		lod = new Regions_Ellipses();
+		break;
+	}
 	default:
 		lod = new No_LOD();
 		break;

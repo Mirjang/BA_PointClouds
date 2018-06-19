@@ -158,7 +158,7 @@ void Renderer::reloadShaders()
 	std::string vsname, gsname, psname;
 
 
-	if (g_lodSettings.mode == LODMode::KMEANS_ELLIPSE)	//or any method that uses elliptical splats
+	if (g_lodSettings.mode == LODMode::KMEANS_ELLIPSE || g_lodSettings.mode == LODMode::REGIONS_ELLIPSE)	//or any method that uses elliptical splats
 	{
 		vsname = g_renderSettings.drawLOD ? "VS_ELLIPTICAL_APPLY_DEPTHCOLOR" : "VS_ELLIPTICAL_PASSTHROUGH";
 

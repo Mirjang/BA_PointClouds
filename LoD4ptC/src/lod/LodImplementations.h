@@ -8,3 +8,5 @@
 #include "Kmeans_Spheres.h"
 #include "Kmeans_Ellipses.h"
 #include "Regions_Spheres.h"
+#include "Regions_Ellipses.h"
+

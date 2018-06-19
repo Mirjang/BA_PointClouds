@@ -35,7 +35,7 @@
 #define ChildAt_X1Y1Z1(p) p&X1Y1Z1
 
 
-#define GridIndex(x,y,z) x + y*gridResolution + z*gridResolution*gridResolution
+#define GridIndex(x,y,z, resolution) x + y*resolution + z*resolution*resolution
 
 using namespace DirectX; 
 
@@ -178,46 +178,45 @@ public:
 		}
 
 
-		gridNeighboursAdj.push_back(GridIndex( 1,  0,  0));
-		gridNeighboursAdj.push_back(GridIndex(-1,  0,  0));
-		gridNeighboursAdj.push_back(GridIndex( 0,  1,  0));
-		gridNeighboursAdj.push_back(GridIndex( 0, -1,  0));
-		gridNeighboursAdj.push_back(GridIndex( 0,  0,  1));
-		gridNeighboursAdj.push_back(GridIndex( 0,  0, -1));
+		gridNeighboursAdj.push_back(GridIndex(1, 0, 0, gridResolution));
+		gridNeighboursAdj.push_back(GridIndex(-1, 0, 0, gridResolution));
+		gridNeighboursAdj.push_back(GridIndex(0, 1, 0, gridResolution));
+		gridNeighboursAdj.push_back(GridIndex(0, -1, 0, gridResolution));
+		gridNeighboursAdj.push_back(GridIndex(0, 0, 1, gridResolution));
+		gridNeighboursAdj.push_back(GridIndex(0, 0, -1, gridResolution));
 
 		if (flags&OctreeFlags::neighbourhoodFull)
 		{
 			//edges
-			gridNeighboursAdj.push_back(GridIndex( 1,  1, 0));
-			gridNeighboursAdj.push_back(GridIndex(-1,  1, 0));
-			gridNeighboursAdj.push_back(GridIndex( 1, -1, 0));
-			gridNeighboursAdj.push_back(GridIndex(-1, -1, 0));
+			gridNeighboursAdj.push_back(GridIndex(1, 1, 0, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, 1, 0, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(1, -1, 0, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, -1, 0, gridResolution));
 
-			gridNeighboursAdj.push_back(GridIndex( 1, 0,  1));
-			gridNeighboursAdj.push_back(GridIndex(-1, 0,  1));
-			gridNeighboursAdj.push_back(GridIndex( 1, 0, -1));
-			gridNeighboursAdj.push_back(GridIndex(-1, 0, -1));
+			gridNeighboursAdj.push_back(GridIndex(1, 0, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, 0, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(1, 0, -1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, 0, -1, gridResolution));
 
-			gridNeighboursAdj.push_back(GridIndex(0,  1,  1));
-			gridNeighboursAdj.push_back(GridIndex(0, -1,  1));
-			gridNeighboursAdj.push_back(GridIndex(0,  1, -1));
-			gridNeighboursAdj.push_back(GridIndex(0, -1, -1));
+			gridNeighboursAdj.push_back(GridIndex(0, 1, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(0, -1, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(0, 1, -1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(0, -1, -1, gridResolution));
 
 
 			//corners
 
-			gridNeighboursAdj.push_back(GridIndex(-1,  1,  1));
-			gridNeighboursAdj.push_back(GridIndex(-1, -1,  1));
-			gridNeighboursAdj.push_back(GridIndex(-1,  1, -1));
-			gridNeighboursAdj.push_back(GridIndex(-1, -1, -1));
+			gridNeighboursAdj.push_back(GridIndex(-1, 1, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, -1, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, 1, -1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(-1, -1, -1, gridResolution));
 
-			
-			gridNeighboursAdj.push_back(GridIndex(1,  1,  1));
-			gridNeighboursAdj.push_back(GridIndex(1, -1,  1));
-			gridNeighboursAdj.push_back(GridIndex(1,  1, -1));
-			gridNeighboursAdj.push_back(GridIndex(1, -1, -1));
+
+			gridNeighboursAdj.push_back(GridIndex(1, 1, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(1, -1, 1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(1, 1, -1, gridResolution));
+			gridNeighboursAdj.push_back(GridIndex(1, -1, -1, gridResolution));
 		}
-
 
 		root = new NestedOctreeNode<Type>();
 		++numNodes;
@@ -290,6 +289,52 @@ public:
 
 	~NestedOctree() { delete root; }
 
+	std::vector<UINT32> getCellHull(UINT32 res)
+	{
+		std::vector<UINT32> hull; 
+		hull.push_back(GridIndex(0, 0, 0, res));
+
+		hull.push_back(GridIndex(1, 0, 0, res));
+		hull.push_back(GridIndex(-1, 0, 0, res));
+		hull.push_back(GridIndex(0, 1, 0, res));
+		hull.push_back(GridIndex(0, -1, 0, res));
+		hull.push_back(GridIndex(0, 0, 1, res));
+		hull.push_back(GridIndex(0, 0, -1, res));
+
+
+		//edges
+		hull.push_back(GridIndex(1, 1, 0, res));
+		hull.push_back(GridIndex(-1, 1, 0, res));
+		hull.push_back(GridIndex(1, -1, 0, res));
+		hull.push_back(GridIndex(-1, -1, 0, res));
+
+		hull.push_back(GridIndex(1, 0, 1, res));
+		hull.push_back(GridIndex(-1, 0, 1, res));
+		hull.push_back(GridIndex(1, 0, -1, res));
+		hull.push_back(GridIndex(-1, 0, -1, res));
+
+		hull.push_back(GridIndex(0, 1, 1, res));
+		hull.push_back(GridIndex(0, -1, 1, res));
+		hull.push_back(GridIndex(0, 1, -1, res));
+		hull.push_back(GridIndex(0, -1, -1, res));
+
+
+		//corners
+
+		hull.push_back(GridIndex(-1, 1, 1, res));
+		hull.push_back(GridIndex(-1, -1, 1, res));
+		hull.push_back(GridIndex(-1, 1, -1, res));
+		hull.push_back(GridIndex(-1, -1, -1, res));
+
+
+		hull.push_back(GridIndex(1, 1, 1, res));
+		hull.push_back(GridIndex(1, -1, 1, res));
+		hull.push_back(GridIndex(1, 1, -1, res));
+		hull.push_back(GridIndex(1, -1, -1, res));
+
+		return hull; 
+	}
+
 	/*
 	* returns structure of the octree as std::vector with every node holding NodeData and indices of childnodes
 	* structure is built breadth first
@@ -360,7 +405,7 @@ public:
 
 
 
-		createRegionGrowing(root, XMLoadFloat3(&boundsMin), 0);
+		createRegionGrowing(root, 0);
 
 		gridResolution = oldRes;
 	}
@@ -393,7 +438,7 @@ private:
 	RegionGrowingConstants regionConstants;
 
 
-	void createRegionGrowing(NestedOctreeNode<Type>* pNode, XMVECTOR gridStart, size_t depth);
+	void createRegionGrowing(NestedOctreeNode<Type>* pNode, size_t depth);
 
 	void createAndPushDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
@@ -758,7 +803,7 @@ private:
 			UINT32 z = static_cast<UINT32>(XMVectorGetZ(cellIndex));
 
 			//point location in the inscribed grid (gridresolution)
-			UINT32 gridIndex = GridIndex(x, y, z);
+			UINT32 gridIndex = GridIndex(x, y, z, gridResolution);
 
 			auto END = insertMap.end(); //doesnt change... hopefully
 
