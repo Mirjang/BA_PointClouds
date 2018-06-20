@@ -78,7 +78,7 @@ extern RenderSettings g_renderSettings;
 //set by AntTweakBar
 struct LODSettings
 {
-	bool useThreads = false; 
+	bool useThreads = true; 
 
 	LODMode mode = LODMode::REGIONS_SPHERE;
 	int pixelThreshhold = 1; 

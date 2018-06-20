@@ -93,13 +93,20 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 	*/
 	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);
 
-
+	float normalize = 3*settings.weightPos + 3*settings.weightNormal + 3*settings.weightColor; 
+	
 	initalEllpticalVerts.clear();
 	float inputWeights[9] = {
 		settings.weightPos, settings.weightPos, settings.weightPos,
 		settings.weightNormal, settings.weightNormal, settings.weightNormal,
 		settings.weightColor, settings.weightColor, settings.weightColor }; 
 
+	/**
+	for (int i = 0; i < 9; ++i)
+	{
+		inputWeights[i] /= normalize; 
+	}
+	/**/
 	octree->createRegionGrowing(settings.maxFeatureDist, inputWeights, settings.iterations);
 
 

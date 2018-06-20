@@ -14,12 +14,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	freopen("CONOUT$", "w", stdout);
 	freopen("CONOUT$", "w", stderr);
 
+	HWND desktopWND = GetDesktopWindow(); 
 
+	RECT desktopRect; 
+	GetWindowRect(desktopWND, &desktopRect); 
 
 	g_hInstance = hInstance;
 
 	g_screenParams.width = 1920;
 	g_screenParams.height = 1080;
+
+
+	g_screenParams.width = desktopRect.right;
+	g_screenParams.height = desktopRect.bottom;
 	g_screenParams.nearPlane = 0.01f;
 	g_screenParams.farPlane = 1000.0f;
 	g_screenParams.fov = XMConvertToRadians(45.0f);
