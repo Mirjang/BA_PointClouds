@@ -172,7 +172,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 	srand(RND_SEED);
 
-
+	UINT32 clustered = 0, passThrough = 0;
 
 	Vec9f lowerBound = Vec9f::Ones() * FLT_MAX;
 	Vec9f upperBound = Vec9f::Ones() * FLT_MAX * (-1);
@@ -383,12 +383,13 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		if (clusterVerts.rows() == 1)	//isolated vertex
 		{
 			newVert.radius = 1.0f; 
+			++passThrough;
 		}
 		else
 		{
 			//calc new supervert
 
-			
+			++clustered; 
 			Eigen::MatrixX3f spacialMat = clusterVerts.leftCols<3>();
 			clusterVerts.resize(0, 9);
 
@@ -409,7 +410,9 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		pNode->data.push_back(newVert); 
 
 	}//vertMap.empty()
-
+#ifdef VERBOSE
+	std::cout << "c: " << clustered << "\np: " << passThrough << std::endl; 
+#endif
 	if (g_lodSettings.useThreads) //  MT
 	{
 		runNodeCalculations.release();
