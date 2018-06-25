@@ -319,7 +319,7 @@ void Kmeans_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 no
 
 	//float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
 
-	float pixelsize = (vertexBuffers[nodeIndex].data.maxWorldspaceScale * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+	float pixelsize = (vertexBuffers[nodeIndex].data.maxWorldspaceSize * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 
 
 	if (pixelsize <  g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)

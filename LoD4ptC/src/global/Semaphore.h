@@ -1,6 +1,7 @@
 #pragma once
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 
 //SRSLY C++ Y U NO SEMAPHORE

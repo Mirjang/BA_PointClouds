@@ -61,7 +61,7 @@ private:
 		int fixedDepth = 0;
 		bool drawFixedDepth = false;
 
-
+		float clusterSplatScale = 1.0f; 
 		//info
 		int LOD = 0;
 		int nodesDrawn = 0;

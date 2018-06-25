@@ -10,9 +10,17 @@
 #include <queue>
 #include <random>
 #include <Eigen\dense>
+#include <unordered_set>
+#include <queue>
+#include <cstdlib>    
+#include <ctime>      
+#include <thread>
+
 #include "../rendering/Vertex.h"
 #include "../global/Distances.h"
 #include "Kmeans.h"
+#include "../global/utils.h"
+#include "../global/Semaphore.h"
 
 //flags indicating if child is at _POS 0 = left/down/front
 
@@ -25,19 +33,24 @@
 #define X0Y1Z1 0b01000000
 #define X1Y1Z1 0b10000000
 
-#define ChildAt_X0Y0Z0(p) p&X0Y0Z0
-#define ChildAt_X1Y0Z0(p) p&X1Y0Z0
-#define ChildAt_X0Y1Z0(p) p&X0Y1Z0
-#define ChildAt_X1Y1Z0(p) p&X1Y1Z0
-#define ChildAt_X0Y0Z1(p) p&X0Y0Z1
-#define ChildAt_X1Y0Z1(p) p&X1Y0Z1
-#define ChildAt_X0Y1Z1(p) p&X0Y1Z1
-#define ChildAt_X1Y1Z1(p) p&X1Y1Z1
-
-
 #define GridIndex(x,y,z, resolution) x + y*resolution + z*resolution*resolution
 
-using namespace DirectX; 
+#define RND_SEED 42
+
+#define MAX_THREADS 7 
+static Semaphore runNodeCalculations(MAX_THREADS);
+
+#define MIN_CENTROID_SQDIFFERENCE 0.000001f
+
+struct hashID
+{
+	size_t operator() (UINT32 x) const
+	{
+		return x; 
+	}
+};
+
+using namespace DirectX;
 
 typedef bool(*DistanceCheck)(const XMVECTOR&, const XMVECTOR&, const XMVECTOR&);
 
@@ -52,8 +65,10 @@ enum OctreeFlags
 	neighbourhoodSimple = 0x01 << 3,
 	neighbourhoodFull = 0x01 << 4,
 
+	normalsUse = 0x01 << 5,
+	normalsGenerate = 0x01 << 6,
 
-	defaultFlags = createCube | dfEuclididan | neighbourhoodFull
+	defaultFlags = createCube | dfEuclididan | neighbourhoodFull | normalsUse
 };
 
 
@@ -62,6 +77,7 @@ enum OctreeCreationMode
 	CreateAndPushDown,
 	CreateNaiveAverage,
 	CreatePossionDisk,
+//	CreateRegionGrowingTopDown, //called seperatly because other parameters
 	CreateNoAction,
 };
 
@@ -150,33 +166,18 @@ class NestedOctree
 	static_assert(std::is_base_of<Vertex, Type>::value, "Type needs to be derived from vertex");
 
 public:
-	//test
-	XMFLOAT4 colors[8] = {
-		{1,1,1,1},
-	{1,1,0,1},
-	{1,0,1,1},
-	{1,0,0,1},
-	{0,1,1,1},
-	{0,0,1,1},
-	{0,1,0,1},
-	{0.5,0.5,0.5,1} };
-
-	//end test
 	
 	//int64 just in case, since we are using UINT32 for girdresolution 
 	std::vector<int> gridNeighboursAdj; 
-//	INT64 gridNeighboursAdjAndDiag[18]; //...way too many checks
-
 
 	NestedOctree(const std::vector<Type>& data, UINT32 gridResolution, UINT32 expansionThreshold, UINT32 maxDepth, OctreeCreationMode mode = OctreeCreationMode::CreateAndPushDown, UINT64 flags = OctreeFlags::defaultFlags)
-		: gridResolution(gridResolution),expansionThreshold(expansionThreshold), upsamplingFactor(upsamplingFactor), maxDepth(maxDepth), flags(flags)
+		: gridResolution(gridResolution),expansionThreshold(expansionThreshold), maxDepth(maxDepth), flags(flags)
 	{
 		if (!data.size()) //empty array
 		{
 			std::cout << "Octree create called with emply array" << std::endl;
 			return;
 		}
-
 
 		gridNeighboursAdj.push_back(GridIndex(1, 0, 0, gridResolution));
 		gridNeighboursAdj.push_back(GridIndex(-1, 0, 0, gridResolution));
@@ -202,15 +203,12 @@ public:
 			gridNeighboursAdj.push_back(GridIndex(0, -1, 1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(0, 1, -1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(0, -1, -1, gridResolution));
-
-
 			//corners
 
 			gridNeighboursAdj.push_back(GridIndex(-1, 1, 1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(-1, -1, 1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(-1, 1, -1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(-1, -1, -1, gridResolution));
-
 
 			gridNeighboursAdj.push_back(GridIndex(1, 1, 1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(1, -1, 1, gridResolution));
@@ -247,14 +245,13 @@ public:
 		XMVECTOR vrange = vmax - vmin;
 		XMVECTOR vcenter = vmin + vrange / 2; 
 
+		diagonal = XMVector3Length(vrange).m128_f32[0]; 
+		diagonalSq = XMVector3LengthSq(vrange).m128_f32[0];
+
 		cellsizeForDepth.resize(1); 
-		XMStoreFloat3(&cellsizeForDepth[0], vrange/gridResolution);	
-		
+		XMStoreFloat3(&cellsizeForDepth[0], vrange/gridResolution);		
 		cellMidpointForDepth.resize(1); 
-
 		XMStoreFloat3(&cellMidpointForDepth[0], vrange / 2);
-
-
 		//vrange *= 1.0001; 
 		
 		XMStoreFloat3(&boundsMin, vmin);
@@ -282,55 +279,48 @@ public:
 		default:
 			break;
 		}
-
-		
-
 	}
 
 	~NestedOctree() { delete root; }
 
-	std::vector<UINT32> getCellHull(UINT32 res)
+	std::vector<UINT32> getCellHull(UINT32 res, UINT32 index = 0)
 	{
 		std::vector<UINT32> hull; 
-		hull.push_back(GridIndex(0, 0, 0, res));
+		hull.push_back(index + GridIndex(0, 0, 0, res));
 
-		hull.push_back(GridIndex(1, 0, 0, res));
-		hull.push_back(GridIndex(-1, 0, 0, res));
-		hull.push_back(GridIndex(0, 1, 0, res));
-		hull.push_back(GridIndex(0, -1, 0, res));
-		hull.push_back(GridIndex(0, 0, 1, res));
-		hull.push_back(GridIndex(0, 0, -1, res));
-
+		hull.push_back(index + GridIndex(1, 0, 0, res));
+		hull.push_back(index + GridIndex(-1, 0, 0, res));
+		hull.push_back(index + GridIndex(0, 1, 0, res));
+		hull.push_back(index + GridIndex(0, -1, 0, res));
+		hull.push_back(index + GridIndex(0, 0, 1, res));
+		hull.push_back(index + GridIndex(0, 0, -1, res));
 
 		//edges
-		hull.push_back(GridIndex(1, 1, 0, res));
-		hull.push_back(GridIndex(-1, 1, 0, res));
-		hull.push_back(GridIndex(1, -1, 0, res));
-		hull.push_back(GridIndex(-1, -1, 0, res));
+		hull.push_back(index + GridIndex(1, 1, 0, res));
+		hull.push_back(index + GridIndex(-1, 1, 0, res));
+		hull.push_back(index + GridIndex(1, -1, 0, res));
+		hull.push_back(index + GridIndex(-1, -1, 0, res));
 
-		hull.push_back(GridIndex(1, 0, 1, res));
-		hull.push_back(GridIndex(-1, 0, 1, res));
-		hull.push_back(GridIndex(1, 0, -1, res));
-		hull.push_back(GridIndex(-1, 0, -1, res));
+		hull.push_back(index + GridIndex(1, 0, 1, res));
+		hull.push_back(index + GridIndex(-1, 0, 1, res));
+		hull.push_back(index + GridIndex(1, 0, -1, res));
+		hull.push_back(index + GridIndex(-1, 0, -1, res));
 
-		hull.push_back(GridIndex(0, 1, 1, res));
-		hull.push_back(GridIndex(0, -1, 1, res));
-		hull.push_back(GridIndex(0, 1, -1, res));
-		hull.push_back(GridIndex(0, -1, -1, res));
-
+		hull.push_back(index + GridIndex(0, 1, 1, res));
+		hull.push_back(index + GridIndex(0, -1, 1, res));
+		hull.push_back(index + GridIndex(0, 1, -1, res));
+		hull.push_back(index + GridIndex(0, -1, -1, res));
 
 		//corners
+		hull.push_back(index + GridIndex(-1, 1, 1, res));
+		hull.push_back(index + GridIndex(-1, -1, 1, res));
+		hull.push_back(index + GridIndex(-1, 1, -1, res));
+		hull.push_back(index + GridIndex(-1, -1, -1, res));
 
-		hull.push_back(GridIndex(-1, 1, 1, res));
-		hull.push_back(GridIndex(-1, -1, 1, res));
-		hull.push_back(GridIndex(-1, 1, -1, res));
-		hull.push_back(GridIndex(-1, -1, -1, res));
-
-
-		hull.push_back(GridIndex(1, 1, 1, res));
-		hull.push_back(GridIndex(1, -1, 1, res));
-		hull.push_back(GridIndex(1, 1, -1, res));
-		hull.push_back(GridIndex(1, -1, -1, res));
+		hull.push_back(index + GridIndex(1, 1, 1, res));
+		hull.push_back(index + GridIndex(1, -1, 1, res));
+		hull.push_back(index + GridIndex(1, 1, -1, res));
+		hull.push_back(index + GridIndex(1, -1, -1, res));
 
 		return hull; 
 	}
@@ -375,41 +365,55 @@ public:
 
 			out[currenIndex] = currentNode; 
 			++currenIndex;
-
 		}
 	}
 
 	inline UINT32 calculateSubgridIndex(XMVECTOR relPos, size_t depth)
 	{
-
 		XMVECTOR vsubgridIndex = XMVectorLess(relPos, XMLoadFloat3(&cellMidpointForDepth[depth]));
-
 		return (XMVectorGetX(vsubgridIndex) ? 0x00 : 0x01) //x
 			| (XMVectorGetY(vsubgridIndex) ? 0x00 : 0x02)  //y
 			| (XMVectorGetZ(vsubgridIndex) ? 0x00 : 0x04); //z
 	}
 
 	//creates Regions bottom up --> tree should be initialized w/ flag: Create and Pushdown
-	void createRegionGrowing(float maxFeatureDist = 1.0f, float featureScaling[9] = { 1,1,1,1,1,1,1,1,1 }, UINT32 maxIterations = 10)
+	void createRegionGrowing(float maxFeatureDist = 1.0f, float wPos = 1.0f, float wNor = 0.0f, float wCol = 0.0f, UINT32 maxIterations = 10)
 	{
 		UINT32 oldRes = gridResolution; //use lower res for more efficient search?
-//		gridResolution /= 2; 
+		regionConstants.scaling(1) = wPos;
+		regionConstants.scaling(2) = wPos;
+		regionConstants.scaling(3) = wPos;
+		regionConstants.scaling(4) = wNor;
+		regionConstants.scaling(5) = wNor;
+		regionConstants.scaling(6) = wNor;
+		regionConstants.scaling(7) = wCol;
+		regionConstants.scaling(8) = wCol;
+		regionConstants.scaling(9) = wCol;
 
-		for (int i = 0; i < 9; ++i)
-		{
-			regionConstants.scaling(i) = featureScaling[i];
-		}
+		regionConstants.scaling /= regionConstants.scaling.norm(); //normalized weights
 
-		regionConstants.maxDist = maxFeatureDist;
+		regionConstants.maxDistScaling = maxFeatureDist;
 		regionConstants.maxIterations = maxIterations;
-
-
 
 		createRegionGrowing(root, 0);
 
 		gridResolution = oldRes;
 	}
 
+	/** //buggy and prob. unnecessary? 
+	void createRegionGrowingTopDown(const std::vector<Type>& data, float maxFeatureDist = 1.0f, float featureScaling[9] = { 1,1,1,1,1,1,1,1,1 }, UINT32 maxIterations = 10)
+	{
+		for (int i = 0; i < 9; ++i)
+		{
+			regionConstants.scaling(i) = featureScaling[i];
+		}
+		regionConstants.maxDistScaling = maxFeatureDist;
+		regionConstants.maxIterations = maxIterations;
+
+		createRegionGrowingTopDown(root, data, 0);
+	}
+	/**/
+	
 	NestedOctreeNode<Type>* root = nullptr;
 	size_t numNodes = 0;
 	size_t reachedDepth = 0;
@@ -422,6 +426,7 @@ public:
 	std::vector<XMFLOAT3> cellMidpointForDepth;
 
 	XMFLOAT3 boundsMin, boundsMax, range, center;
+	float diagonal, diagonalSq;
 
 private:
 	
@@ -431,18 +436,215 @@ private:
 	struct RegionGrowingConstants
 	{
 		Vec9f scaling; 
-		float maxDist; 
+		float maxDistScaling;
 		UINT32 maxIterations; 
 	};
 
 	RegionGrowingConstants regionConstants;
 
+	void createRegionGrowingTopDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, size_t depth = 0)
+	{
+		if (data.size() < expansionThreshold || depth == maxDepth) // leaf
+		{
+			pNode->data = data; 
+			return; 
+		}
+
+		srand(RND_SEED);
+
+		//
+		Vec9f lowerBound = Vec9f::Ones() * FLT_MAX;
+		Vec9f upperBound = Vec9f::Ones() * FLT_MAX * (-1);
+		for (auto vert : data)
+		{
+			Vec9f fv;
+			fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
+				vert.color.x, vert.color.y, vert.color.z;
+
+			lowerBound = lowerBound.cwiseMin(fv);
+			upperBound = upperBound.cwiseMax(fv);
+
+		}
+		upperBound += upperBound.cwiseAbs() * 0.025;
+		Vec9f nodeRange = (upperBound - lowerBound);
+		//calulates clusters for current node
+		// gridRes^3 hashmap w/ chaining
+		// use id as hash function, since we already compute the key (= grid index) 
+		std::unordered_map < UINT32, std::vector<SphereVertex>*, hashID> vertMap(gridResolution*gridResolution);
+
+		Eigen::Vector3f evGridStart = lowerBound.head<3>();
+		Eigen::Vector3f evCellsize = Eigen::Vector3f::Ones() * (upperBound - lowerBound).head<3>().maxCoeff() / gridResolution;
+		Eigen::Vector3i oneGridGridSQ;
+		oneGridGridSQ << 1, gridResolution, gridResolution*gridResolution;
+		//default: search half a cell
+		float sqMaxDist = regionConstants.maxDistScaling * regionConstants.maxDistScaling * evCellsize.squaredNorm() * (flags&OctreeFlags::normalsUse?3:2);
+		Vec9f normalisationConstScaling = nodeRange.cwiseInverse().cwiseProduct(regionConstants.scaling);
+		normalisationConstScaling = normalisationConstScaling.unaryExpr([](float f) {return (std::isnan(f) || std::isinf(f) )? 0 : f; }); //if an entire col is 0 Inverse will result in nan
+
+		//sort all child verts into grid for --hopefully-- reasonable speed
+		for (auto vert : data)
+		{
+			Vec9f fv;
+			fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
+				vert.color.x, vert.color.y, vert.color.z;
+
+			UINT32 gridIndex = (fv.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+
+			auto result = vertMap.find(gridIndex);
+			if (result != vertMap.end())
+			{
+				result->second->push_back(vert);
+			}
+			else
+			{
+				std::vector<SphereVertex>* newVec = new std::vector<SphereVertex>();
+				newVec->push_back(vert);
+				vertMap.insert(std::pair<UINT32, std::vector<SphereVertex>*>(gridIndex, newVec));
+			}
+		}
+
+		//clustering
+		while (!vertMap.empty())
+		{
+			// prob.better to use existing vert as centroid
+			//Vec9f centroid = ((Vec9f::Random() + Vec9f::Ones()) / 2.0f).cwiseProduct(invNormalisationConst) - lowerBound;
+
+			UINT32 centroidCellIndex = rand() % vertMap.size();
+			std::unordered_map < UINT32, std::vector<Type>*, hashID>::iterator it(vertMap.begin());
+			std::advance(it, centroidCellIndex);
+			std::vector<Type>& centroidCell = *it->second;
+
+			assert(!centroidCell.empty());
+			UINT32 centroidIndex = rand() % centroidCell.size();
+
+			const Type& centVertex = centroidCell[centroidIndex];
+
+			Vec9f centroid;
+			centroid << centVertex.pos.x, centVertex.pos.y, centVertex.pos.z, centVertex.normal.x, centVertex.normal.y, centVertex.normal.z,
+				centVertex.color.x, centVertex.color.y, centVertex.color.z;
+
+			Vec9f lastCentroid = Vec9f::Ones() * (upperBound.squaredNorm() * 24); // so 1st check is passed ... using FLT_MAX apperently causes some sort of overflow
+
+			MatX9f clusterVerts;
+
+			//it = 1 <--> last it not in loop, because it also removes vertices from vertMap
+			for (size_t iteration = 1; iteration<regionConstants.maxIterations && (centroid - lastCentroid).squaredNorm()>MIN_CENTROID_SQDIFFERENCE; ++iteration)
+			{
+				centroidCellIndex = (centroid.head<3>() - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+				int cells = 0;
+
+				std::queue<UINT32> frontier;
+				std::unordered_set<UINT32, hashID> exploredNodes;
+				exploredNodes.insert(centroidCellIndex);
+
+				frontier.push(centroidCellIndex); 
+
+				while (!frontier.empty())
+				{
+					++cells; 
+					UINT32 currentIDX = frontier.front();
+					frontier.pop();
+
+					bool oneInRange = findVerticesInCell(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
+					if (oneInRange) // found at least one vert -> explore neighbours 
+					{
+						auto hull = getCellHull(gridResolution, currentIDX);
+						for (UINT32 idx : hull)
+						{
+							if (idx < gridResolution*gridResolution*gridResolution && exploredNodes.find(idx) == exploredNodes.end())
+							{
+								exploredNodes.insert(idx);
+								frontier.push(idx);
+							}
+						}
+					}
+				}
+
+				lastCentroid = centroid;
+				centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
+				clusterVerts.resize(0, 9);
+			}//END current iteration
+
+			 //last iteration
+			centroidCellIndex = (centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+			std::queue<UINT32> frontier;
+			std::unordered_set<UINT32, hashID> exploredNodes;
+			frontier.push(centroidCellIndex);
+			exploredNodes.insert(centroidCellIndex);
+
+			while (!frontier.empty())
+			{
+				UINT32 currentIDX = frontier.front();
+				frontier.pop();
+
+				bool oneInRange = findVerticesInCellAndRemove(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
+				if (oneInRange) // found at least one vert -> explore neighbours 
+				{
+					auto hull = getCellHull(gridResolution, currentIDX);
+					for (UINT32 idx : hull)
+					{
+						if (idx < gridResolution*gridResolution*gridResolution && exploredNodes.find(idx) == exploredNodes.end())
+						{
+							exploredNodes.insert(idx);
+							frontier.push(idx);
+						}
+					}
+				}
+			}
+			pNode->data.push_back(getVertFromCluster(clusterVerts));
+
+		}//vertMap.empty()
+
+
+		//expandNode
+		std::vector<Type> childData[8]; 
+
+		for (int i = 0; i < 8; ++i)
+		{
+			childData[i] = std::vector<Type>(); 
+		}
+
+		Eigen::Vector3f midPoint = nodeRange.head<3>() / 2; 
+
+		for (auto vert : data)
+		{
+			Eigen::Vector3f pos; 
+			pos << vert.pos.x, vert.pos.y, vert.pos.z; 
+			pos = pos - lowerBound.head<3>() - nodeRange.head<3>();
+			int index = 0; 
+			if (pos.x() > 0)
+			{
+				index |= 1; 
+			}
+			if (pos.y() > 0)
+			{
+				index |= 2;
+			}
+			if (pos.z() > 0)
+			{
+				index |= 4;
+			}
+
+			childData[index].push_back(vert); 
+
+		}
+
+
+		for (int i = 0; i < 8; ++i)
+		{
+			pNode->children[i] = new NestedOctreeNode<Type>(); 
+
+			createRegionGrowingTopDown(pNode->children[i], childData[i], depth + 1); 
+			childData[i].clear(); 
+		}
+		/**/
+
+	}
 
 	void createRegionGrowing(NestedOctreeNode<Type>* pNode, size_t depth);
 
 	void createAndPushDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, XMVECTOR gridStart, size_t depth = 0)
 	{
-
 		if (depth > reachedDepth)
 		{
 			reachedDepth = depth;
@@ -518,10 +720,7 @@ private:
 
 					subGridData[i].push_back(vert);
 				}
-				//END TEST
-
 				subGridOverlapps[i] += it.second.size() - 1; //first element in grid is ok
-
 			}
 			insertMap[i].clear();
 		}
@@ -905,107 +1104,36 @@ private:
 		}
 	}
 
-	//this is most likely broken by now... use w/ caution 
-	inline void insert(NestedOctreeNode<Type>* pNode, const Type& data, XMVECTOR gridStart, size_t depth = 0)
+	inline bool findVerticesInCell(const Vec9f& centroid, const Vec9f& normalisationConstScaling, const float& sqMaxDist, const UINT32 cellidx,
+		const std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap, MatX9f& clusterVerts)
 	{
-		reachedDepth = max(depth, reachedDepth);
-		std::unordered_map<UINT32, Type>  insertData; // used to store data in grid and determine when to subdivide
+		bool oneInRange = false; 
+		auto result = vertMap.find(cellidx);
 
-
-		XMVECTOR gridMidpoint = gridStart + XMLoadFloat3(&range) / (2 << depth);
-
-		XMVECTOR relPos = XMLoadFloat3(&data.pos) - gridStart;
-
-		
-		UINT32 subGridIndex = calculateSubgridIndex(relPos, depth); 
-		
-		//grid has already been expanded -> go lower  (no insert on internal nodes)
-		if (pNode->children[subGridIndex])	
+		if (result != vertMap.end())
 		{
-			XMFLOAT3 gridStart3f, gridMidpoint3f; // couldnt find a way to do this on simd -> divide gridIndex by 0xffffffff ?  
-			XMStoreFloat3(&gridStart3f, gridStart); 
-			XMStoreFloat3(&gridMidpoint3f, gridMidpoint); 
-
-			gridStart = XMVectorSet(
-				subGridIndex & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
-				subGridIndex & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
-				subGridIndex & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
-			insert(pNode->children[subGridIndex], data, gridStart , depth + 1);
-		}
-		else  //there is no point at the location -> either grid has already been expanded or first entry
-		{
-			XMVECTOR cellsize = (XMLoadFloat3(&range) / depth) / gridResolution;
-
-			XMVECTOR cellIndex = relPos / cellsize;
-
-			//point location in the inscribed grid (gridresolution)
-			UINT32 index = static_cast<UINT32>(XMVectorGetX(cellIndex))
-				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution
-				+ static_cast<UINT32>(XMVectorGetY(cellIndex)) * gridResolution * gridResolution;
-
-			//there is already a point at the given gridpos --> expand and go lower
-			auto result = insertData.find(index);
-			if (result != insertData.end())	
+			std::vector<Type>& cellVector = *result->second;
+			for (const Type& vert : cellVector)
 			{
-				pNode->data.push_back(data); //(Mis)use as buffer during creation
-
-				if (pNode->data.size() > expansionThreshold)
+				//add normals in polar coords	
+				Vec9f fv;
+				fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
+					vert.color.x, vert.color.y, vert.color.z;
+				float dist = (fv - centroid).cwiseProduct(normalisationConstScaling).squaredNorm();
+				if (dist < sqMaxDist)	//vert is in range
 				{
-
-					size_t depthPlus1 = depth + 1; //dont wana have to calc this every time and still need original depth... 
-
-					XMFLOAT3 gridStart3f, gridMidpoint3f; // couldnt find a way to do this on simd -> divide gridIndex by 0xffffffff to get indicator vector?  
-					XMStoreFloat3(&gridStart3f, gridStart);
-					XMStoreFloat3(&gridMidpoint3f, gridMidpoint);
-
-					XMVECTOR subGridStart[8];
-					//				XMVECTOR subGridMax[8];
-
-					for (int i = 0; i < 8; ++i)
-					{
-						pNode->children[i] = new NestedOctreeNode<Type>();
-
-
-						subGridStart[i] = XMVectorSet(
-							i & 0x01 ? gridMidpoint3f.x : gridStart3f.x,
-							i & 0x02 ? gridMidpoint3f.y : gridStart3f.y,
-							i & 0x04 ? gridMidpoint3f.z : gridStart3f.z, 0);
-
-						//					subGridMax[i]= subGridStart + XMLoadFloat3(&range) / (2 << depth);
-
-
-					}
-
-					numNodes += 8;
-					insert(pNode->children[subGridIndex], data, subGridStart[subGridIndex], depthPlus1); //insert current data
-
-
-					////remove all data from expanding grid and insert in next level node
-					for (auto it : insertData)
-					{
-						int itIndex = calculateSubgridIndex(XMLoadFloat3(&it.second.pos) - gridStart, depth);
-						insert(pNode->children[itIndex], it.second, subGridStart[itIndex], depthPlus1); //insert current data
-
-					}
-
-					insertData.clear();
-
-					for (auto vert : pNode->data)
-					{
-						int itIndex = calculateSubgridIndex(XMLoadFloat3(&vert.pos) - gridStart, depth);
-						insert(pNode->children[itIndex], vert, subGridStart[itIndex], depthPlus1); //insert current data
-					}
-					pNode->data.clear(); 
+					clusterVerts.conservativeResize(clusterVerts.rows() + 1, 9);
+					clusterVerts.row(clusterVerts.rows() - 1) = fv.transpose();
+					oneInRange = true;
 				}
-
 			}
-			// first point at that position
-			else 
-			{
-				insertData.insert(std::pair<const UINT32, Type>(index, data));
-			}
-		}
-
+		}//result != vertMap.end()
+		return oneInRange;
 	}
+
+	bool findVerticesInCellAndRemove(const Vec9f& centroid, const Vec9f& normalisationConstScaling, const float& sqMaxDist, const UINT32 cellidx,
+		std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap, MatX9f& clusterVerts, std::vector<Type>* boundaryVerts = nullptr);
+
+	Type getVertFromCluster(const MatX9f& clusterVerts, UINT32 depth,  const std::vector<Type>* boundaryVerts = nullptr);
 
 };

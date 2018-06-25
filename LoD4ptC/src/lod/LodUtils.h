@@ -29,11 +29,11 @@ namespace LOD_Utils
 	struct EllipticalVertexBuffer : VertexBuffer
 	{
 		EllipticalVertexBuffer() : VertexBuffer() {}
-		EllipticalVertexBuffer(ID3D11Buffer* buffer, UINT32 size, float scale) : VertexBuffer( buffer, size), maxWorldspaceScale(scale)
+		EllipticalVertexBuffer(ID3D11Buffer* buffer, UINT32 size, float scale) : VertexBuffer( buffer, size), maxWorldspaceSize(scale)
 		{
 
 		}
-		float maxWorldspaceScale; 
+		float maxWorldspaceSize; 
 	};
 
 

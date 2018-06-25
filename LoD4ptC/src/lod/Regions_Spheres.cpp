@@ -54,6 +54,7 @@ TwBar* Regions_Spheres::setUpTweakBar()
 	TwAddSeparator(tweakBar, "sep", NULL);
 	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Spheres::settings.fixedDepth, NULL);
 	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Spheres::settings.drawFixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Cluster Scale", TW_TYPE_FLOAT, &Regions_Spheres::settings.clusterSplatScale, "min = 0.00 step = 0.005");
 
 	TwAddSeparator(tweakBar, "sep2", NULL);
 	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Regions_Spheres::settings.LOD, NULL);
@@ -68,7 +69,7 @@ TwBar* Regions_Spheres::setUpTweakBar()
 void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 	std::cout << "\n===================================================" << std::endl;
-	std::cout << "Creating kmeans_spheres" << std::endl;
+	std::cout << "Creating regions_spheres" << std::endl;
 
 	auto start = std::chrono::high_resolution_clock::now();
 
@@ -83,31 +84,10 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 		initalEllpticalVerts.push_back(SphereVertex(vert));
 	}
 
-	/*
-	* Create and push down is broken and i wana test the kmeans impl
-	* this HAS to be changed later
-	* as it will rape the performance
-	* not that the kmeans will have good perf anyawys, but this NEEDS TO BE FIXED, DO YOU HEAR ME FUTURE ME?!?
-	*
-	* This is future me, i think i fixed it some time ago, cant remember :O
-	*/
-	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);
+	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);	
 
-	float normalize = 3*settings.weightPos + 3*settings.weightNormal + 3*settings.weightColor; 
-	
+	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, settings.weightNormal, settings.weightColor, settings.iterations);
 	initalEllpticalVerts.clear();
-	float inputWeights[9] = {
-		settings.weightPos, settings.weightPos, settings.weightPos,
-		settings.weightNormal, settings.weightNormal, settings.weightNormal,
-		settings.weightColor, settings.weightColor, settings.weightColor }; 
-
-	/**
-	for (int i = 0; i < 9; ++i)
-	{
-		inputWeights[i] /= normalize; 
-	}
-	/**/
-	octree->createRegionGrowing(settings.maxFeatureDist, inputWeights, settings.iterations);
 
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
@@ -222,6 +202,7 @@ void Regions_Spheres::draw(ID3D11DeviceContext* const context)
 	}
 	else
 	{
+
 		drawRecursive(context, 0, XMLoadFloat3(&octree->center), XMLoadFloat4(&Effects::cbPerObj.camPos), 0);
 	}
 }
@@ -253,40 +234,56 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 		return;
 	}
 
-	float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
-
-	float pixelsize = (vertexBuffers[nodeIndex].data.maxWorldspaceScale * worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
-
-
-	if (pixelsize <  g_lodSettings.pixelThreshhold || !vertexBuffers[nodeIndex].children)
+	if (vertexBuffers[nodeIndex].children)
 	{
-		settings.nodesDrawn++;
-		Effects::cbPerLOD.currentLOD = depth;
-		Effects::SetSplatSize(worldradius);
+
+
+		float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
+		float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+		if (pixelsize <  g_lodSettings.pixelThreshhold)
+		{
+			Effects::SetSplatSize(settings.clusterSplatScale);
+			Effects::cbPerLOD.currentLOD = depth;
+			Effects::UpdatePerLODBuffer(context);
+
+			settings.nodesDrawn++;
+
+			LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
+			context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
+			context->Draw(vb.size, 0);
+			g_statistics.verticesDrawn += vb.size;
+
+		}
+		else
+		{
+			XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
+			UINT8 numchildren = 0;
+
+			for (int i = 0; i < 8; ++i)
+			{
+				if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+				{
+					XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
+					drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
+
+					++numchildren;
+				}
+			}
+
+		}
+
+	}
+	else //Leaf node-> draw at min. splatsize
+	{
+		Effects::SetSplatSize(g_renderSettings.splatSize);
 		Effects::UpdatePerLODBuffer(context);
+
+		settings.nodesDrawn++;
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
 		context->Draw(vb.size, 0);
 		g_statistics.verticesDrawn += vb.size;
-
-	}
-	else
-	{
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
-		UINT8 numchildren = 0;
-
-		for (int i = 0; i < 8; ++i)
-		{
-			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
-			{
-				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
-				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
-
-				++numchildren;
-			}
-		}
-
 	}
 
 }
@@ -298,20 +295,17 @@ void Regions_Spheres::drawRecursiveFixedDepth(ID3D11DeviceContext* const context
 	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
-		float worldradius; 
 		if (vertexBuffers[nodeIndex].children)
 		{
-			worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+			Effects::SetSplatSize(settings.clusterSplatScale);
 		}
 		else //Leaf node-> draw at min. splatsize
 		{
-			worldradius = g_renderSettings.splatSize;
+			Effects::SetSplatSize(g_renderSettings.splatSize);
 		}
 
-		Effects::SetSplatSize(worldradius);
 		Effects::cbPerLOD.currentLOD = depth;
 		Effects::UpdatePerLODBuffer(context);
-
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 
