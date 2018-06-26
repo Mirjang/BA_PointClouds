@@ -70,6 +70,7 @@ struct RenderSettings
 	SplatType splatMode = SplatType::QUAD_SPLAT;
 	float splatSize = 0.0100f;
 	bool determineSplatsize = false; 
+	bool orientSplats = false; 
 	bool useLight = false; 
 	bool drawLOD = false; 
 };

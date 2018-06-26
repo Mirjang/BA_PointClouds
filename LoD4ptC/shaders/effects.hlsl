@@ -360,6 +360,40 @@ void GS_RADIUS(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColT
     OutStream.Append(output);
 }
 
+[maxvertexcount(4)]
+void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+
+	PosWorldNorColTex output;
+	output.pos = mul(input[0].pos, m_wvp);
+	output.posWorld = mul(input[0].pos, m_world);
+	output.normal = mul(input[0].normal, (float3x3) m_world);
+	output.color = input[0].color;
+
+	float3 axis1 = normalize(cross(output.normal, float3(0, 0, 1))); 
+	float3 axis2 = normalize(cross(output.normal, axis1)); 
+	float2 radius = mul(input[0].radius, g_splatradius);
+	float2 diameter = radius + radius;
+
+	float3 pos = output.pos; 
+
+	output.pos.xy = pos + axis1.xy * radius  + axis2.xy*radius; //left up
+	output.tex.xy = float2(-1, -1);
+	OutStream.Append(output);
+
+	output.pos.xy = pos + axis1.xy * radius - axis2.xy*radius; //right up
+	output.tex.xy = float2(1, -1);
+	OutStream.Append(output);
+
+	output.pos.xy = pos - axis1.xy * radius - axis2.xy*radius;
+	output.tex.xy = float2(-1, 1);
+	OutStream.Append(output);
+
+	output.pos.y = pos - axis1.xy * radius + axis2.xy*radius;
+	output.tex.xy = float2(1, 1);
+	OutStream.Append(output);
+}
+
 //only color for no lighting calculates splat size on the fly (for subsampling techniques) 
 [maxvertexcount(4)]
 void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)

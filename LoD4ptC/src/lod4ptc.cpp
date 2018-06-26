@@ -55,6 +55,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.splatMode, NULL);
 	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
 	TwAddVarRW(twRenderSettings, "calc LOD splatsize", TW_TYPE_BOOLCPP, &g_renderSettings.determineSplatsize, "");
+	TwAddVarRW(twRenderSettings, "orient splats", TW_TYPE_BOOLCPP, &g_renderSettings.orientSplats, "");
 	TwAddVarRW(twRenderSettings, "Use Light", TW_TYPE_BOOLCPP, &g_renderSettings.useLight, "");
 	TwAddVarRW(twRenderSettings, "Draw LOD", TW_TYPE_BOOLCPP, &g_renderSettings.drawLOD, "");
 

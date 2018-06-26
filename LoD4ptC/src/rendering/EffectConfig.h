@@ -41,6 +41,7 @@ namespace Effects
 			"GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR",
 			"GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR",
 			"GS_RADIUS",
+			"GS_RADIUS_ORIENTED", 
 			"GS_ELLIPTICAL",
 		};
 		const std::vector<std::string> PS_NAMES =
