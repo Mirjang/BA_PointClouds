@@ -250,11 +250,12 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	}
 }
 
-//TODO: split this up into template function since only the last part actually depends on wether Sphere or Elliptical Verts are used
 void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<EllipticalVertex>* pNode, size_t depth)
 {
 
 	if (pNode->isLeaf()) return;
+
+
 
 	if (g_lodSettings.useThreads) // MT
 	{
@@ -302,8 +303,6 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 
 	srand(RND_SEED);
 
-
-
 	Vec9f lowerBound = Vec9f::Ones() * FLT_MAX;
 	Vec9f upperBound = Vec9f::Ones() * FLT_MAX * (-1);
 
@@ -324,22 +323,25 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 		}
 	}
 
+	lowerBound -= lowerBound.cwiseAbs() * 0.025;
 	upperBound += upperBound.cwiseAbs() * 0.025;
+	Vec9f nodeRange = upperBound - lowerBound;
 
-	Vec9f nodeRange = (upperBound - lowerBound);
+	// diagonalSq / (GridRes)^3 / 2^depth === (spacial) size of one cell and rest 0
+	// 
+	float sqMaxDist = regionConstants.maxDistScaling * (diagonalSq / (gridResolution * gridResolution * gridResolution *(1 << depth)));
+	Vec9f normalisationConsts = nodeRange.cwiseInverse();
+	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
+	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
 
+	Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling);
 
-	//default: search half a grid
-	float sqMaxDist = regionConstants.maxDistScaling * (nodeRange / (gridResolution * 2)).squaredNorm() *(1 << depth);
+	//unnecessary complicated ? -- works tho
+	UINT32 searchResolution = static_cast<int>(nodeRange.head<3>().maxCoeff() / (sqrt(sqMaxDist)));
+	searchResolution = (searchResolution + 7) >> 3;
+	searchResolution = std::max(1U, searchResolution);
 
-	UINT32 searchResolution = std::max(1,
-		static_cast<int>(nodeRange.head<3>().cwiseProduct(regionConstants.scaling.head<3>()).norm() / (sqrt(sqMaxDist)*2.5)));
-
-	//round up to closest power of 8 : 
-	searchResolution = ((searchResolution + 7) >> 3) << 3;
-	//	searchResolution = 1; 
-
-	std::vector<UINT32> cellHullIndices = getCellHull(searchResolution);
+	//UINT32 searchResolution = gridResolution;
 
 	//calulates clusters for current node
 	// gridRes^3 hashmap w/ chaining
@@ -351,11 +353,6 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 	Eigen::Vector3i oneGridGridSQ;
 	oneGridGridSQ << 1, searchResolution, searchResolution*searchResolution;
 
-	Vec9f normalisationConsts = nodeRange.cwiseInverse();
-	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-
-	Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling);
 
 	//sort all child verts into grid for --hopefully-- reasonable speed
 	for (int i = 0; i < 8; ++i)
@@ -387,9 +384,6 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 	}
 	//clustering
 
-
-
-
 	while (!vertMap.empty())
 	{
 		// prob.better to use existing vert as centroid
@@ -403,7 +397,7 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 		assert(!centroidCell.empty());
 		UINT32 centroidIndex = rand() % centroidCell.size();
 
-		const SphereVertex& centVertex = centroidCell[centroidIndex];
+		const EllipticalVertex& centVertex = centroidCell[centroidIndex];
 
 		Vec9f centroid;
 		centroid << centVertex.pos.x, centVertex.pos.y, centVertex.pos.z, centVertex.normal.x, centVertex.normal.y, centVertex.normal.z,
@@ -417,144 +411,78 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 		//it = 1 <--> last it not in loop, because it also removes vertices from vertMap
 		for (size_t iteration = 1; iteration<regionConstants.maxIterations && (centroid - lastCentroid).squaredNorm()>MIN_CENTROID_SQDIFFERENCE; ++iteration)
 		{
-			//std::unordered_set<UINT32, hashID> exploredNodes(30, hash_ID); 
-#ifdef VERBOSE
-			std::cout << (centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>() << std::endl;
-#endif // VERBOSE
+			centroidCellIndex = (centroid.head<3>() - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+			int cells = 0;
 
-			centroidCellIndex = (centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+			std::queue<UINT32> frontier;
+			std::unordered_set<UINT32, hashID> exploredNodes;
+			exploredNodes.insert(centroidCellIndex);
 
-			for (int i = 0; i < cellHullIndices.size(); ++i)
+			frontier.push(centroidCellIndex);
+
+			while (!frontier.empty())
 			{
-				int currentIDX = centroidCellIndex + cellHullIndices[i];
+				++cells;
+				UINT32 currentIDX = frontier.front();
+				frontier.pop();
 
-				if (currentIDX >= 0 && currentIDX < searchResolution*searchResolution*searchResolution)	//check neighbourhood
+				bool oneInRange = findVerticesInCell(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
+				if (oneInRange) // found at least one vert -> explore neighbours 
 				{
-					//					exploredNodes.insert(centroidCellIndex);
-					findVerticesInCell(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
+					auto hull = getCellHull(searchResolution, currentIDX);
+					for (UINT32 idx : hull)
+					{
+						exploredNodes.insert(idx);
+						if (idx < searchResolution*searchResolution*searchResolution && exploredNodes.find(idx) == exploredNodes.end())
+						{
+							frontier.push(idx);
+						}
+					}
 				}
 			}
 
 
-			//END vertexFinding
-#ifdef VERBOSE
-
-			if (clusterVerts.rows() == 0)	//this should nevernot happen if everything goes according to plan... BUT IT DOES FUUUUU
+			if (exploredNodes.size() > 100)
 			{
-				std::cout << "rows: " << clusterVerts.rows() << std::endl;
-
-				std::cout << "searching EVERYTHING FFS" << std::endl;
-
-				for (auto mapIt = vertMap.begin(); mapIt != vertMap.end(); ++mapIt)
-				{
-					findVerticesInCell(centroid, normalisationConstScaling, sqMaxDist, mapIt->first, vertMap, clusterVerts);
-				}
-
-
-				std::cout << "rows: " << clusterVerts.rows() << std::endl;
-
-				++fuckupCTR;
-				std::cout << fuckupCTR << " FUUUUCK " << std::endl;
-				std::cout << lastCentroid.transpose() << "\n" << centroid.transpose() << std::endl;
-
-				std::cout << "last idx: " << (lastCentroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().transpose() << std::endl;
-				std::cout << "new idx : " << (centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().transpose() << std::endl;
-				std::cout << fuckupCTR << " FUUUUCK " << std::endl;
-				continue;
+				std::cout << exploredNodes.size() << std::endl;
 			}
-#endif // VERBOSE
 
 			lastCentroid = centroid;
 			centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
 			clusterVerts.resize(0, 9);
-
-#ifdef VERBOSE
-			std::cout << "------------endit -------------------------" << std::endl;
-#endif
-
 		}//END current iteration
 
 		 //last iteration
 		centroidCellIndex = (centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+		std::queue<UINT32> frontier;
+		std::unordered_set<UINT32, hashID> exploredNodes;
+		frontier.push(centroidCellIndex);
+		exploredNodes.insert(centroidCellIndex);
 
-		for (int i = 0; i < cellHullIndices.size(); ++i)
+
+		std::vector<EllipticalVertex> deletedVerts;
+
+		while (!frontier.empty())
 		{
-			int currentIDX = centroidCellIndex + cellHullIndices[i];
+			UINT32 currentIDX = frontier.front();
+			frontier.pop();
 
-			if (currentIDX >= 0 && currentIDX < searchResolution*searchResolution*searchResolution)	//check neighbourhood
+			bool oneInRange = findVerticesInCellAndRemove(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts, &deletedVerts);
+			if (oneInRange) // found at least one vert -> explore neighbours 
 			{
-				findVerticesInCellAndRemove(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
-			}
-
-		}//END last iteration
-
-//#ifdef VERBOSE
-		if (clusterVerts.rows() == 0)
-		{
-			++fuckupCTR;
-			std::cout << fuckupCTR << " FUUUUCK " << std::endl;
-			continue;
+				auto hull = getCellHull(searchResolution, currentIDX);
+				for (UINT32 idx : hull)
+				{
+					if (idx < searchResolution*searchResolution*searchResolution && exploredNodes.find(idx) == exploredNodes.end())
+					{
+						exploredNodes.insert(idx);
+						frontier.push(idx);
+					}
+				}
 		}
-//#endif // VERBOSE
+					}
 
-		centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
-		EllipticalVertex newVert;
-		newVert.pos.x = centroid(0);
-		newVert.pos.y = centroid(1);
-		newVert.pos.z = centroid(2);
-		newVert.normal.x = centroid(3);
-		newVert.normal.y = centroid(4);
-		newVert.normal.z = centroid(5);
-		newVert.color.x = centroid(6);
-		newVert.color.y = centroid(7);
-		newVert.color.z = centroid(8);
-		newVert.color.w = 1.0f; //ignoring alpha
-
-		if (clusterVerts.rows() == 1)	//isolated vertex -> use axis normal to surfaceNormal as axis
-		{
-			XMVECTOR xmNormal = XMLoadFloat3(&newVert.normal); 
-			XMVECTOR xmMajor = XMVector3Orthogonal(xmNormal); 
-
-			XMStoreFloat3(&newVert.major, xmMajor); 
-			XMStoreFloat3(&newVert.minor, XMVector3Cross(xmNormal, xmMajor));
-
-		}
-		else
-		{
-			//calc new supervert
-
-
-			Eigen::MatrixX3f spacialMat = clusterVerts.leftCols<3>();
-			clusterVerts.resize(0, 9);
-
-			spacialMat = spacialMat.rowwise() - centroid.head<3>().transpose();
-
-
-			Eigen::Matrix3f spacialCovariance = spacialMat.transpose()* spacialMat;
-			Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> pca(spacialCovariance);
-
-			
-		/* EIgen API: 
-		*		
-		*The eigenvalues are repeated according to their algebraic multiplicity, so there are as many eigenvalues as rows in the matrix. 
-		*The eigenvalues are sorted in increasing order.
-		*/	
-
-
-
-			Eigen::Vector3f major = pca.eigenvectors().col(2) * pca.eigenvalues()(2);
-			newVert.major.x = major.x(); 
-			newVert.major.y = major.y(); 
-			newVert.major.z = major.z(); 
-
-			Eigen::Vector3f minor = pca.eigenvectors().col(1) * pca.eigenvalues()(1);
-			newVert.minor.x = minor.x();
-			newVert.minor.y = minor.y();
-			newVert.minor.z = minor.z();
-		}
-
-		pNode->data.push_back(newVert);
-
+		pNode->data.push_back(getVertFromCluster(clusterVerts, depth, &deletedVerts));
 	}//vertMap.empty()
 
 	if (g_lodSettings.useThreads) //  MT
@@ -562,6 +490,7 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 		runNodeCalculations.release();
 	}
 }
+
 
 template<>
 SphereVertex NestedOctree<SphereVertex>::getVertFromCluster(const MatX9f& clusterVerts, UINT32 depth, const std::vector<SphereVertex>* boundaryVerts)
@@ -581,7 +510,7 @@ SphereVertex NestedOctree<SphereVertex>::getVertFromCluster(const MatX9f& cluste
 
 	if (clusterVerts.rows() == 1)	//isolated vertex --> if no normals are available this should prob. be added to closest cluster or smth
 	{
-		newVert.radius = 1 << (reachedDepth - depth);
+		newVert.radius = static_cast<float>( 1 << (reachedDepth - depth));
 	}
 	else
 	{
@@ -628,7 +557,79 @@ SphereVertex NestedOctree<SphereVertex>::getVertFromCluster(const MatX9f& cluste
 			}
 		}
 	}
+
+	if (newVert.radius <= 0)
+	{
+		std::cout << "wtdf" << std::endl; 
+	}
+
 	return newVert; 
+}
+
+template<>
+EllipticalVertex NestedOctree<EllipticalVertex>::getVertFromCluster(const MatX9f& clusterVerts, UINT32 depth, const std::vector<EllipticalVertex>* boundaryVerts)
+{
+	Vec9f centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
+	EllipticalVertex newVert;
+	newVert.pos.x = centroid(0);
+	newVert.pos.y = centroid(1);
+	newVert.pos.z = centroid(2);
+	newVert.normal.x = centroid(3);
+	newVert.normal.y = centroid(4);
+	newVert.normal.z = centroid(5);
+	newVert.color.x = centroid(6);
+	newVert.color.y = centroid(7);
+	newVert.color.z = centroid(8);
+	newVert.color.w = 1.0f; //ignoring alpha
+
+	if (clusterVerts.rows() == 1)	//isolated vertex --> if no normals are available this should prob. be added to closest cluster or smth
+	{
+
+		float radius = static_cast<float>(1 << (reachedDepth - depth));
+
+
+		XMVECTOR normal = XMLoadFloat3(&newVert.normal);	
+
+		XMVECTOR major = XMVector3Normalize( XMVector3Orthogonal(normal)) * radius;
+		XMVECTOR minor = XMVector3Normalize( XMVector3Cross(normal, major)) * radius;
+
+		XMStoreFloat3(&newVert.major, major); 
+		XMStoreFloat3(&newVert.minor, minor);
+	}
+	else
+	{
+		Eigen::MatrixX3f spacialMat = clusterVerts.leftCols<3>();
+		spacialMat = spacialMat.rowwise() - centroid.head<3>().transpose();
+		if (flags&OctreeFlags::normalsGenerate)	//calc normals and check for too large discrepancy
+		{
+	
+
+		}
+		else //normals are already available any have been considered -> cluster is pretty much a disk 
+		{
+			// if verts live on a plane the smalles eigenvalue should be close to zero
+			Eigen::Matrix3f spacialCovariance = spacialMat.transpose()* spacialMat;
+			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca;
+			pca.compute(spacialCovariance);
+
+			Eigen::Vector3f major = pca.eigenvectors().col(2) * pca.eigenvalues()(2);
+			Eigen::Vector3f minor = pca.eigenvectors().col(1) * pca.eigenvalues()(2);
+			newVert.major.x = major.x(); 
+			newVert.major.y = major.y();
+			newVert.major.z = major.z();
+
+			newVert.minor.x = minor.x();
+			newVert.minor.y = minor.y();
+			newVert.minor.z = minor.z();
+
+		//	std::cout <<pca.eigenvalues() << "\n" <<  major<< "\n" << minor << "\n----" << std::endl; 
+
+		}
+	}
+
+
+
+	return newVert;
 }
 
 template<>

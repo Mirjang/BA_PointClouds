@@ -50,6 +50,7 @@ TwBar* Regions_Ellipses::setUpTweakBar()
 	TwAddSeparator(tweakBar, "sep", NULL);
 	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Ellipses::settings.fixedDepth, NULL);
 	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Ellipses::settings.drawFixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Cluster Scale", TW_TYPE_FLOAT, &Regions_Ellipses::settings.clusterSplatScale, "min = 0.00 step = 0.005");
 
 	TwAddSeparator(tweakBar, "sep2", NULL);
 	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Regions_Ellipses::settings.LOD, NULL);
@@ -91,7 +92,7 @@ void Regions_Ellipses::create(ID3D11Device* const device, vector<Vertex>& vertic
 
 
 	initalEllpticalVerts.clear();
-	octree->createRegionGrowing(settings.maxFeatureDist / 100, settings.weightPos, settings.weightNormal, settings.weightColor, settings.iterations);
+	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, settings.weightNormal, settings.weightColor, settings.iterations);
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created Octree w/ Regions spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
@@ -111,6 +112,21 @@ void Regions_Ellipses::create(ID3D11Device* const device, vector<Vertex>& vertic
 	g_statistics.maxDepth = octree->reachedDepth;
 	std::cout << "=======================DONE========================\n" << std::endl;
 
+}
+
+
+void Regions_Ellipses::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
+{
+
+	for (auto it : vertexBuffers)
+	{
+		SafeRelease(it.data.buffer);
+	}
+	vertexBuffers.clear();
+
+	delete octree;
+
+	create(device, vertices);
 }
 
 
@@ -163,14 +179,17 @@ void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 
 
 	if (vertexBuffers[nodeIndex].children)
 	{
-		float worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
-		float pixelsize = (vertexBuffers[nodeIndex].data.maxWorldspaceSize * worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+
+
+		float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
+		float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
 		if (pixelsize <  g_lodSettings.pixelThreshhold)
 		{
-			settings.nodesDrawn++;
+			Effects::SetSplatSize(settings.clusterSplatScale);
 			Effects::cbPerLOD.currentLOD = depth;
-			Effects::SetSplatSize(worldradius);
 			Effects::UpdatePerLODBuffer(context);
+
+			settings.nodesDrawn++;
 
 			LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 			context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
@@ -199,10 +218,10 @@ void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 
 	}
 	else //Leaf node-> draw at min. splatsize
 	{
-		settings.nodesDrawn++;
-		Effects::cbPerLOD.currentLOD = octree->reachedDepth;
 		Effects::SetSplatSize(g_renderSettings.splatSize);
 		Effects::UpdatePerLODBuffer(context);
+
+		settings.nodesDrawn++;
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
@@ -211,19 +230,7 @@ void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 
 	}
 
 }
-void Regions_Ellipses::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
-{
 
-	for (auto it : vertexBuffers)
-	{
-		SafeRelease(it.data.buffer);
-	}
-	vertexBuffers.clear();
-
-	delete octree; 
-
-	create(device, vertices);
-}
 
 void Regions_Ellipses::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
@@ -231,20 +238,17 @@ void Regions_Ellipses::drawRecursiveFixedDepth(ID3D11DeviceContext* const contex
 	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
-		float worldradius;
 		if (vertexBuffers[nodeIndex].children)
 		{
-			worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+			Effects::SetSplatSize(settings.clusterSplatScale);
 		}
 		else //Leaf node-> draw at min. splatsize
 		{
-			worldradius = g_renderSettings.splatSize;
-			depth = octree->reachedDepth; 
+			Effects::SetSplatSize(g_renderSettings.splatSize);
 		}
-		Effects::SetSplatSize(worldradius);
+
 		Effects::cbPerLOD.currentLOD = depth;
 		Effects::UpdatePerLODBuffer(context);
-
 
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 

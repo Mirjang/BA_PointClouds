@@ -41,6 +41,7 @@ private:
 		float weightNormal = 1.0f;
 		float weightColor = 1.0f;
 
+		float clusterSplatScale; 
 		UINT32 maxCentroidsPerNode = 7500;
 		UINT32 iterations = 8;
 		bool simpleDistance = true;
