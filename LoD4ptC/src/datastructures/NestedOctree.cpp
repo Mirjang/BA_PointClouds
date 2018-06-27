@@ -88,7 +88,8 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 	// diagonalSq / (GridRes)^3 / 2^depth === (spacial) size of one cell and rest 0
 	// 
-	float sqMaxDist = regionConstants.maxDistScaling * (diagonalSq / (gridResolution * gridResolution * gridResolution *(1 << depth)));
+	float sqMaxDist = regionConstants.maxDistScaling * (diagonal / (gridResolution*(1 << depth)));
+	sqMaxDist *= sqMaxDist; 
 	Vec9f normalisationConsts = nodeRange.cwiseInverse();
 	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
 	normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
@@ -99,6 +100,8 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	UINT32 searchResolution =static_cast<int>(nodeRange.head<3>().maxCoeff() / (sqrt(sqMaxDist)));
 	searchResolution = (searchResolution + 7) >> 3;
 	searchResolution = std::max(1U,searchResolution);
+	searchResolution = std::min(128U, searchResolution);
+
 
 	//UINT32 searchResolution = gridResolution;
 
@@ -557,12 +560,6 @@ SphereVertex NestedOctree<SphereVertex>::getVertFromCluster(const MatX9f& cluste
 			}
 		}
 	}
-
-	if (newVert.radius <= 0)
-	{
-		std::cout << "wtdf" << std::endl; 
-	}
-
 	return newVert; 
 }
 
@@ -659,7 +656,7 @@ bool NestedOctree<SphereVertex>::findVerticesInCellAndRemove(const Vec9f& centro
 			Vec9f fv;
 			fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
 				vert.color.x, vert.color.y, vert.color.z;
-			float dist = (fv - centroid).cwiseProduct(normalisationConstScaling).squaredNorm();
+			float dist = distanceFunction(centroid, fv, normalisationConstScaling);
 
 			if (dist < sqMaxDist)	//vert is in range
 			{
@@ -716,7 +713,7 @@ bool NestedOctree<EllipticalVertex>::findVerticesInCellAndRemove(const Vec9f& ce
 			Vec9f fv;
 			fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
 				vert.color.x, vert.color.y, vert.color.z;
-			float dist = (fv - centroid).cwiseProduct(normalisationConstScaling).squaredNorm();
+			float dist = distanceFunction(centroid, fv, normalisationConstScaling);
 
 			if (dist < sqMaxDist)	//vert is in range
 			{

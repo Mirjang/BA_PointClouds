@@ -380,17 +380,17 @@ public:
 	void createRegionGrowing(float maxFeatureDist = 1.0f, float wPos = 1.0f, float wNor = 0.0f, float wCol = 0.0f, UINT32 maxIterations = 10)
 	{
 		UINT32 oldRes = gridResolution; //use lower res for more efficient search?
+		regionConstants.scaling(0) = wPos;
 		regionConstants.scaling(1) = wPos;
 		regionConstants.scaling(2) = wPos;
-		regionConstants.scaling(3) = wPos;
+		regionConstants.scaling(3) = wNor;
 		regionConstants.scaling(4) = wNor;
 		regionConstants.scaling(5) = wNor;
-		regionConstants.scaling(6) = wNor;
+		regionConstants.scaling(6) = wCol;
 		regionConstants.scaling(7) = wCol;
 		regionConstants.scaling(8) = wCol;
-		regionConstants.scaling(9) = wCol;
 
-		regionConstants.scaling /= regionConstants.scaling.norm(); //normalized weights
+		//regionConstants.scaling /= regionConstants.scaling.norm(); //normalized weights
 
 		regionConstants.maxDistScaling = maxFeatureDist;
 		regionConstants.maxIterations = maxIterations;
@@ -1119,7 +1119,7 @@ private:
 				Vec9f fv;
 				fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
 					vert.color.x, vert.color.y, vert.color.z;
-				float dist = (fv - centroid).cwiseProduct(normalisationConstScaling).squaredNorm();
+				float dist = distanceFunction(centroid, fv, normalisationConstScaling); 
 				if (dist < sqMaxDist)	//vert is in range
 				{
 					clusterVerts.conservativeResize(clusterVerts.rows() + 1, 9);
@@ -1135,5 +1135,26 @@ private:
 		std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap, MatX9f& clusterVerts, std::vector<Type>* boundaryVerts = nullptr);
 
 	Type getVertFromCluster(const MatX9f& clusterVerts, UINT32 depth,  const std::vector<Type>* boundaryVerts = nullptr);
+
+	float distanceFunction(const Vec9f& centroid, const Vec9f& fv, const Vec9f& normalisation)
+	{
+		return (centroid - fv).cwiseProduct(normalisation).squaredNorm(); 
+
+		Eigen::Vector3f nc = centroid.segment<3>(3); 
+		Eigen::Vector3f nv = fv.segment<3>(3);
+
+		if (acosf(nc.dot(nv))>regionConstants.scaling(3)) // normal 
+		{
+			return FLT_MAX; 
+		}
+
+		if ((centroid.tail<3>() - fv.tail<3>()).squaredNorm() > regionConstants.scaling(8))//color
+		{
+			return FLT_MAX;
+		}
+		return (centroid.head<3>() - fv.head<3>()).squaredNorm() * normalisation(0); 
+	}
+
+	float distanceFunction(const Vec9f& centroid, const Type& vert, const Vec9f& normalisation);
 
 };
