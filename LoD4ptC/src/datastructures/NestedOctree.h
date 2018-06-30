@@ -18,7 +18,7 @@
 
 #include "../rendering/Vertex.h"
 #include "../global/Distances.h"
-#include "Kmeans.h"
+#include "ClusterMath.h"
 #include "../global/utils.h"
 #include "../global/Semaphore.h"
 
@@ -283,7 +283,7 @@ public:
 
 	~NestedOctree() { delete root; }
 
-	std::vector<UINT32> getCellHull(UINT32 res, UINT32 index = 0)
+	std::vector<UINT32> getCellNeighbours(UINT32 res, UINT32 index = 0)
 	{
 		std::vector<UINT32> hull; 
 		hull.push_back(index + GridIndex(0, 0, 0, res));
@@ -390,6 +390,10 @@ public:
 		regionConstants.scaling(7) = wCol;
 		regionConstants.scaling(8) = wCol;
 
+		regionConstants.maxDist = wPos; 
+		regionConstants.maxNorAngle = wNor; 
+		regionConstants.maxColDist = wCol; 
+
 		//regionConstants.scaling /= regionConstants.scaling.norm(); //normalized weights
 
 		regionConstants.maxDistScaling = maxFeatureDist;
@@ -438,6 +442,8 @@ private:
 		Vec9f scaling; 
 		float maxDistScaling;
 		UINT32 maxIterations; 
+		float maxDist, maxNorAngle, maxColDist; 
+
 	};
 
 	RegionGrowingConstants regionConstants;
@@ -548,7 +554,7 @@ private:
 					bool oneInRange = findVerticesInCell(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
 					if (oneInRange) // found at least one vert -> explore neighbours 
 					{
-						auto hull = getCellHull(gridResolution, currentIDX);
+						auto hull = getCellNeighbours(gridResolution, currentIDX);
 						for (UINT32 idx : hull)
 						{
 							if (idx < gridResolution*gridResolution*gridResolution && exploredNodes.find(idx) == exploredNodes.end())
@@ -580,7 +586,7 @@ private:
 				bool oneInRange = findVerticesInCellAndRemove(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
 				if (oneInRange) // found at least one vert -> explore neighbours 
 				{
-					auto hull = getCellHull(gridResolution, currentIDX);
+					auto hull = getCellNeighbours(gridResolution, currentIDX);
 					for (UINT32 idx : hull)
 					{
 						if (idx < gridResolution*gridResolution*gridResolution && exploredNodes.find(idx) == exploredNodes.end())
@@ -1100,61 +1106,52 @@ private:
 				expansionBuffer[i].clear();
 				//delete subGridData[i];
 			}
-
 		}
 	}
 
-	inline bool findVerticesInCell(const Vec9f& centroid, const Vec9f& normalisationConstScaling, const float& sqMaxDist, const UINT32 cellidx,
-		const std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap, MatX9f& clusterVerts)
+	bool findVerticesInCell(Cluster<Type>& cluster, const UINT32 cellidx,
+		std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap)
 	{
-		bool oneInRange = false; 
+		size_t clusterSize = cluster.verts.size(); 
 		auto result = vertMap.find(cellidx);
-
 		if (result != vertMap.end())
 		{
 			std::vector<Type>& cellVector = *result->second;
 			for (const Type& vert : cellVector)
 			{
-				//add normals in polar coords	
-				Vec9f fv;
-				fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
-					vert.color.x, vert.color.y, vert.color.z;
-				float dist = distanceFunction(centroid, fv, normalisationConstScaling); 
-				if (dist < sqMaxDist)	//vert is in range
-				{
-					clusterVerts.conservativeResize(clusterVerts.rows() + 1, 9);
-					clusterVerts.row(clusterVerts.rows() - 1) = fv.transpose();
-					oneInRange = true;
-				}
+				cluster.checkAdd(vert); 
 			}
 		}//result != vertMap.end()
-		return oneInRange;
+		return cluster.verts.size()!=clusterSize; // a vert has been added
 	}
 
-	bool findVerticesInCellAndRemove(const Vec9f& centroid, const Vec9f& normalisationConstScaling, const float& sqMaxDist, const UINT32 cellidx,
-		std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap, MatX9f& clusterVerts, std::vector<Type>* boundaryVerts = nullptr);
-
-	Type getVertFromCluster(const MatX9f& clusterVerts, UINT32 depth,  const std::vector<Type>* boundaryVerts = nullptr);
-
-	float distanceFunction(const Vec9f& centroid, const Vec9f& fv, const Vec9f& normalisation)
+	bool findVerticesInCellAndRemove(Cluster<Type>& cluster, const UINT32 cellidx,
+		std::unordered_map < UINT32, std::vector<Type>*, hashID>& vertMap)
 	{
-		return (centroid - fv).cwiseProduct(normalisation).squaredNorm(); 
-
-		Eigen::Vector3f nc = centroid.segment<3>(3); 
-		Eigen::Vector3f nv = fv.segment<3>(3);
-
-		if (acosf(nc.dot(nv))>regionConstants.scaling(3)) // normal 
+		size_t clusterSize = cluster.verts.size();
+		auto result = vertMap.find(cellidx);
+		if (result != vertMap.end())
 		{
-			return FLT_MAX; 
-		}
-
-		if ((centroid.tail<3>() - fv.tail<3>()).squaredNorm() > regionConstants.scaling(8))//color
-		{
-			return FLT_MAX;
-		}
-		return (centroid.head<3>() - fv.head<3>()).squaredNorm() * normalisation(0); 
+			std::vector<Type>* cellVector = result->second;
+			for (auto it = cellVector->begin(); it != cellVector->end(); )
+			{
+				const Type& vert = *it;
+				bool added = cluster.checkAdd(vert);
+				if (added)	//vert is in range
+				{
+					it = cellVector->erase(it);
+				}
+				else
+				{
+					++it;
+				}
+			}
+			if (cellVector->empty())
+			{
+				delete cellVector;
+				vertMap.erase(cellidx);
+			}
+		}//result != vertMap.end()
+		return cluster.verts.size() != clusterSize; // a vert has been added
 	}
-
-	float distanceFunction(const Vec9f& centroid, const Type& vert, const Vec9f& normalisation);
-
 };

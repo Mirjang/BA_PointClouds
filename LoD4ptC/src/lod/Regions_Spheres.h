@@ -6,8 +6,6 @@
 #include "LodUtils.h"
 #include "../datastructures/NestedOctree.h"
 #include "../global/utils.h"
-#include "../datastructures/Kmeans.h"
-
 
 class Regions_Spheres :
 	public LOD
@@ -23,9 +21,6 @@ public:
 	virtual void draw(ID3D11DeviceContext* const context) override;
 
 private:
-
-
-	inline void centroidsToSphereSplats(const std::vector<Centroid>& centroids, MatX9f& verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts);
 
 	void drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIntex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth);
 
@@ -44,7 +39,7 @@ private:
 		float weightColor = 1.0f; 
 
 		UINT32 maxCentroidsPerNode = 7500;
-		UINT32 iterations = 8;
+		UINT32 iterations = 1;
 		bool simpleDistance = true;
 
 		/*

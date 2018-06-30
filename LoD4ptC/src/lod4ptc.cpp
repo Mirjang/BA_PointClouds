@@ -100,13 +100,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRO(twMenuBar, "Frames per Sec", TW_TYPE_FLOAT, &g_statistics.framesPerSec, "");
 	TwAddVarRO(twMenuBar, "Vertices Drawn", TW_TYPE_INT32, &g_statistics.verticesDrawn, "");
 
-
-
-
-
 	DragAcceptFiles(g_hWindow, TRUE);
 
-	Effects::cbShaderSettings.aspectRatio = g_screenParams.width/g_screenParams.height; 
+	Effects::cbShaderSettings.aspectRatio = static_cast<float>(g_screenParams.width)/g_screenParams.height;
 	Effects::cbShaderSettings.screenheightDiv2 = static_cast<float>(g_screenParams.height) / 2.0f; 
 	g_renderer->reloadShaders(); 
 
@@ -120,10 +116,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	camera->translateAbs(0.1f, 1.0f, -75.0f); 
 
 
-	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(0.8, -0.05, 0.5, 0)));  //rnd ligth dir, somewhere from above
-
-
-
+	XMStoreFloat3(&g_userInput.lightDirection, XMVector3Normalize(XMVectorSet(0.8f, -0.05f, 0.5f, 0.0f)));  //rnd ligth dir, somewhere from above
 
 	g_sceneRoot.initialize(g_renderer);
 
@@ -280,12 +273,12 @@ void update()
 		}
 		case KMEANS_SPHERE:
 		{
-			g_lodSettings.twImplSettingsBar = Kmeans_Spheres::setUpTweakBar();
+//			g_lodSettings.twImplSettingsBar = Kmeans_Spheres::setUpTweakBar();
 			break;
 		}
 		case KMEANS_ELLIPSE:
 		{
-			g_lodSettings.twImplSettingsBar = Kmeans_Ellipses::setUpTweakBar();
+//			g_lodSettings.twImplSettingsBar = Kmeans_Ellipses::setUpTweakBar();
 			break;
 		}
 		case REGIONS_SPHERE: 

@@ -123,69 +123,6 @@ void Regions_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& verti
 	create(device, vertices);
 }
 
-void Regions_Spheres::centroidsToSphereSplats(const std::vector<Centroid>& centroids, MatX9f& verts, const std::vector<UINT32>& vertCentroidTable, std::vector<SphereVertex>& outVerts)
-{
-	std::vector<Eigen::Matrix<float, Eigen::Dynamic, 3>> vertsPerCentroid;
-
-
-	for (int i = 0; i < centroids.size(); ++i)
-	{
-		vertsPerCentroid.push_back(Eigen::Matrix<float, Eigen::Dynamic, 3>());
-	}
-
-	//sort verts according to correstponding centroid
-	for (int i = 0; i < verts.rows(); ++i)
-	{
-		Eigen::Matrix<float, Eigen::Dynamic, 3>& mat = vertsPerCentroid[vertCentroidTable[i]];
-
-		mat.conservativeResize(mat.rows() + 1, 3);
-		mat.row(mat.rows() - 1) = verts.row(i).head(3).transpose(); //pox.xyz per vertex
-	}
-	//replace set of all child verts w/ calculated cluster splats
-	verts.resize(0, 0);
-
-	for (int i = 0; i < centroids.size(); ++i)
-	{
-		if (!(vertsPerCentroid[i].rows() - 1)) continue; //very degenerate cluster? immpossibru unless clusters>verts? 
-		outVerts.push_back(SphereVertex());
-
-		const Centroid& cent = centroids[i];
-
-
-		SphereVertex& newVert = outVerts[i];
-		newVert.pos.x = cent.features(0);
-		newVert.pos.y = cent.features(1);
-		newVert.pos.z = cent.features(2);
-		XMStoreFloat3(&newVert.normal, LOD_Utils::polarToCartNormal(XMVectorSet(cent.features(3), cent.features(4), 0, 0)));
-		newVert.color.x = cent.features(5);
-		newVert.color.y = cent.features(6);
-		newVert.color.z = cent.features(7);
-		newVert.color.w = cent.features(8);
-
-
-		//PCA to determine major and minor of the resultion elliptical splat
-		Eigen::Vector3f centroid;
-
-		centroid << cent.features(0), cent.features(1), cent.features(2);
-
-		// centering
-		Eigen::MatrixXf centeredVerts = vertsPerCentroid[i].rowwise() - centroid.transpose();
-
-		Eigen::Matrix<float, 3, 3> covariance = centeredVerts.adjoint() * centeredVerts;
-
-		covariance /= (centeredVerts.rows() - 1);
-
-		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca(covariance);
-
-
-		newVert.radius = pca.eigenvalues()(0);
-
-	}
-
-}
-
-
-
 void Regions_Spheres::draw(ID3D11DeviceContext* const context)
 {
 	settings.nodesDrawn = 0;

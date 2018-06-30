@@ -105,7 +105,7 @@ namespace LOD_Utils
 
 	void printTreeStructure(const std::vector<OctreeVectorNode<VertexBuffer>>& verts, UINT32 nodeIndex, UINT32 maxDepth, UINT32 depth)
 	{
-		for (int i = 0; i < depth; ++i)
+		for (UINT32 i = 0; i < depth; ++i)
 		{
 			std::cout << "--";
 		}
