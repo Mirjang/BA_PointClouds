@@ -88,7 +88,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 	// diagonal / (GridRes)^3 / 2^depth === diag of one cell at LOD
 	// 
-	float maxDistSq = regionConstants.maxDist * (diagonal / (gridResolution*(1 << (depth+1))));
+	float maxDistSq = regionConstants.maxDist * (diagonal / (gridResolution*(1 << depth)));
 	maxDistSq *= maxDistSq; 
 	float maxAngle = regionConstants.maxNorAngle *(1 << (reachedDepth - depth-1));
 	float maxColSq = regionConstants.maxColDist *(1 << (reachedDepth - depth-1));
@@ -101,7 +101,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	//Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling);
 
 	//unnecessary complicated ? -- works tho
-	UINT32 searchResolution =static_cast<int>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq)));
+	UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >> 3;
 	searchResolution = max(8U,searchResolution);
 	searchResolution = min(128U, searchResolution);
 
@@ -158,7 +158,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		std::advance(it, centroidCellIndex);
 		std::vector<SphereVertex>& centroidCell = *it->second;
 
-		assert(!centroidCell.empty()); 
+		//assert(!centroidCell.empty()); 
 		UINT32 centroidIndex = rand() % centroidCell.size();
 
 		const SphereVertex& centVertex = centroidCell[centroidIndex];
@@ -197,12 +197,6 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 						}
 					}
 				}
-			}
-
-
-			if (exploredNodes.size() > 100)
-			{
-				std::cout << exploredNodes.size() << std::endl;
 			}
 			cluster.center();
 			lastCentroid = cluster.centroid;

@@ -330,36 +330,6 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
     OutStream.Append(output);
 }
 
-[maxvertexcount(4)]
-void GS_RADIUS(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
-{
-    
-    PosWorldNorColTex output;
-    output.pos = mul(input[0].pos, m_wvp);
-    output.posWorld = mul(input[0].pos, m_world);
-    output.normal = mul(input[0].normal, (float3x3) m_world);
-    output.color = input[0].color;
-
-    float2 radius = mul(input[0].radius, g_splatradius);
-    float2 diameter = radius + radius; 
-
-    output.pos.xy += float2(-1, 1) * radius; //left up
-    output.tex.xy = float2(-1, -1);
-    OutStream.Append(output);
-
-    output.pos.y -= diameter.y; //right up
-    output.tex.xy = float2(1, -1);
-    OutStream.Append(output);
-
-    output.pos.xy += diameter; //left down
-    output.tex.xy = float2(-1, 1);
-    OutStream.Append(output);
-
-    output.pos.y -= diameter.y; //right down
-    output.tex.xy = float2(1, 1);
-    OutStream.Append(output);
-}
-
 //only color for no lighting calculates splat size on the fly (for subsampling techniques) 
 [maxvertexcount(4)]
 void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
@@ -507,6 +477,36 @@ void GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout Triangl
 }
 
 [maxvertexcount(4)]
+void GS_RADIUS(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
+    output.color = input[0].color;
+
+    float2 radius = mul(input[0].radius + g_splatSize, g_splatradius);
+    float2 diameter = radius + radius;
+
+    output.pos.xy += float2(-1, 1) * radius; //left up
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos.y -= diameter.y; //right up
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos.xy += diameter; //left down
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos.y -= diameter.y; //right down
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+}
+
+[maxvertexcount(4)]
 void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
     PosWorldNorColTex output;
@@ -515,14 +515,14 @@ void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWor
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float2 radius = mul(input[0].radius, g_splatradius);
+    float2 radius = mul(input[0].radius + g_splatSize, g_splatradius);
     float2 diameter = radius + radius;
 
   // input[0].normal = float3(0, 1, 0); 
 
     float4 axis1, axis2;
-    axis1.xyz = mul(g_splatradius.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
-    axis2.xyz = mul(g_splatradius.x, normalize(cross(input[0].normal, axis1.xyz)));
+    axis1.xyz = mul(radius.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
+    axis2.xyz = mul(radius.x, normalize(cross(input[0].normal, axis1.xyz)));
     axis1.w = 0;
     axis2.w = 0;
 
@@ -670,7 +670,6 @@ float4 PS_ELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
         discard; 
         return float4(0, 0, 0, 0);
     }
-
     return input.color;
 }
 

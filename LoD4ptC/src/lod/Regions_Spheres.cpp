@@ -35,21 +35,20 @@ TwBar* Regions_Spheres::setUpTweakBar()
 {
 	TwBar* tweakBar = TwNewBar("Regions Spheres");
 	TwAddVarRW(tweakBar, "Grid Resolution", TW_TYPE_UINT32, &Regions_Spheres::settings.gridResolution, NULL);
-	TwAddVarRW(tweakBar, "Wpos", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightPos, "min=0.001 step=0.005");
-	TwAddVarRW(tweakBar, "Wnor", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightNormal, "min=0.00 step=0.005");
-	TwAddVarRW(tweakBar, "Wcol", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightColor, "min=0.00 step=0.005");
+//	TwAddVarRW(tweakBar, "Wpos", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightPos, "min=0.001 step=0.0005");
+	TwAddVarRW(tweakBar, "max Normal Angle(deg)", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightNormal, "min=0.00 max=361 step=0.05");
+	TwAddVarRW(tweakBar, "max Col Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightColor, "min=0.0001 step=0.0005");
 
-	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.maxFeatureDist, "min=0.00 step=0.005");
+	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.maxFeatureDist, "min=0.0001 step=0.05");
 	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Regions_Spheres::settings.iterations, NULL);
 
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Spheres::settings.expansionThreshold, NULL);
 
 	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Regions_Spheres::settings.maxDepth, NULL);
 
-	TwEnumVal distanceFunctionEV[] = { { OctreeFlags::dfEuclididan, "Euclidian distance" },{ OctreeFlags::dfManhattan, "Manhattan distance" } };
-	TwType twDistanceFunction = TwDefineEnum("Distance Function", distanceFunctionEV, ARRAYSIZE(distanceFunctionEV));
+	//TwEnumVal distanceFunctionEV[] = { { OctreeFlags::dfEuclididan, "Euclidian distance" },{ OctreeFlags::dfManhattan, "Manhattan distance" } };
+	//TwType twDistanceFunction = TwDefineEnum("Distance Function", distanceFunctionEV, ARRAYSIZE(distanceFunctionEV));
 	//	TwAddVarRW(tweakBar, "Distance Function", twDistanceFunction, &settings.distanceFunction, NULL);
-
 
 	TwAddSeparator(tweakBar, "sep", NULL);
 	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Spheres::settings.fixedDepth, NULL);
@@ -59,10 +58,7 @@ TwBar* Regions_Spheres::setUpTweakBar()
 	TwAddSeparator(tweakBar, "sep2", NULL);
 	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Regions_Spheres::settings.LOD, NULL);
 	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Regions_Spheres::settings.nodesDrawn, NULL);
-
-
 	return tweakBar;
-
 }
 
 // pray for -O3
@@ -85,16 +81,13 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 	}
 
 	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);	
-
-	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, settings.weightNormal, settings.weightColor, settings.iterations);
 	initalEllpticalVerts.clear();
 
+	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.iterations);
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created Octree w/ Regions spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
 	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
-
-
 
 	//init GPU stuff
 
@@ -107,7 +100,6 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 	Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
 	g_statistics.maxDepth = octree->reachedDepth;
 	std::cout << "=======================DONE========================\n" << std::endl;
-
 }
 
 void Regions_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
@@ -131,7 +123,11 @@ void Regions_Spheres::draw(ID3D11DeviceContext* const context)
 	Effects::g_pCurrentPass->apply(context);
 
 	drawConstants.slope = tan(g_screenParams.fov / 2);
-	drawConstants.pixelSizeConstant = g_screenParams.height / (2.0f * drawConstants.slope) * g_renderSettings.splatSize;
+	drawConstants.pixelSizeConstant = g_screenParams.height / (2.0f * drawConstants.slope);
+
+	Effects::SetSplatSize(settings.clusterSplatScale);
+	Effects::UpdatePerLODBuffer(context);
+
 
 	if (settings.drawFixedDepth)
 	{
@@ -148,19 +144,6 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 {
 	settings.LOD = max(settings.LOD, depth);
 
-
-
-	//thats how you turn an AABB into BS
-
-	XMMATRIX worldMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat);
-	XMVECTOR octreeCenterWorldpos = XMVector3Transform(center, worldMat);
-
-	XMFLOAT3& cellsize3f = octree->cellsizeForDepth[depth];
-	XMVECTOR cellsize = XMLoadFloat3(&cellsize3f);
-
-	XMVECTOR distance = octreeCenterWorldpos - cameraPos;
-
-
 	//clipping 
 	XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
 
@@ -171,49 +154,10 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 		return;
 	}
 
-	if (vertexBuffers[nodeIndex].children)
+	float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
+	float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+	if (!vertexBuffers[nodeIndex].children ||pixelsize < g_lodSettings.pixelThreshhold)
 	{
-
-
-		float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
-		float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
-		if (pixelsize <  g_lodSettings.pixelThreshhold)
-		{
-			Effects::SetSplatSize(settings.clusterSplatScale);
-			Effects::cbPerLOD.currentLOD = depth;
-			Effects::UpdatePerLODBuffer(context);
-
-			settings.nodesDrawn++;
-
-			LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
-			context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
-			context->Draw(vb.size, 0);
-			g_statistics.verticesDrawn += vb.size;
-
-		}
-		else
-		{
-			XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
-			UINT8 numchildren = 0;
-
-			for (int i = 0; i < 8; ++i)
-			{
-				if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
-				{
-					XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
-					drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
-
-					++numchildren;
-				}
-			}
-
-		}
-
-	}
-	else //Leaf node-> draw at min. splatsize
-	{
-		Effects::SetSplatSize(g_renderSettings.splatSize);
-		Effects::UpdatePerLODBuffer(context);
 
 		settings.nodesDrawn++;
 
@@ -221,29 +165,35 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);
 		context->Draw(vb.size, 0);
 		g_statistics.verticesDrawn += vb.size;
-	}
 
+	}
+	else
+	{
+		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
+		UINT8 numchildren = 0;
+
+		for (int i = 0; i < 8; ++i)
+		{
+			if (vertexBuffers[nodeIndex].children & (0x01 << i))	//ist ith flag set T->the child exists
+			{
+				XMVECTOR offset = nextLevelCenterOffset * LOD_Utils::signVector(i);
+				drawRecursive(context, vertexBuffers[nodeIndex].firstChildIndex + numchildren, center + offset, cameraPos, depth + 1);
+
+				++numchildren;
+			}
+		}
+
+	}
 }
 
 
 void Regions_Spheres::drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth)
 {
+	settings.LOD = max(settings.LOD, depth);
 
 	if (depth == settings.fixedDepth || !vertexBuffers[nodeIndex].children)
 	{
 		settings.nodesDrawn++;
-		if (vertexBuffers[nodeIndex].children)
-		{
-			Effects::SetSplatSize(settings.clusterSplatScale);
-		}
-		else //Leaf node-> draw at min. splatsize
-		{
-			Effects::SetSplatSize(g_renderSettings.splatSize);
-		}
-
-		Effects::cbPerLOD.currentLOD = depth;
-		Effects::UpdatePerLODBuffer(context);
-
 		LOD_Utils::VertexBuffer& vb = vertexBuffers[nodeIndex].data;
 
 		context->IASetVertexBuffers(0, 1, &vb.buffer, &drawConstants.strides, &drawConstants.offset);

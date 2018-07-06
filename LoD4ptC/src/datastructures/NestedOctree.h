@@ -390,7 +390,7 @@ public:
 		regionConstants.scaling(7) = wCol;
 		regionConstants.scaling(8) = wCol;
 
-		regionConstants.maxDist = wPos; 
+		regionConstants.maxDist = maxFeatureDist;
 		regionConstants.maxNorAngle = wNor; 
 		regionConstants.maxColDist = wCol; 
 

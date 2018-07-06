@@ -12,7 +12,7 @@ SphereVertex::SphereVertex(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3
 	XMVECTOR vmajor, vminor;
 	XMVECTOR vnormal = XMLoadFloat3(&normal);
 	
-	radius = 1.0f; 
+	radius = 0.0f; 
 }
 
 EllipticalVertex::EllipticalVertex(const Vertex& baseVert) : EllipticalVertex(baseVert.pos, baseVert.normal, baseVert.color)
@@ -23,15 +23,15 @@ EllipticalVertex::EllipticalVertex(const DirectX::XMFLOAT3& pos, const DirectX::
 {
 	XMVECTOR vmajor, vminor;
 	XMVECTOR vnormal = XMLoadFloat3(&normal);
-
+	
+	vmajor = XMVectorScale(XMVector3Normalize(XMVector3Orthogonal(vnormal)), 0.0001f); // leaf verts should prob. be treated seperatly, but for now setting their radius to 0 moght suffice
+	vminor = XMVectorScale(XMVector3Normalize(XMVector3Cross(vmajor, vnormal)), 0.0001f);
+	
 
 	/**
-	vmajor = XMVector3Normalize(XMVector3Orthogonal(vnormal));
-	vminor = XMVector3Normalize(XMVector3Cross(vmajor, vnormal));
-	/**/
-
 	vmajor = XMVector3Normalize(XMVectorSet(1,1,1,1));
 	vminor = vmajor; 
+	/**/
 
 	XMStoreFloat3(&this->major, vmajor);
 	XMStoreFloat3(&this->minor, vminor);

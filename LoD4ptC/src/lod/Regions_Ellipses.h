@@ -41,10 +41,8 @@ private:
 		float weightNormal = 1.0f;
 		float weightColor = 1.0f;
 
-		float clusterSplatScale; 
-		UINT32 maxCentroidsPerNode = 7500;
-		UINT32 iterations = 8;
-		bool simpleDistance = true;
+		float clusterSplatScale = 1.0f;
+		UINT32 iterations = 1;
 
 		/*
 		* expand node after this many vertices have allocated a duplicate position

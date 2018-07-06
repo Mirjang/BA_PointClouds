@@ -146,6 +146,13 @@ struct Cluster<SphereVertex>
 	SphereVertex getSplat()
 	{
 		SphereVertex newVert = feature2Vertex(centroid); 
+
+		if (verts.size() == 1)
+		{
+			newVert.color.x = 1.0f; 
+			newVert.color.y = 0.0f; 
+		}
+
 		newVert.radius = sqrt(radiusSq); 
 		return newVert; 
 	}
@@ -159,11 +166,11 @@ struct Cluster<EllipticalVertex>
 	std::vector<EllipticalVertex> verts;
 	Vec9f centroid;
 	Eigen::Vector3f major; 
-	float radiusSq = 0;
+	Eigen::Vector3f minor; 
 	float firstFailedDistSQ = FLT_MAX;
 	float maxNorAngle, maxColDistSq;
 
-	inline void initCentroid(const SphereVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
+	inline void initCentroid(const EllipticalVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
 	{
 		firstFailedDistSQ = maxDistSq;
 		this->centroid = vertex2Feature(centroid);
@@ -171,30 +178,104 @@ struct Cluster<EllipticalVertex>
 		this->maxColDistSq = maxColDistSq;
 	}
 
-	inline bool checkAdd(const SphereVertex& vert, float maxRange)
+	inline bool checkAdd(const EllipticalVertex& vert)
 	{
 
+		Vec9f fv = vertex2Feature(vert);
+
+		Eigen::Vector3f pc = centroid.head<3>();
+		Eigen::Vector3f pv = fv.head<3>();
+
+		float dist = (pc - pv).squaredNorm();
+
+		if (dist > firstFailedDistSQ) // there is already a closer vert not in range
+		{
+			return false;
+		}
+		else
+		{
+			Eigen::Vector3f nc = centroid.segment<3>(3);
+			Eigen::Vector3f nv = fv.segment<3>(3);
+			if (abs(acosf(nc.dot(nv)))>maxNorAngle) // normal 
+			{
+				if (dist < firstFailedDistSQ)
+				{
+					firstFailedDistSQ = dist;
+				}
+				return false;
+			}
+			else
+			{
+				Eigen::Vector3f cc = centroid.tail<3>();
+				Eigen::Vector3f cv = fv.tail<3>();
+
+				if ((cc - cv).squaredNorm() > maxColDistSq)
+				{
+					if (dist < firstFailedDistSQ)
+					{
+						firstFailedDistSQ = dist;
+					}
+					return false;
+				}
+
+			}
+		}
+		//vert in range -> add
+		verts.push_back(vert);
+		return true;
 	}
 
+	std::vector<EllipticalVertex> center()
+	{
+		/**
+		std::vector<EllipticalVertex> removed;
+		Vec9f newCentroid = Vec9f::Zero();
+		for (auto it = verts.begin(); it != verts.end(); )
+		{
+			const EllipticalVertex& vert = *it;
+			Vec9f fv = vertex2Feature(vert);
+
+			Eigen::Vector3f pc = centroid.head<3>();
+			Eigen::Vector3f pv = fv.head<3>();
+
+
+			float dist = (pc - pv).squaredNorm();
+
+			if (dist > firstFailedDistSQ) // there is already a closer vert not in range
+			{
+				it = verts.erase(it);
+				removed.push_back(vert);
+				continue;
+			}
+
+			if (dist > radiusSq)
+			{
+				radiusSq = sqrt(dist) + vert.radius;
+				radiusSq *= radiusSq;
+			}
+
+			newCentroid += fv;
+			++it;
+		}
+
+		newCentroid /= static_cast<float>(verts.size());
+		centroid = newCentroid;
+		return removed;
+		/**/
+	}
 
 	EllipticalVertex getSplat()
 	{
-		SphereVertex newVert = feature2Vertex(centroid);
+		EllipticalVertex newVert = feature2Vertex(centroid);
 
-		MatX9f clusterMat;
-		clusterMat.resize(verts.size(), 9);
-
-
-		newVert.radius = sqrt(radiusSq);
-
-		for (size_t i = 0; i < verts.size(); ++i)
+		if (verts.size() == 1)
 		{
-			clusterMat.row(i) = vertex2Feature(verts[i]);
+			newVert.color.x = 1.0f;
+			newVert.color.y = 0.0f;
 		}
-
 		return newVert;
-
 	}
+
 
 };
 
