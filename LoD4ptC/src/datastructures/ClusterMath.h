@@ -4,6 +4,7 @@
 #include <DirectXMath.h> 
 #include <Eigen/dense>
 #include <iostream>
+#include <minmax.h>
 #include "../rendering/Vertex.h"
 #include "../global/Distances.h"
 
@@ -46,19 +47,22 @@ struct Cluster<SphereVertex>
 {
 	std::vector<SphereVertex> verts;
 	Vec9f centroid;
-	float radiusSq = 0; 
-	float firstFailedDistSQ = FLT_MAX; 
-	float maxNorAngle, maxColDistSq; 
+	float maxDistSq, maxNorAngle, maxColDistSq; 
+
+	bool debug = false; 
+
+	float radius = 0.0f; 
 
 	inline void initCentroid(const SphereVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
 	{
-		firstFailedDistSQ = maxDistSq;
+		radius = centroid.radius; 
+		this->maxDistSq = maxDistSq; 
 		this->centroid = vertex2Feature(centroid); 
 		this->maxNorAngle = maxNorAngle; 
 		this->maxColDistSq = maxColDistSq; 
 	}
 
-	inline bool checkAdd(const SphereVertex& vert)
+	bool checkAdd(const SphereVertex& vert)
 	{
 
 		Vec9f fv = vertex2Feature(vert); 
@@ -67,97 +71,76 @@ struct Cluster<SphereVertex>
 		Eigen::Vector3f pv = fv.head<3>();	
 
 		float dist = (pc-pv).squaredNorm(); 
-
-		if (dist > firstFailedDistSQ) // there is already a closer vert not in range
+	
+		if (dist > maxDistSq)
 		{
 			return false; 
 		}
 		else
 		{
-			Eigen::Vector3f nc = centroid.segment<3>(3);
-			Eigen::Vector3f nv = fv.segment<3>(3);
-			if (abs(acosf(nc.dot(nv)))>maxNorAngle) // normal 
+			Eigen::Vector3f cc = centroid.tail<3>();
+			Eigen::Vector3f cv = fv.tail<3>();
+
+			if ((cc - cv).squaredNorm() > maxColDistSq)
 			{
-				if (dist < firstFailedDistSQ)
-				{
-					firstFailedDistSQ = dist; 
-				}
+				maxDistSq = min(maxDistSq, dist);
 				return false;
 			}
 			else
 			{
-				Eigen::Vector3f cc = centroid.tail<3>();
-				Eigen::Vector3f cv = fv.tail<3>();
-
-				if ((cc - cv).squaredNorm() > maxColDistSq)
+				Eigen::Vector3f nc = centroid.segment<3>(3);
+				Eigen::Vector3f nv = fv.segment<3>(3);
+				if (abs(acosf(nc.dot(nv))) > maxNorAngle) // normal 
 				{
-					if (dist < firstFailedDistSQ)
-					{
-						firstFailedDistSQ = dist;
-					}
-					return false; 
+					//		if (debug)
+					//		{
+					//			std::cout << "nor fail "<<"dot: " << nc.dot(nv) <<" acos: " << acosf(nc.dot(nv)) <<"\n" << abs(acosf(nc.dot(nv))) << " > " << maxNorAngle << std::endl;
+					//		}
+					maxDistSq = min(maxDistSq, dist);
+					return false;
 				}
-
+				else
+				{
+					//vert in range -> add
+					verts.push_back(vert);
+					return true;
+				}
 			}
 		}
-		//vert in range -> add
-		verts.push_back(vert); 
-		return true; 
 	}
 
-	std::vector<SphereVertex> center()
+	void center()
 	{
-		std::vector<SphereVertex> removed; 
-		Vec9f newCentroid = Vec9f::Zero();
-		radiusSq = 0; 
-		for (auto it = verts.begin(); it != verts.end(); )
+		centroid = Vec9f::Zero();
+		for (auto vert : verts)
 		{
-			const SphereVertex& vert = *it;
-			Vec9f fv = vertex2Feature(vert);
-
-			Eigen::Vector3f pc = centroid.head<3>();
-			Eigen::Vector3f pv = fv.head<3>();
-
-
-			float dist = (pc - pv).squaredNorm();
-
-			if (dist > firstFailedDistSQ) // there is already a closer vert not in range
-			{
-				it = verts.erase(it);
-				removed.push_back(vert); 
-				continue; 
-			}
-
-			if (dist > radiusSq)
-			{
-				radiusSq = sqrt(dist) + vert.radius;
-				radiusSq *= radiusSq; 
-			}
-
-			newCentroid += fv;
-			++it;
+			centroid += vertex2Feature(vert);
 		}
 
-		newCentroid /= static_cast<float>(verts.size());
-		centroid = newCentroid; 
-		return removed; 
+		centroid /= static_cast<float>(verts.size());
+
+		centroid.segment<3>(3).normalize();
+
 	}
 
 	SphereVertex getSplat()
 	{
 		SphereVertex newVert = feature2Vertex(centroid); 
+	//	newVert.radius = verts.size() == 1 ? radius : sqrtf(maxDistSq); 
+		newVert.radius = radius;
 
-		if (verts.size() == 1)
+		
+		Eigen::Vector3f pc = centroid.head<3>();
+		for (auto vert : verts)
 		{
-			newVert.color.x = 1.0f; 
-			newVert.color.y = 0.0f; 
+			Eigen::Vector3f pv;
+			pv << vert.pos.x, vert.pos.y, vert.pos.z;
+			float dist = (pv - pc).norm() + vert.radius;
+			newVert.radius = max(newVert.radius, dist);
 		}
 
-		newVert.radius = sqrt(radiusSq); 
 		return newVert; 
 	}
-
-
 };
 
 template<>
@@ -267,6 +250,8 @@ struct Cluster<EllipticalVertex>
 	EllipticalVertex getSplat()
 	{
 		EllipticalVertex newVert = feature2Vertex(centroid);
+
+
 
 		if (verts.size() == 1)
 		{

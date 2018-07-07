@@ -101,7 +101,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	//Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling);
 
 	//unnecessary complicated ? -- works tho
-	UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >> 3;
+	UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >> 1;
 	searchResolution = max(8U,searchResolution);
 	searchResolution = min(128U, searchResolution);
 
@@ -147,9 +147,10 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		}
 	}
 	//clustering
-
+	UINT32 itcount = 0; 
 	while (!vertMap.empty())
 	{
+		++itcount; 
 		// prob.better to use existing vert as centroid
 		//Vec9f centroid = ((Vec9f::Random() + Vec9f::Ones()) / 2.0f).cwiseProduct(invNormalisationConst) - lowerBound;
 
@@ -157,6 +158,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		std::unordered_map < UINT32, std::vector<SphereVertex>*, hashID>::iterator it(vertMap.begin());
 		std::advance(it, centroidCellIndex);
 		std::vector<SphereVertex>& centroidCell = *it->second;
+		centroidCellIndex = it->first; 
 
 		//assert(!centroidCell.empty()); 
 		UINT32 centroidIndex = rand() % centroidCell.size();
@@ -165,46 +167,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 
 		Cluster<SphereVertex> cluster; 
 		cluster.initCentroid(centVertex, maxDistSq, maxAngle, maxColSq); 
-		Vec9f lastCentroid = Vec9f::Ones() * (upperBound.squaredNorm()+24); // so 1st checl is passed ... using FLT_MAX apperently causes overflow
 
-		//it = 1 <--> last it not in loop, because it also removes vertices from vertMap
-		for (size_t iteration = 1; iteration<regionConstants.maxIterations && (cluster.centroid - lastCentroid).squaredNorm()>MIN_CENTROID_SQDIFFERENCE; ++iteration)
-		{
-			centroidCellIndex = (cluster.centroid.head<3>() - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
-			int cells = 0;
-			std::queue<UINT32> frontier;
-			std::unordered_set<UINT32, hashID> exploredNodes;
-			exploredNodes.insert(centroidCellIndex);
-
-			frontier.push(centroidCellIndex);
-
-			while (!frontier.empty())
-			{
-				++cells;
-				UINT32 currentIDX = frontier.front();
-				frontier.pop();
-
-				bool oneInRange = findVerticesInCell(cluster, currentIDX, vertMap);
-				if (oneInRange) // found at least one vert -> explore neighbours 
-				{
-					auto hull = getCellNeighbours(searchResolution, currentIDX);
-					for (UINT32 idx : hull)
-					{							
-						exploredNodes.insert(idx);
-						if (idx < searchResolution*searchResolution*searchResolution && exploredNodes.find(idx) == exploredNodes.end())
-						{
-							frontier.push(idx);
-						}
-					}
-				}
-			}
-			cluster.center();
-			lastCentroid = cluster.centroid;
-			cluster.verts.clear(); 
-		}//END current iteration
-
-		 //last iteration
-		centroidCellIndex = (cluster.centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
 		std::queue<UINT32> frontier;
 		std::unordered_set<UINT32, hashID> exploredNodes;
 		frontier.push(centroidCellIndex);
@@ -219,44 +182,24 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 			if (oneInRange) // found at least one vert -> explore neighbours 
 			{
 				auto hull = getCellNeighbours(searchResolution, currentIDX);
-				for (UINT32 idx : hull)
+				for (int idx : hull)
 				{
-					if (idx < searchResolution*searchResolution*searchResolution && exploredNodes.find(idx) == exploredNodes.end())
+					if (idx >= 0 && idx < searchResolution*searchResolution*searchResolution && exploredNodes.find(idx) == exploredNodes.end())
 					{
-						exploredNodes.insert(idx);
-						frontier.push(idx);
+						exploredNodes.insert(static_cast<UINT32>(idx));
+						frontier.push(static_cast<UINT32>(idx));
 					}
 				}
 			}
 		}
 
-		//verts that were determined not to be in the cluster after centering
-		std::vector<SphereVertex> removed = cluster.center(); // this should be very little verts... hpefully
-
-		for (auto vert : removed)
-		{
-			Eigen::Vector3f pos;
-			pos << vert.pos.x, vert.pos.y, vert.pos.z;
-
-			//point location in the inscribed grid (searchResolution) <<-- make this float safe
-			UINT32 gridIndex = (pos - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
-
-			auto result = vertMap.find(gridIndex);
-			if (result != vertMap.end())
-			{
-				result->second->push_back(vert);
-			}
-			else
-			{
-				std::vector<SphereVertex>* newVec = new std::vector<SphereVertex>();
-				newVec->push_back(vert);
-				vertMap.insert(std::pair<UINT32, std::vector<SphereVertex>*>(gridIndex, newVec));
-			}
-		}
+		cluster.center();
 
 		SphereVertex sv = cluster.getSplat();
 		pNode->data.push_back(sv);
 	}//vertMap.empty()
+
+//	std::cout << itcount << std::endl; 
 
 	if (g_lodSettings.useThreads) //  MT
 	{

@@ -515,14 +515,14 @@ void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWor
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float2 radius = mul(input[0].radius + g_splatSize, g_splatradius);
-    float2 diameter = radius + radius;
+    float radius = input[0].radius * g_splatradius.x + g_splatSize.x;
+//    float2 diameter = radius + radius;
 
   // input[0].normal = float3(0, 1, 0); 
 
     float4 axis1, axis2;
-    axis1.xyz = mul(radius.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
-    axis2.xyz = mul(radius.x, normalize(cross(input[0].normal, axis1.xyz)));
+    axis1.xyz = mul(radius, normalize(cross(input[0].normal, float3(0, 0, 1))));
+    axis2.xyz = mul(radius, normalize(cross(input[0].normal, axis1.xyz)));
     axis1.w = 0;
     axis2.w = 0;
 

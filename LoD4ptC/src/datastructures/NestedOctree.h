@@ -283,9 +283,9 @@ public:
 
 	~NestedOctree() { delete root; }
 
-	std::vector<UINT32> getCellNeighbours(UINT32 res, UINT32 index = 0)
+	std::vector<int> getCellNeighbours(UINT32 res, UINT32 index = 0)
 	{
-		std::vector<UINT32> hull; 
+		std::vector<int> hull; 
 		hull.push_back(index + GridIndex(0, 0, 0, res));
 
 		hull.push_back(index + GridIndex(1, 0, 0, res));
@@ -1133,13 +1133,17 @@ private:
 		if (result != vertMap.end())
 		{
 			std::vector<Type>* cellVector = result->second;
+
+	//		cluster.debug = cellidx == 73 && cellVector->size()==1;
+
 			for (auto it = cellVector->begin(); it != cellVector->end(); )
 			{
 				const Type& vert = *it;
 				bool added = cluster.checkAdd(vert);
 				if (added)	//vert is in range
 				{
-					it = cellVector->erase(it);
+					*it = std::move(cellVector->back()); 
+					cellVector->pop_back(); 
 				}
 				else
 				{
