@@ -49,8 +49,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwBar* twRenderSettings = TwNewBar("Render"); 
 	TwBar* twLODSettings = TwNewBar("LOD");
 
-
-	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}};
+	//, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}
+	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}};
 	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, ARRAYSIZE(splatTypeEV));
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.splatMode, NULL);
 	TwAddVarRW(twRenderSettings, "Splat size", TW_TYPE_FLOAT, &g_renderSettings.splatSize, "min=0 max=5 step=0.0001");
@@ -87,7 +87,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
 	TwAddVarRW(twLODSettings, "LOD Mode", twLODMode, &g_lodSettings.mode, NULL);
 	TwAddVarRW(twLODSettings, "Multithreading", TW_TYPE_BOOLCPP, &g_lodSettings.useThreads, NULL);
-	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=50 step=1");
+	TwAddVarRW(twLODSettings, "Pixel Threshold", TW_TYPE_INT32, &g_lodSettings.pixelThreshhold, "min=1 max=150 step=1");
 	TwAddSeparator(twMenuBar, "sep3", "");
 	TwAddVarRW(twLODSettings, "recreate LOD", TW_TYPE_BOOLCPP, &g_lodSettings.recreate, NULL);
 

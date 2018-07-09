@@ -1136,11 +1136,9 @@ private:
 
 	//		cluster.debug = cellidx == 73 && cellVector->size()==1;
 
-			for (auto it = cellVector->begin(); it != cellVector->end(); )
+			for (std::vector<Type>::iterator it = cellVector->begin();it != cellVector->end(); )
 			{
-				const Type& vert = *it;
-				bool added = cluster.checkAdd(vert);
-				if (added)	//vert is in range
+				if (cluster.checkAdd(*it))	//vert is in range
 				{
 					*it = std::move(cellVector->back()); 
 					cellVector->pop_back(); 

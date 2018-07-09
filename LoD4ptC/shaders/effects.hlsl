@@ -486,7 +486,7 @@ void GS_RADIUS(point PosNorColRad input[1], inout TriangleStream<PosWorldNorColT
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float2 radius = mul(input[0].radius + g_splatSize, g_splatradius);
+    float2 radius = mul(input[0].radius, g_splatradius) + g_splatSize;
     float2 diameter = radius + radius;
 
     output.pos.xy += float2(-1, 1) * radius; //left up
@@ -515,14 +515,13 @@ void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWor
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float radius = input[0].radius * g_splatradius.x + g_splatSize.x;
-//    float2 diameter = radius + radius;
+    float2 radius = mul(input[0].radius, g_splatradius) + g_splatSize;
 
   // input[0].normal = float3(0, 1, 0); 
 
     float4 axis1, axis2;
-    axis1.xyz = mul(radius, normalize(cross(input[0].normal, float3(0, 0, 1))));
-    axis2.xyz = mul(radius, normalize(cross(input[0].normal, axis1.xyz)));
+    axis1.xyz = mul(radius.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
+    axis2.xyz = mul(radius.x, normalize(cross(input[0].normal, axis1.xyz)));
     axis1.w = 0;
     axis2.w = 0;
 
@@ -530,24 +529,25 @@ void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWor
    
     output.pos = mul(pos - axis1, m_wvp);
 //    output.color = float4(1, 0, 0, 1); 
-    output.tex.xy = float2(-g_aspectRatio, -1);
+    output.tex.xy = float2(-1, -1);
     OutStream.Append(output);
 
     output.pos = mul(pos - axis2, m_wvp);
 //    output.color = float4(1, 1, 0, 1);
-    output.tex.xy = float2(g_aspectRatio, -1);
+    output.tex.xy = float2(1, -1);
     OutStream.Append(output);
 
     output.pos = mul(pos + axis2, m_wvp);
  //   output.color = float4(0, 1, 0, 1);
-    output.tex.xy = float2(-g_aspectRatio, 1);
+    output.tex.xy = float2(-1, 1);
     OutStream.Append(output);
 
     output.pos = mul(pos + axis1, m_wvp);
  //   output.color = float4(0, 0, 1, 1);
-    output.tex.xy = float2(g_aspectRatio, 1);
+    output.tex.xy = float2(1, 1);
     OutStream.Append(output);
 }
+
 
 [maxvertexcount(4)]
 void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<PosWorldNorColTexRadXY> OutStream)
@@ -559,22 +559,32 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
     output.color = input[0].color;
 
 
-    float4 major, minor; 
-    major.xyz = mul(input[0].major, g_splatradius.x);
-    minor.xyz = mul(input[0].minor, g_splatradius.x);
-    major.w = 0; 
-    minor.w = 0; 
-
-
-    minor.xyz = cross(major.xyz, input[0].normal);
     float2 rad;
-    rad.x = length(input[0].major);
-    rad.y = length(input[0].minor);
+    rad.x = length(input[0].major) * g_splatradius.x + g_splatSize.x;
+    rad.y = length(input[0].minor) * g_splatradius.x + g_splatSize.x;
 //    major = normalize(input[0].major);
  //   minor = normalize(input[0].minor); 
 	
-	rad.x = length(major);
-	rad.y = length(minor);
+
+    float4 major, minor; 
+    major.xyz = mul(rad.x, normalize(input[0].major));
+    minor.xyz = mul(rad.x, normalize(input[0].minor));
+    major.w = 0; 
+    minor.w = 0; 
+
+    if (abs(acos(dot(input[0].normal, normalize(cross(minor.xyz, major.xyz))))) > 0.087)
+    {
+    //    output.color.x = 1;
+    }
+
+
+
+ //   major.xyz = mul(rad.y, normalize(cross(input[0].normal, float3(0, 0, 1))));
+ //   minor.xyz = mul(rad.y, normalize(cross(input[0].normal, major.xyz)));
+    major.w = 0;
+    minor.w = 0;
+   // minor.xyz = cross(major.xyz, input[0].normal);
+
 
 
 //    major.xyz = float3(1, 0, 0); 
@@ -584,33 +594,31 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
    // major = input[0].major; 
    // minor = input[0].minor; 
 
-    output.radXY = rad * g_splatradius;
+    output.radXY = rad;
 
    // output.radXY = float2(1, 1) * g_splatSize;
 //	output.radXY = rad * g_splatradius;
-
-    float2 diameter = output.radXY + output.radXY;
 
     float4 pos = input[0].pos;
    
     output.pos = mul(pos - major, m_wvp);
 //    output.color = float4(1, 0, 0, 1); 
-    output.tex.xy = float2(-g_aspectRatio, -1);
+    output.tex.xy = float2(-1, -1);
     OutStream.Append(output);
 
     output.pos = mul(pos - minor, m_wvp);
 //    output.color = float4(1, 1, 0, 1);
-    output.tex.xy = float2(g_aspectRatio, -1);
+    output.tex.xy = float2(1, -1);
     OutStream.Append(output);
 
     output.pos = mul(pos + minor, m_wvp);
  //   output.color = float4(0, 1, 0, 1);
-    output.tex.xy = float2(-g_aspectRatio, 1);
+    output.tex.xy = float2(-1, 1);
     OutStream.Append(output);
 
     output.pos = mul(pos + major, m_wvp);
  //   output.color = float4(0, 0, 1, 1);
-    output.tex.xy = float2(g_aspectRatio, 1);
+    output.tex.xy = float2(1, 1);
     OutStream.Append(output);
 }
 

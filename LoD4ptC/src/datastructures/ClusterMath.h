@@ -38,6 +38,17 @@ inline Vertex feature2Vertex(const Vec9f& vert)
 	return newVert; 
 }
 
+inline XMVECTOR eigen2XMVector(const Eigen::Vector3f& vec)
+{
+	return XMVectorSet(vec.x(), vec.y(), vec.z(), 0); 
+}
+
+inline Eigen::Vector3f xmfloat2Eigen(const XMFLOAT3& vec)
+{
+	Eigen::Vector3f v; 
+	v << vec.x, vec.y, vec.z;
+	return v; 
+}
 
 template<class VertType> 
 struct Cluster;
@@ -48,9 +59,6 @@ struct Cluster<SphereVertex>
 	std::vector<SphereVertex> verts;
 	Vec9f centroid;
 	float maxDistSq, maxNorAngle, maxColDistSq; 
-
-	bool debug = false; 
-
 	float radius = 0.0f; 
 
 	inline void initCentroid(const SphereVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
@@ -70,7 +78,7 @@ struct Cluster<SphereVertex>
 		Eigen::Vector3f pc = centroid.head<3>(); 
 		Eigen::Vector3f pv = fv.head<3>();	
 
-		float dist = (pc-pv).squaredNorm(); 
+		float dist = (pv-pc).squaredNorm(); 
 	
 		if (dist > maxDistSq)
 		{
@@ -81,7 +89,7 @@ struct Cluster<SphereVertex>
 			Eigen::Vector3f cc = centroid.tail<3>();
 			Eigen::Vector3f cv = fv.tail<3>();
 
-			if ((cc - cv).squaredNorm() > maxColDistSq)
+			if ((cv - cc).squaredNorm() > maxColDistSq)
 			{
 				maxDistSq = min(maxDistSq, dist);
 				return false;
@@ -92,10 +100,6 @@ struct Cluster<SphereVertex>
 				Eigen::Vector3f nv = fv.segment<3>(3);
 				if (abs(acosf(nc.dot(nv))) > maxNorAngle) // normal 
 				{
-					//		if (debug)
-					//		{
-					//			std::cout << "nor fail "<<"dot: " << nc.dot(nv) <<" acos: " << acosf(nc.dot(nv)) <<"\n" << abs(acosf(nc.dot(nv))) << " > " << maxNorAngle << std::endl;
-					//		}
 					maxDistSq = min(maxDistSq, dist);
 					return false;
 				}
@@ -148,20 +152,20 @@ struct Cluster<EllipticalVertex>
 {
 	std::vector<EllipticalVertex> verts;
 	Vec9f centroid;
+	float maxDistSq, maxNorAngle, maxColDistSq;
+
 	Eigen::Vector3f major; 
-	Eigen::Vector3f minor; 
-	float firstFailedDistSQ = FLT_MAX;
-	float maxNorAngle, maxColDistSq;
+
 
 	inline void initCentroid(const EllipticalVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
-	{
-		firstFailedDistSQ = maxDistSq;
+	{ 
+		this->maxDistSq = maxDistSq;
 		this->centroid = vertex2Feature(centroid);
 		this->maxNorAngle = maxNorAngle;
 		this->maxColDistSq = maxColDistSq;
 	}
 
-	inline bool checkAdd(const EllipticalVertex& vert)
+	bool checkAdd(const EllipticalVertex& vert)
 	{
 
 		Vec9f fv = vertex2Feature(vert);
@@ -169,95 +173,111 @@ struct Cluster<EllipticalVertex>
 		Eigen::Vector3f pc = centroid.head<3>();
 		Eigen::Vector3f pv = fv.head<3>();
 
-		float dist = (pc - pv).squaredNorm();
+		float dist = (pv - pc).squaredNorm();
 
-		if (dist > firstFailedDistSQ) // there is already a closer vert not in range
+		if (dist > maxDistSq)
 		{
 			return false;
 		}
 		else
 		{
-			Eigen::Vector3f nc = centroid.segment<3>(3);
-			Eigen::Vector3f nv = fv.segment<3>(3);
-			if (abs(acosf(nc.dot(nv)))>maxNorAngle) // normal 
+			Eigen::Vector3f cc = centroid.tail<3>();
+			Eigen::Vector3f cv = fv.tail<3>();
+
+			if ((cv - cc).squaredNorm() > maxColDistSq)
 			{
-				if (dist < firstFailedDistSQ)
-				{
-					firstFailedDistSQ = dist;
-				}
+				maxDistSq = min(maxDistSq, dist);
 				return false;
 			}
 			else
 			{
-				Eigen::Vector3f cc = centroid.tail<3>();
-				Eigen::Vector3f cv = fv.tail<3>();
-
-				if ((cc - cv).squaredNorm() > maxColDistSq)
+				Eigen::Vector3f nc = centroid.segment<3>(3);
+				Eigen::Vector3f nv = fv.segment<3>(3);
+				if (abs(acosf(nc.dot(nv))) > maxNorAngle) // normal 
 				{
-					if (dist < firstFailedDistSQ)
-					{
-						firstFailedDistSQ = dist;
-					}
+					//		if (debug)
+					//		{
+					//			std::cout << "nor fail "<<"dot: " << nc.dot(nv) <<" acos: " << acosf(nc.dot(nv)) <<"\n" << abs(acosf(nc.dot(nv))) << " > " << maxNorAngle << std::endl;
+					//		}
+					maxDistSq = min(maxDistSq, dist);
 					return false;
 				}
-
+				else
+				{
+					//vert in range -> add
+					verts.push_back(vert);
+					return true;
+				}
 			}
 		}
-		//vert in range -> add
-		verts.push_back(vert);
-		return true;
 	}
 
-	std::vector<EllipticalVertex> center()
+	void center()
 	{
-		/**
-		std::vector<EllipticalVertex> removed;
-		Vec9f newCentroid = Vec9f::Zero();
-		for (auto it = verts.begin(); it != verts.end(); )
+		centroid = Vec9f::Zero();
+		for (auto vert : verts)
 		{
-			const EllipticalVertex& vert = *it;
-			Vec9f fv = vertex2Feature(vert);
-
-			Eigen::Vector3f pc = centroid.head<3>();
-			Eigen::Vector3f pv = fv.head<3>();
-
-
-			float dist = (pc - pv).squaredNorm();
-
-			if (dist > firstFailedDistSQ) // there is already a closer vert not in range
-			{
-				it = verts.erase(it);
-				removed.push_back(vert);
-				continue;
-			}
-
-			if (dist > radiusSq)
-			{
-				radiusSq = sqrt(dist) + vert.radius;
-				radiusSq *= radiusSq;
-			}
-
-			newCentroid += fv;
-			++it;
+			centroid += vertex2Feature(vert);
 		}
-
-		newCentroid /= static_cast<float>(verts.size());
-		centroid = newCentroid;
-		return removed;
-		/**/
+		centroid /= static_cast<float>(verts.size());
+		centroid.segment<3>(3).normalize();
 	}
 
 	EllipticalVertex getSplat()
 	{
-		EllipticalVertex newVert = feature2Vertex(centroid);
-
-
 
 		if (verts.size() == 1)
 		{
-			newVert.color.x = 1.0f;
-			newVert.color.y = 0.0f;
+			return verts[0]; 
 		}
+
+		EllipticalVertex newVert = feature2Vertex(centroid);
+
+		if (false && verts.size() == 2) // 2 pts wont be enough for pca
+		{
+			XMVECTOR vmajor, vminor;
+			XMVECTOR vnormal = XMLoadFloat3(&newVert.normal);
+
+			vmajor = XMVectorScale(XMVector3Normalize(XMVector3Orthogonal(vnormal)), maxDistSq); // leaf verts should prob. be treated seperatly, but for now setting their radius to 0 moght suffice
+			vminor = XMVectorScale(XMVector3Normalize(XMVector3Cross(vmajor, vnormal)), maxDistSq);
+
+			XMStoreFloat3(&newVert.major, vmajor);
+			XMStoreFloat3(&newVert.minor, vminor);
+		}
+		else
+		{
+			Eigen::MatrixX3f clusterMat;
+			clusterMat.resize(verts.size(), 3);
+			for (int i = 0; i < verts.size(); ++i)
+			{
+				clusterMat.row(i) = xmfloat2Eigen(verts[i].pos) - centroid.head<3>();
+			}
+
+			Eigen::Matrix3f spacialCovariance = clusterMat.transpose()* clusterMat * (1/(verts.size()-1));
+			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca;
+			pca.compute(spacialCovariance);
+
+			Eigen::Vector3f major = pca.eigenvectors().col(2).normalized();
+			Eigen::Vector3f minor = pca.eigenvectors().col(1).normalized();
+
+			minor = major.cross(centroid.segment<3>(3)).normalized(); 
+
+			float majorLen = clusterMat.cwiseProduct(major.transpose()).rowwise().sum().maxCoeff(); //rowwise dotProduct
+			float minorLen = clusterMat.cwiseProduct(minor.transpose()).rowwise().sum().maxCoeff();
+
+			major *= majorLen; 
+			minor *= minorLen; 
+
+			newVert.major.x = major.x();
+			newVert.major.y = major.y();
+			newVert.major.z = major.z();
+
+			newVert.minor.x = minor.x();
+			newVert.minor.y = minor.y();
+			newVert.minor.z = minor.z();	
+		}
+		/**/
+
 		return newVert;
 	}
 

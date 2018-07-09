@@ -31,24 +31,22 @@ private:
 
 	struct TweakSettings
 	{
-
 		//----creation---
 		UINT32 gridResolution = 128;
 
-		float maxFeatureDist = 1.0f;
+		float maxFeatureDist = 25.0f;
 
 		float weightPos = 1.0f;
-		float weightNormal = 1.0f;
-		float weightColor = 1.0f;
+		float weightNormal = 5.0f;
+		float weightColor = 0.1f;
 
-		float clusterSplatScale = 1.0f;
 		UINT32 iterations = 1;
 
 		/*
 		* expand node after this many vertices have allocated a duplicate position
 		* a flat surface in a 128^3 grid would have roughly 16k (128^2) verts)
 		*/
-		UINT32 expansionThreshold = 2500;
+		UINT32 expansionThreshold = 1000;
 		//maximum depth for octree 
 		UINT32 maxDepth = 16;
 
@@ -58,11 +56,10 @@ private:
 		int fixedDepth = 0;
 		bool drawFixedDepth = false;
 
-
+		float clusterSplatScale = 1.0f;
 		//info
 		int LOD = 0;
 		int nodesDrawn = 0;
-
 	};
 	static TweakSettings settings;
 

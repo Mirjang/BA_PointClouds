@@ -35,7 +35,7 @@ namespace LOD_Utils
 
 	EllipticalVertexBuffer createSphereVertexBufferFromNode(NestedOctreeNode<SphereVertex>* pNode, ID3D11Device* device)
 	{
-		float boundingSphere =1; 
+		float boundingSphere =0; 
 		for (auto vert : pNode->data)
 		{
 			boundingSphere = max(boundingSphere, vert.radius); 
