@@ -143,17 +143,18 @@ void Regions_Spheres::draw(ID3D11DeviceContext* const context)
 void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
 	settings.LOD = max(settings.LOD, depth);
-
+	Effects::cbPerLOD.currentLOD = depth; 
+	Effects::UpdatePerLODBuffer(context);
 	//clipping 
-	XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
+	XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, XMLoadFloat4x4(&Effects::cbPerObj.worldMat));
 
-	float camDist = XMVector3Length(center - cameraPos).m128_f32[0];
+	float camDist = XMVector3Length(octreeCenterCamSpace - cameraPos).m128_f32[0];
 
 	//clipping 
 	float dist = octree->range.x / (1 << depth);
 	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 	{
-		return;
+	//	return;
 	}
 
 	float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
@@ -171,7 +172,7 @@ void Regions_Spheres::drawRecursive(ID3D11DeviceContext* const context, UINT32 n
 	}
 	else
 	{
-		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (2 << depth);
+		XMVECTOR nextLevelCenterOffset = XMLoadFloat3(&octree->range) / (4 << depth);
 		UINT8 numchildren = 0;
 
 		for (int i = 0; i < 8; ++i)

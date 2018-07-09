@@ -148,7 +148,7 @@ void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 
 	float dist = octree->range.x / (1 << depth);
 	if (4 * dist * dist < octreeCenterCamSpace.m128_f32[2]) //object is behind camera // cellsize has same value in each component if octree was created w/ cube argument
 	{
-		return;
+	//	return;
 	}
 
 	float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
