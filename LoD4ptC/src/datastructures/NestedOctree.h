@@ -377,7 +377,7 @@ public:
 	}
 
 	//creates Regions bottom up --> tree should be initialized w/ flag: Create and Pushdown
-	void createRegionGrowing(float maxFeatureDist = 1.0f, float wPos = 1.0f, float wNor = 0.0f, float wCol = 0.0f, UINT32 maxIterations = 10)
+	void createRegionGrowing(float maxFeatureDist = 1.0f, float wPos = 1.0f, float wNor = 0.0f, float wCol = 0.0f, CenteringMode centeringMode = CenteringMode::SPACIAL)
 	{
 		UINT32 oldRes = gridResolution; //use lower res for more efficient search?
 		regionConstants.scaling(0) = wPos;
@@ -395,9 +395,8 @@ public:
 		regionConstants.maxColDist = wCol; 
 
 		//regionConstants.scaling /= regionConstants.scaling.norm(); //normalized weights
-
+		regionConstants.centeringMode = centeringMode; 
 		regionConstants.maxDistScaling = maxFeatureDist;
-		regionConstants.maxIterations = maxIterations;
 
 		createRegionGrowing(root, 0);
 
@@ -441,7 +440,7 @@ private:
 	{
 		Vec9f scaling; 
 		float maxDistScaling;
-		UINT32 maxIterations; 
+		CenteringMode centeringMode; 
 		float maxDist, maxNorAngle, maxColDist; 
 
 	};

@@ -35,8 +35,14 @@ TwBar* Regions_Ellipses::setUpTweakBar()
 	TwAddVarRW(tweakBar, "max Normal Angle(deg)", TW_TYPE_FLOAT, &Regions_Ellipses::settings.weightNormal, "min=0.00 max=361 step=0.05");
 	TwAddVarRW(tweakBar, "max Col Dist", TW_TYPE_FLOAT, &Regions_Ellipses::settings.weightColor, "min=0.0001 step=0.0005");
 	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Ellipses::settings.maxFeatureDist, "min=0.0001 step=0.05");
-	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Regions_Ellipses::settings.iterations, NULL);
-
+	TwEnumVal centeringEV[] = {
+		{ CenteringMode::KEEP_SEED, "None" },
+	{ CenteringMode::AMEAN, "amean" },
+	{ CenteringMode::SPACIAL, "Spacial" },
+	{ CenteringMode::SPACIAL_POS_REST_AMEAN, "pos Spacial, Rest amean" },
+	};
+	TwType twCenteringMode = TwDefineEnum("Center", centeringEV, ARRAYSIZE(centeringEV));
+	TwAddVarRW(tweakBar, "Center", twCenteringMode, &Regions_Ellipses::settings.centeringMode, NULL);
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Ellipses::settings.expansionThreshold, NULL);
 
 	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Regions_Ellipses::settings.maxDepth, NULL);
@@ -80,7 +86,7 @@ void Regions_Ellipses::create(ID3D11Device* const device, vector<Vertex>& vertic
 
 
 	initalEllpticalVerts.clear();
-	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.iterations);
+	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.centeringMode);
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created Octree w/ Regions Ellipses with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;

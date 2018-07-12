@@ -129,6 +129,11 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 				Eigen::Vector3f pos;
 				pos << vert.pos.x, vert.pos.y, vert.pos.z;
 
+				if (XMVector3LengthSq(XMLoadFloat3(&vert.normal)).m128_f32[0] <0.1f && maxAngle < XM_PIDIV2) // invalid normal -> just ditch it ( otherwise dot product w/ centroid will be 0 -> angle = pi/2 > maxAngle -> cluster is not in range of its center -> bad
+				{
+					continue; 
+				}
+
 				//point location in the inscribed grid (searchResolution) <<-- make this float safe
 				UINT32 gridIndex = (pos - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
 
@@ -166,7 +171,7 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 		const SphereVertex& centVertex = centroidCell[centroidIndex];
 
 		Cluster<SphereVertex> cluster; 
-		cluster.initCentroid(centVertex, maxDistSq, maxAngle, maxColSq); 
+		cluster.initCentroid(centVertex, maxDistSq, maxAngle, maxColSq, regionConstants.centeringMode); 
 
 		std::queue<UINT32> frontier;
 		std::unordered_set<UINT32, hashID> exploredNodes;
@@ -327,6 +332,10 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 				Eigen::Vector3f pos;
 				pos << vert.pos.x, vert.pos.y, vert.pos.z;
 
+				if (XMVector3LengthSq(XMLoadFloat3(&vert.normal)).m128_f32[0] <0.1f && maxAngle < XM_PIDIV2) // invalid normal -> just ditch it ( otherwise dot product w/ centroid will be 0 -> angle = pi/2 > maxAngle -> cluster is not in range of its center -> bad
+				{
+					continue;
+				}
 				//point location in the inscribed grid (searchResolution) <<-- make this float safe
 				UINT32 gridIndex = (pos - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
 
@@ -364,7 +373,7 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 		const EllipticalVertex& centVertex = centroidCell[centroidIndex];
 
 		Cluster<EllipticalVertex> cluster;
-		cluster.initCentroid(centVertex, maxDistSq, maxAngle, maxColSq);
+		cluster.initCentroid(centVertex, maxDistSq, maxAngle, maxColSq, regionConstants.centeringMode);
 
 		std::queue<UINT32> frontier;
 		std::unordered_set<UINT32, hashID> exploredNodes;

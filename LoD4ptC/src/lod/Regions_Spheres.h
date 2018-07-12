@@ -6,6 +6,7 @@
 #include "LodUtils.h"
 #include "../datastructures/NestedOctree.h"
 #include "../global/utils.h"
+#include "../datastructures/ClusterMath.h"
 
 class Regions_Spheres :
 	public LOD
@@ -39,6 +40,8 @@ private:
 		float weightColor = 0.1f; 
 
 		UINT32 iterations = 1;
+
+		CenteringMode centeringMode = CenteringMode::SPACIAL; 
 
 		/*
 		* expand node after this many vertices have allocated a duplicate position

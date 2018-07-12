@@ -40,7 +40,14 @@ TwBar* Regions_Spheres::setUpTweakBar()
 	TwAddVarRW(tweakBar, "max Col Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.weightColor, "min=0.0001 step=0.0005");
 
 	TwAddVarRW(tweakBar, "Max Feature Dist", TW_TYPE_FLOAT, &Regions_Spheres::settings.maxFeatureDist, "min=0.0001 step=0.05");
-	TwAddVarRW(tweakBar, "Max. Iterations", TW_TYPE_UINT32, &Regions_Spheres::settings.iterations, NULL);
+	TwEnumVal centeringEV[] = {
+		{ CenteringMode::KEEP_SEED, "None" },
+	{ CenteringMode::AMEAN, "amean" },
+	{ CenteringMode::SPACIAL, "Spacial" },
+	{ CenteringMode::SPACIAL_POS_REST_AMEAN, "pos Spacial, Rest amean" },	
+	};
+	TwType twCenteringMode = TwDefineEnum("Center", centeringEV, ARRAYSIZE(centeringEV));
+	TwAddVarRW(tweakBar, "Center", twCenteringMode, &Regions_Spheres::settings.centeringMode, NULL);
 
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Spheres::settings.expansionThreshold, NULL);
 
@@ -83,7 +90,7 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);	
 	initalEllpticalVerts.clear();
 
-	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.iterations);
+	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.centeringMode);
 
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created Octree w/ Regions spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;

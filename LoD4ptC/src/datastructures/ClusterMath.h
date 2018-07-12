@@ -12,6 +12,14 @@ using namespace DirectX;
 typedef Eigen::Matrix<float, 9, 1> Vec9f;
 typedef Eigen::Matrix<float, Eigen::Dynamic, 9> MatX9f;
 
+enum CenteringMode
+{
+	KEEP_SEED,
+	AMEAN,
+	SPACIAL,
+	SPACIAL_POS_REST_AMEAN,
+};
+
 inline Vec9f vertex2Feature(const Vertex& vert)
 {
 	Vec9f fv;
@@ -60,14 +68,15 @@ struct Cluster<SphereVertex>
 	Vec9f centroid;
 	float maxDistSq, maxNorAngle, maxColDistSq; 
 	float radius = 0.0f; 
-
-	inline void initCentroid(const SphereVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
+	CenteringMode centerMode; 
+	inline void initCentroid(const SphereVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode = CenteringMode::KEEP_SEED)
 	{
 		radius = centroid.radius; 
 		this->maxDistSq = maxDistSq; 
 		this->centroid = vertex2Feature(centroid); 
 		this->maxNorAngle = maxNorAngle; 
 		this->maxColDistSq = maxColDistSq; 
+		this->centerMode = centerMode;
 	}
 
 	bool checkAdd(const SphereVertex& vert)
@@ -115,13 +124,55 @@ struct Cluster<SphereVertex>
 
 	void center()
 	{
-		centroid = Vec9f::Zero();
-		for (auto vert : verts)
+		switch (centerMode)
 		{
-			centroid += vertex2Feature(vert);
-		}
+		case AMEAN:
+		{
+			centroid = Vec9f::Zero();
+			for (auto vert : verts)
+			{
+				centroid += vertex2Feature(vert);
+			}
 
-		centroid /= static_cast<float>(verts.size());
+			centroid /= static_cast<float>(verts.size());
+			break;
+		}
+		case SPACIAL:
+		{
+			Vec9f min = vertex2Feature(verts[0]);
+			Vec9f max = min;
+			for (auto vert : verts)
+			{
+				Vec9f current = vertex2Feature(vert);
+				min = min.cwiseMin(current);
+				max = max.cwiseMax(current);
+			}
+
+			centroid = (min + max) / 2;
+			break;
+		}
+		case SPACIAL_POS_REST_AMEAN:
+		{
+			Eigen::Vector3f min = xmfloat2Eigen(verts[0].pos);
+			Eigen::Vector3f max = min;
+
+			Eigen::Matrix<float, 6, 1> norcol = Eigen::Matrix<float, 6, 1>::Zero();
+
+			for (auto vert : verts)
+			{
+				Vec9f current = vertex2Feature(vert);
+				min = min.cwiseMin(current.head<3>());
+				max = max.cwiseMax(current.head<3>());
+
+				norcol += current.tail<6>();
+			}
+			centroid.head<3>() = (min + max) / 2;
+			centroid.tail<6>() = norcol / verts.size();
+			break;
+		}
+		default:
+			break;
+		}
 
 		centroid.segment<3>(3).normalize();
 
@@ -154,15 +205,16 @@ struct Cluster<EllipticalVertex>
 	Vec9f centroid;
 	float maxDistSq, maxNorAngle, maxColDistSq;
 
-	Eigen::Vector3f major; 
+	CenteringMode centerMode;
 
 
-	inline void initCentroid(const EllipticalVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq)
+	inline void initCentroid(const EllipticalVertex& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode = CenteringMode::KEEP_SEED)
 	{ 
 		this->maxDistSq = maxDistSq;
 		this->centroid = vertex2Feature(centroid);
 		this->maxNorAngle = maxNorAngle;
 		this->maxColDistSq = maxColDistSq;
+		this->centerMode = centerMode;
 	}
 
 	bool checkAdd(const EllipticalVertex& vert)
@@ -214,13 +266,58 @@ struct Cluster<EllipticalVertex>
 
 	void center()
 	{
-		centroid = Vec9f::Zero();
-		for (auto vert : verts)
+		switch (centerMode)
 		{
-			centroid += vertex2Feature(vert);
+		case AMEAN:
+		{
+			centroid = Vec9f::Zero();
+			for (auto vert : verts)
+			{
+				centroid += vertex2Feature(vert);
+			}
+
+			centroid /= static_cast<float>(verts.size());
+			break;
 		}
-		centroid /= static_cast<float>(verts.size());
+		case SPACIAL:
+		{
+			Vec9f min = vertex2Feature(verts[0]);
+			Vec9f max = min;
+			for (auto vert : verts)
+			{
+				Vec9f current = vertex2Feature(vert);
+				min = min.cwiseMin(current);
+				max = max.cwiseMax(current);
+			}
+
+			centroid = (min + max) / 2;
+			break;
+		}
+		case SPACIAL_POS_REST_AMEAN:
+		{
+			Eigen::Vector3f min = xmfloat2Eigen(verts[0].pos);
+			Eigen::Vector3f max = min;
+
+			Eigen::Matrix<float, 6, 1> norcol = Eigen::Matrix<float, 6, 1>::Zero();
+
+			for (auto vert : verts)
+			{
+				Vec9f current = vertex2Feature(vert);
+				min = min.cwiseMin(current.head<3>());
+				max = max.cwiseMax(current.head<3>());
+
+				norcol += current.tail<6>();
+			}
+			centroid.head<3>() = (min + max) / 2;
+			centroid.tail<6>() = norcol / verts.size();
+			break;
+		}
+		default:
+			break;
+		}
+
 		centroid.segment<3>(3).normalize();
+
 	}
 
 	EllipticalVertex getSplat()
@@ -253,6 +350,7 @@ struct Cluster<EllipticalVertex>
 				clusterMat.row(i) = xmfloat2Eigen(verts[i].pos) - centroid.head<3>();
 			}
 
+			/**
 			Eigen::Matrix3f spacialCovariance = clusterMat.transpose()* clusterMat * (1/(verts.size()-1));
 			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca;
 			pca.compute(spacialCovariance);
@@ -260,13 +358,13 @@ struct Cluster<EllipticalVertex>
 			Eigen::Vector3f major = pca.eigenvectors().col(2).normalized();
 			Eigen::Vector3f minor = pca.eigenvectors().col(1).normalized();
 
-			minor = major.cross(centroid.segment<3>(3)).normalized(); 
+			//minor = major.cross(centroid.segment<3>(3)).normalized(); 
 
-			float majorLen = clusterMat.cwiseProduct(major.transpose()).rowwise().sum().maxCoeff(); //rowwise dotProduct
-			float minorLen = clusterMat.cwiseProduct(minor.transpose()).rowwise().sum().maxCoeff();
+			//float majorLen = clusterMat.cwiseProduct(major.transpose()).rowwise().sum().maxCoeff(); //rowwise dotProduct
+			//float minorLen = clusterMat.cwiseProduct(minor.transpose()).rowwise().sum().maxCoeff();
 
-			major *= majorLen; 
-			minor *= minorLen; 
+			major *= pca.eigenvalues()(2); 
+			minor *= pca.eigenvalues()(1);
 
 			newVert.major.x = major.x();
 			newVert.major.y = major.y();
@@ -275,8 +373,21 @@ struct Cluster<EllipticalVertex>
 			newVert.minor.x = minor.x();
 			newVert.minor.y = minor.y();
 			newVert.minor.z = minor.z();	
+			/**/
+
+			size_t maxIndex; 
+			clusterMat.rowwise().squaredNorm().maxCoeff(&maxIndex); 
+			Eigen::Vector3f major = clusterMat.row(maxIndex);
+			
+			Eigen::Vector3f minorDir = major.cross(centroid.segment<3>(3)).normalized();
+
+
+			float minorLen = (clusterMat * minorDir).cwiseAbs().maxCoeff();
+
+			XMStoreFloat3(&newVert.major, eigen2XMVector(major));
+			XMStoreFloat3(&newVert.minor, eigen2XMVector(minorDir*minorLen));
+
 		}
-		/**/
 
 		return newVert;
 	}

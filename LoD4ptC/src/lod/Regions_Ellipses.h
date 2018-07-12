@@ -40,7 +40,7 @@ private:
 		float weightNormal = 5.0f;
 		float weightColor = 0.1f;
 
-		UINT32 iterations = 1;
+		CenteringMode centeringMode = CenteringMode::SPACIAL;
 
 		/*
 		* expand node after this many vertices have allocated a duplicate position

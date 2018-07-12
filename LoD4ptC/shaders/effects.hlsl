@@ -560,6 +560,7 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
 
 
     float2 rad;
+    //splatradius...= cluster scale , splatSize = size of sample 
     rad.x = length(input[0].major) * g_splatradius.x + g_splatSize.x;
     rad.y = length(input[0].minor) * g_splatradius.x + g_splatSize.x;
 //    major = normalize(input[0].major);
@@ -569,13 +570,11 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
     float4 major, minor; 
     major.xyz = mul(rad.x, normalize(input[0].major));
     minor.xyz = mul(rad.x, normalize(input[0].minor));
-    major.w = 0; 
-    minor.w = 0; 
 
-    if (abs(acos(dot(input[0].normal, normalize(cross(minor.xyz, major.xyz))))) > 0.087)
-    {
+  //  if (abs(acos(dot(input[0].normal, normalize(cross(minor.xyz, major.xyz))))) > 0.087)
+ //   {
     //    output.color.x = 1;
-    }
+ //   }
 
 
 
@@ -585,7 +584,7 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
     minor.w = 0;
    // minor.xyz = cross(major.xyz, input[0].normal);
 
-
+ //   rad.x /= 2; 
 
 //    major.xyz = float3(1, 0, 0); 
 //    minor.xyz = float3(0, 1, 0);
