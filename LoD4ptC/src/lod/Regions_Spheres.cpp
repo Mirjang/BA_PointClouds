@@ -109,6 +109,47 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 	std::cout << "=======================DONE========================\n" << std::endl;
 }
 
+void Regions_Spheres2::create(ID3D11Device* const device, vector<Vertex>& vertices)
+{
+	std::cout << "\n===================================================" << std::endl;
+	std::cout << "Creating regions_spheres" << std::endl;
+
+	auto start = std::chrono::high_resolution_clock::now();
+
+	//create here
+
+	std::vector<SphereVertex> initalEllpticalVerts;	//at max LOD verts = circles (ellipsoid w/ major/minor  unit length and orthogonal to normal 
+
+	initalEllpticalVerts.reserve(vertices.size());
+
+	for (auto vert : vertices)
+	{
+		initalEllpticalVerts.push_back(SphereVertex(vert));
+	}
+
+	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);
+	initalEllpticalVerts.clear();
+
+	octree->createRegionGrowing2(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.centeringMode);
+
+	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
+	std::cout << "Created Octree w/ Regions spheres with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
+	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
+
+	//init GPU stuff
+
+	//load to GPU
+
+	std::cout << "uploading relevant octree data to gpu" << std::endl;
+
+	octree->getStructureAsVector<LOD_Utils::EllipticalVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createSphereVertexBufferFromNode, device);
+
+	Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
+	g_statistics.maxDepth = octree->reachedDepth;
+	std::cout << "=======================DONE========================\n" << std::endl;
+}
+
+
 void Regions_Spheres::recreate(ID3D11Device* const device, vector<Vertex>& vertices)
 {
 

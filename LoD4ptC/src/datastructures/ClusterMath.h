@@ -330,7 +330,7 @@ struct Cluster<EllipticalVertex>
 
 		EllipticalVertex newVert = feature2Vertex(centroid);
 
-		if (false && verts.size() == 2) // 2 pts wont be enough for pca
+		if (verts.size() == 2) // 2 pts wont be enough for pca
 		{
 			XMVECTOR vmajor, vminor;
 			XMVECTOR vnormal = XMLoadFloat3(&newVert.normal);
@@ -350,11 +350,9 @@ struct Cluster<EllipticalVertex>
 				clusterMat.row(i) = xmfloat2Eigen(verts[i].pos) - centroid.head<3>();
 			}
 
-			/**
-			Eigen::Matrix3f spacialCovariance = clusterMat.transpose()* clusterMat * (1/(verts.size()-1));
-			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> pca;
-			pca.compute(spacialCovariance);
-
+			
+			Eigen::Matrix3f spacialCovariance = (clusterMat.transpose()* clusterMat) * (1/(verts.size()-1));
+			Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> pca(spacialCovariance, Eigen::ComputeEigenvectors);
 			Eigen::Vector3f major = pca.eigenvectors().col(2).normalized();
 			Eigen::Vector3f minor = pca.eigenvectors().col(1).normalized();
 
@@ -362,6 +360,10 @@ struct Cluster<EllipticalVertex>
 
 			//float majorLen = clusterMat.cwiseProduct(major.transpose()).rowwise().sum().maxCoeff(); //rowwise dotProduct
 			//float minorLen = clusterMat.cwiseProduct(minor.transpose()).rowwise().sum().maxCoeff();
+
+			Eigen::Vector3f nor = pca.eigenvectors().col(0).normalized();
+			XMStoreFloat3(&newVert.normal, eigen2XMVector(nor));
+
 
 			major *= pca.eigenvalues()(2); 
 			minor *= pca.eigenvalues()(1);
@@ -373,7 +375,7 @@ struct Cluster<EllipticalVertex>
 			newVert.minor.x = minor.x();
 			newVert.minor.y = minor.y();
 			newVert.minor.z = minor.z();	
-			/**/
+			/**
 
 			size_t maxIndex; 
 			clusterMat.rowwise().squaredNorm().maxCoeff(&maxIndex); 
@@ -386,6 +388,14 @@ struct Cluster<EllipticalVertex>
 
 			XMStoreFloat3(&newVert.major, eigen2XMVector(major));
 			XMStoreFloat3(&newVert.minor, eigen2XMVector(minorDir*minorLen));
+			/**/
+
+//			std::cout <<"info: " << pca.info() <<  "\nmaj: " << major.transpose() << "\nmin:" << minor.transpose() << "\nEigenvalues: "
+//				<< pca.eigenvalues() << "\n" << pca.eigenvectors() << "\nCluster:\n" << clusterMat <<"\nCov:\n"<< (clusterMat.transpose()* clusterMat) / static_cast<float>(verts.size() - 1)
+//				<< "\nCov calc:\n"<< clusterMat.transpose()* clusterMat << std::endl;
+
+//			std::cin.get(); 
+
 
 		}
 
@@ -395,4 +405,70 @@ struct Cluster<EllipticalVertex>
 
 };
 
+template<class VertType>
+struct Cluster2 //requires verts to be ordered by dist
+{
 
+	std::vector<std::pair<float, VertType>> verts;
+	Vec9f centroid;
+	float maxDistSq, maxNorAngle, maxColDistSq;
+	Eigen::Vector3f major, minor; 
+	float majorLengthSq, minorLengthSq; 
+	CenteringMode centerMode;
+
+	inline void initCentroid(const VertType &centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode = CenteringMode::KEEP_SEED)
+	{
+		verts.clear();
+		verts.push_back(std::pair<float, VertType>(0,centroid));
+		minorLengthSq = 0.0f; 
+		this->maxDistSq = maxDistSq;
+		this->centroid = vertex2Feature(centroid);
+		this->maxNorAngle = maxNorAngle;
+		this->maxColDistSq = maxColDistSq;
+		this->centerMode = centerMode; 
+	}
+
+	inline void center()
+	{
+		switch (centerMode)
+		{
+		case AMEAN:
+		{
+			Eigen::Matrix<float, 6, 1> norcol = Eigen::Matrix<float, 6, 1>::Zero();
+			for (auto vert : verts)
+			{
+				Vec9f current = vertex2Feature(vert.second);
+				norcol += current.tail<6>();
+			}
+			centroid.tail<6>() = norcol / verts.size();
+			break;
+		}
+		case SPACIAL:
+		{
+
+			Eigen::Matrix<float, 6, 1> norcolMin = vertex2Feature(verts[0].second).tail<6>();
+			Eigen::Matrix<float, 6, 1> norcolMax = norcolMin; 
+
+			for (auto vert : verts)
+			{
+				Vec9f current = vertex2Feature(vert.second);
+
+				norcolMin = current.tail<6>().cwiseMin(norcolMin);
+				norcolMax = current.tail<6>().cwiseMax(norcolMax);
+
+			}
+			centroid.tail<6>() = (norcolMin + norcolMax) / 2; 
+			break;
+		}
+		default:
+			break;
+		}
+
+		centroid.segment<3>(3).normalize();
+	}
+
+	bool checkAdd(const std::pair<float, VertType>& candidate); 
+
+	VertType getSplat(); 
+
+};

@@ -11,10 +11,7 @@ static UINT64 fuckupCTR = 0;
 //TODO: split this up into template function since only the last part actually depends on wether Sphere or Elliptical Verts are used
 void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVertex>* pNode, size_t depth)
 {
-
-	if (pNode->isLeaf()) return; 
-
-	
+	if (pNode->isLeaf()) return; //keep original data untouched
 	
 	if (g_lodSettings.useThreads) // MT
 	{
@@ -94,18 +91,8 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	float maxColSq = regionConstants.maxColDist *(1 << (reachedDepth - depth-1));
 	maxColSq *= maxColSq; 
 
-	//Vec9f normalisationConsts = nodeRange.cwiseInverse();
-	//normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-	//normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-
-	//Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling);
-
-	//unnecessary complicated ? -- works tho
 	UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >> 2;
 	searchResolution = max(8U,searchResolution);
-	//searchResolution = min(128U, searchResolution);
-
-
 	//UINT32 searchResolution = gridResolution;
 
 	//calulates clusters for current node
@@ -156,9 +143,6 @@ void NestedOctree<SphereVertex>::createRegionGrowing(NestedOctreeNode<SphereVert
 	while (!vertMap.empty())
 	{
 		++itcount; 
-		// prob.better to use existing vert as centroid
-		//Vec9f centroid = ((Vec9f::Random() + Vec9f::Ones()) / 2.0f).cwiseProduct(invNormalisationConst) - lowerBound;
-
 		UINT32 centroidCellIndex = rand() % vertMap.size();
 		std::unordered_map < UINT32, std::vector<SphereVertex>*, hashID>::iterator it(vertMap.begin());
 		std::advance(it, centroidCellIndex);
@@ -297,12 +281,6 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 	float maxColSq = regionConstants.maxColDist *(1 << (reachedDepth - depth - 1));
 	maxColSq *= maxColSq;
 
-	//Vec9f normalisationConsts = nodeRange.cwiseInverse();
-	//normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isnan(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-	//normalisationConsts = normalisationConsts.unaryExpr([](float f) {return std::isinf(f) ? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-
-	//Vec9f normalisationConstScaling = normalisationConsts.cwiseProduct(regionConstants.scaling);
-
 	//unnecessary complicated ? -- works tho
 	UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >> 2;
 	searchResolution = max(8U, searchResolution);
@@ -358,8 +336,6 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 	while (!vertMap.empty())
 	{
 		++itcount;
-		// prob.better to use existing vert as centroid
-		//Vec9f centroid = ((Vec9f::Random() + Vec9f::Ones()) / 2.0f).cwiseProduct(invNormalisationConst) - lowerBound;
 
 		UINT32 centroidCellIndex = rand() % vertMap.size();
 		std::unordered_map < UINT32, std::vector<EllipticalVertex>*, hashID>::iterator it(vertMap.begin());
@@ -414,6 +390,23 @@ void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<Ellipt
 	}
 }
 
+void NestedOctree<SphereVertex>::addVertsToCluster(std::vector<std::pair<float, SphereVertex>>* candidates, Cluster2<SphereVertex>& cluster)
+{
+	size_t candidateIdx = 0;
+	//add all candidates; 
+	for (; candidateIdx != candidates->size() && cluster.checkAdd((*candidates)[candidateIdx]); ++candidateIdx);
+
+	std::vector<std::pair<float, SphereVertex>>(candidates->begin() + candidateIdx, candidates->end()).swap(*candidates); // cuts all Verts that were added to the cluster; 
+}
+
+void NestedOctree<EllipticalVertex>::addVertsToCluster(std::vector<std::pair<float, EllipticalVertex>>* candidates, Cluster2<EllipticalVertex>& cluster)
+{
+	size_t candidateIdx = 0;
+	//add all candidates; 
+	for (; candidateIdx != candidates->size() && cluster.checkAdd((*candidates)[candidateIdx]); ++candidateIdx);
+
+	std::vector<std::pair<float, EllipticalVertex>>(candidates->begin() + candidateIdx, candidates->end()).swap(*candidates); // cuts all Verts that were added to the cluster; 
+}
 
 /**
 void NestedOctree<EllipticalVertex>::createRegionGrowing(NestedOctreeNode<EllipticalVertex>* pNode, size_t depth)

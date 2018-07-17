@@ -1,10 +1,8 @@
 #include "PointCloud.h"
 
-
 PointCloud::PointCloud()
 {
 }
-
 
 PointCloud::~PointCloud()
 {
@@ -24,7 +22,6 @@ PointCloud::PointCloud(Vertex* pArrVertex, int vertCount, LOD* lod): lod(lod)
 
 }
 
-
 void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 {
 
@@ -40,19 +37,14 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 		lod = new Nested_Octree_PossionDisk();
 		break;
 	}
-	case LODMode::KMEANS_SPHERE:
-	{
-//		lod = new Kmeans_Spheres();
-		break;
-	}
-	case LODMode::KMEANS_ELLIPSE: 
-	{
-//		lod = new Kmeans_Ellipses(); 
-		break; 
-	}	
 	case LODMode::REGIONS_SPHERE:
 	{
 		lod = new Regions_Spheres();
+		break;
+	}
+	case LODMode::REGIONS_SPHERE2:
+	{
+		lod = new Regions_Spheres2();
 		break;
 	}
 	case LODMode::REGIONS_ELLIPSE:

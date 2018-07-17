@@ -8,7 +8,7 @@
 //Render modes
 enum SplatType
 {
-	QUAD_SPLAT, CIRCLE_SPLAT, ELLIPTIC_SPLAT
+	QUAD_SPLAT, CIRCLE_SPLAT
 };
 
 enum LODMode
@@ -17,9 +17,8 @@ enum LODMode
 	OCTREE_NAIVE,
 	NESTED_OCTREE_NAIVE,
 	NESTED_OCTREE_POSSIONDISK,
-	KMEANS_SPHERE,
-	KMEANS_ELLIPSE,
 	REGIONS_SPHERE,
+	REGIONS_SPHERE2,
 	REGIONS_ELLIPSE
 };
 
@@ -39,7 +38,6 @@ struct UserInput
 	bool showSceneMenu = false;
 	bool showRenderMenu = true;
 	bool showLODMenu = false;
-
 
 	float cameraSpeed = 800.0f;
 	float camRotateSpeed = 1.025f;
@@ -81,7 +79,7 @@ struct LODSettings
 {
 	bool useThreads = false; 
 
-	LODMode mode = LODMode::REGIONS_SPHERE;
+	LODMode mode = LODMode::REGIONS_SPHERE2;
 	int pixelThreshhold = 1; 
 
 

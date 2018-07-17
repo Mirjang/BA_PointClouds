@@ -158,7 +158,7 @@ void Renderer::reloadShaders()
 	std::string vsname, gsname, psname;
 
 	//Determine shaders based on lodtype and user settings 
-	if (g_lodSettings.mode == LODMode::KMEANS_ELLIPSE || g_lodSettings.mode == LODMode::REGIONS_ELLIPSE)	//or any method that uses elliptical splats
+	if (g_lodSettings.mode == LODMode::REGIONS_ELLIPSE)	//or any method that uses elliptical splats
 	{
 		vsname = g_renderSettings.drawLOD ? "VS_ELLIPTICAL_APPLY_DEPTHCOLOR" : "VS_ELLIPTICAL_PASSTHROUGH";
 
@@ -180,7 +180,7 @@ void Renderer::reloadShaders()
 		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE, Effects::LayoutEllipsis);
 
 	}
-	else if (g_lodSettings.mode == LODMode::KMEANS_SPHERE || g_lodSettings.mode == LODMode::REGIONS_SPHERE)
+	else if (g_lodSettings.mode == LODMode::REGIONS_SPHERE || g_lodSettings.mode == LODMode::REGIONS_SPHERE2)
 	{
 		vsname = g_renderSettings.drawLOD ? "VS_RADIUS_APPLY_DEPTHCOLOR" : "VS_RADIUS_PASSTHROUGH";
 		if (g_renderSettings.orientSplats)

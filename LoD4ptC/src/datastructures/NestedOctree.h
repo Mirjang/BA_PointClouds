@@ -403,20 +403,32 @@ public:
 		gridResolution = oldRes;
 	}
 
-	/** //buggy and prob. unnecessary? 
-	void createRegionGrowingTopDown(const std::vector<Type>& data, float maxFeatureDist = 1.0f, float featureScaling[9] = { 1,1,1,1,1,1,1,1,1 }, UINT32 maxIterations = 10)
+	void createRegionGrowing2(float maxFeatureDist = 1.0f, float wPos = 1.0f, float wNor = 0.0f, float wCol = 0.0f, CenteringMode centeringMode = CenteringMode::AMEAN)
 	{
-		for (int i = 0; i < 9; ++i)
-		{
-			regionConstants.scaling(i) = featureScaling[i];
-		}
-		regionConstants.maxDistScaling = maxFeatureDist;
-		regionConstants.maxIterations = maxIterations;
+		UINT32 oldRes = gridResolution; //use lower res for more efficient search?
+		regionConstants.scaling(0) = wPos;
+		regionConstants.scaling(1) = wPos;
+		regionConstants.scaling(2) = wPos;
+		regionConstants.scaling(3) = wNor;
+		regionConstants.scaling(4) = wNor;
+		regionConstants.scaling(5) = wNor;
+		regionConstants.scaling(6) = wCol;
+		regionConstants.scaling(7) = wCol;
+		regionConstants.scaling(8) = wCol;
 
-		createRegionGrowingTopDown(root, data, 0);
+		regionConstants.maxDist = maxFeatureDist;
+		regionConstants.maxNorAngle = wNor;
+		regionConstants.maxColDist = wCol;
+
+		//regionConstants.scaling /= regionConstants.scaling.norm(); //normalized weights
+		regionConstants.centeringMode = centeringMode;
+		regionConstants.maxDistScaling = maxFeatureDist;
+
+		createRegionGrowing2(root, 0);
+
+		gridResolution = oldRes;
 	}
-	/**/
-	
+
 	NestedOctreeNode<Type>* root = nullptr;
 	size_t numNodes = 0;
 	size_t reachedDepth = 0;
@@ -446,205 +458,6 @@ private:
 	};
 
 	RegionGrowingConstants regionConstants;
-
-	void createRegionGrowingTopDown(NestedOctreeNode<Type>* pNode, const std::vector<Type>& data, size_t depth = 0)
-	{
-		if (data.size() < expansionThreshold || depth == maxDepth) // leaf
-		{
-			pNode->data = data; 
-			return; 
-		}
-
-		srand(RND_SEED);
-
-		//
-		Vec9f lowerBound = Vec9f::Ones() * FLT_MAX;
-		Vec9f upperBound = Vec9f::Ones() * FLT_MAX * (-1);
-		for (auto vert : data)
-		{
-			Vec9f fv;
-			fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
-				vert.color.x, vert.color.y, vert.color.z;
-
-			lowerBound = lowerBound.cwiseMin(fv);
-			upperBound = upperBound.cwiseMax(fv);
-
-		}
-		upperBound += upperBound.cwiseAbs() * 0.025;
-		Vec9f nodeRange = (upperBound - lowerBound);
-		//calulates clusters for current node
-		// gridRes^3 hashmap w/ chaining
-		// use id as hash function, since we already compute the key (= grid index) 
-		std::unordered_map < UINT32, std::vector<SphereVertex>*, hashID> vertMap(gridResolution*gridResolution);
-
-		Eigen::Vector3f evGridStart = lowerBound.head<3>();
-		Eigen::Vector3f evCellsize = Eigen::Vector3f::Ones() * (upperBound - lowerBound).head<3>().maxCoeff() / gridResolution;
-		Eigen::Vector3i oneGridGridSQ;
-		oneGridGridSQ << 1, gridResolution, gridResolution*gridResolution;
-		//default: search half a cell
-		float sqMaxDist = regionConstants.maxDistScaling * regionConstants.maxDistScaling * evCellsize.squaredNorm() * (flags&OctreeFlags::normalsUse?3:2);
-		Vec9f normalisationConstScaling = nodeRange.cwiseInverse().cwiseProduct(regionConstants.scaling);
-		normalisationConstScaling = normalisationConstScaling.unaryExpr([](float f) {return (std::isnan(f) || std::isinf(f) )? 0 : f; }); //if an entire col is 0 Inverse will result in nan
-
-		//sort all child verts into grid for --hopefully-- reasonable speed
-		for (auto vert : data)
-		{
-			Vec9f fv;
-			fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
-				vert.color.x, vert.color.y, vert.color.z;
-
-			UINT32 gridIndex = (fv.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
-
-			auto result = vertMap.find(gridIndex);
-			if (result != vertMap.end())
-			{
-				result->second->push_back(vert);
-			}
-			else
-			{
-				std::vector<SphereVertex>* newVec = new std::vector<SphereVertex>();
-				newVec->push_back(vert);
-				vertMap.insert(std::pair<UINT32, std::vector<SphereVertex>*>(gridIndex, newVec));
-			}
-		}
-
-		//clustering
-		while (!vertMap.empty())
-		{
-			// prob.better to use existing vert as centroid
-			//Vec9f centroid = ((Vec9f::Random() + Vec9f::Ones()) / 2.0f).cwiseProduct(invNormalisationConst) - lowerBound;
-
-			UINT32 centroidCellIndex = rand() % vertMap.size();
-			std::unordered_map < UINT32, std::vector<Type>*, hashID>::iterator it(vertMap.begin());
-			std::advance(it, centroidCellIndex);
-			std::vector<Type>& centroidCell = *it->second;
-
-			assert(!centroidCell.empty());
-			UINT32 centroidIndex = rand() % centroidCell.size();
-
-			const Type& centVertex = centroidCell[centroidIndex];
-
-			Vec9f centroid;
-			centroid << centVertex.pos.x, centVertex.pos.y, centVertex.pos.z, centVertex.normal.x, centVertex.normal.y, centVertex.normal.z,
-				centVertex.color.x, centVertex.color.y, centVertex.color.z;
-
-			Vec9f lastCentroid = Vec9f::Ones() * (upperBound.squaredNorm() * 24); // so 1st check is passed ... using FLT_MAX apperently causes some sort of overflow
-
-			MatX9f clusterVerts;
-
-			//it = 1 <--> last it not in loop, because it also removes vertices from vertMap
-			for (size_t iteration = 1; iteration<regionConstants.maxIterations && (centroid - lastCentroid).squaredNorm()>MIN_CENTROID_SQDIFFERENCE; ++iteration)
-			{
-				centroidCellIndex = (centroid.head<3>() - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
-				int cells = 0;
-
-				std::queue<UINT32> frontier;
-				std::unordered_set<UINT32, hashID> exploredNodes;
-				exploredNodes.insert(centroidCellIndex);
-
-				frontier.push(centroidCellIndex); 
-
-				while (!frontier.empty())
-				{
-					++cells; 
-					UINT32 currentIDX = frontier.front();
-					frontier.pop();
-
-					bool oneInRange = findVerticesInCell(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
-					if (oneInRange) // found at least one vert -> explore neighbours 
-					{
-						auto hull = getCellNeighbours(gridResolution, currentIDX);
-						for (UINT32 idx : hull)
-						{
-							if (idx < gridResolution*gridResolution*gridResolution && exploredNodes.find(idx) == exploredNodes.end())
-							{
-								exploredNodes.insert(idx);
-								frontier.push(idx);
-							}
-						}
-					}
-				}
-
-				lastCentroid = centroid;
-				centroid = clusterVerts.colwise().sum() / clusterVerts.rows();
-				clusterVerts.resize(0, 9);
-			}//END current iteration
-
-			 //last iteration
-			centroidCellIndex = (centroid.head(3) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
-			std::queue<UINT32> frontier;
-			std::unordered_set<UINT32, hashID> exploredNodes;
-			frontier.push(centroidCellIndex);
-			exploredNodes.insert(centroidCellIndex);
-
-			while (!frontier.empty())
-			{
-				UINT32 currentIDX = frontier.front();
-				frontier.pop();
-
-				bool oneInRange = findVerticesInCellAndRemove(centroid, normalisationConstScaling, sqMaxDist, currentIDX, vertMap, clusterVerts);
-				if (oneInRange) // found at least one vert -> explore neighbours 
-				{
-					auto hull = getCellNeighbours(gridResolution, currentIDX);
-					for (UINT32 idx : hull)
-					{
-						if (idx < gridResolution*gridResolution*gridResolution && exploredNodes.find(idx) == exploredNodes.end())
-						{
-							exploredNodes.insert(idx);
-							frontier.push(idx);
-						}
-					}
-				}
-			}
-			pNode->data.push_back(getVertFromCluster(clusterVerts));
-
-		}//vertMap.empty()
-
-
-		//expandNode
-		std::vector<Type> childData[8]; 
-
-		for (int i = 0; i < 8; ++i)
-		{
-			childData[i] = std::vector<Type>(); 
-		}
-
-		Eigen::Vector3f midPoint = nodeRange.head<3>() / 2; 
-
-		for (auto vert : data)
-		{
-			Eigen::Vector3f pos; 
-			pos << vert.pos.x, vert.pos.y, vert.pos.z; 
-			pos = pos - lowerBound.head<3>() - nodeRange.head<3>();
-			int index = 0; 
-			if (pos.x() > 0)
-			{
-				index |= 1; 
-			}
-			if (pos.y() > 0)
-			{
-				index |= 2;
-			}
-			if (pos.z() > 0)
-			{
-				index |= 4;
-			}
-
-			childData[index].push_back(vert); 
-
-		}
-
-
-		for (int i = 0; i < 8; ++i)
-		{
-			pNode->children[i] = new NestedOctreeNode<Type>(); 
-
-			createRegionGrowingTopDown(pNode->children[i], childData[i], depth + 1); 
-			childData[i].clear(); 
-		}
-		/**/
-
-	}
 
 	void createRegionGrowing(NestedOctreeNode<Type>* pNode, size_t depth);
 
@@ -1155,4 +968,288 @@ private:
 		}//result != vertMap.end()
 		return cluster.verts.size() != clusterSize; // a vert has been added
 	}
+
+
+	void createRegionGrowing2(NestedOctreeNode<Type>* pNode, size_t depth)
+	{
+
+		if (pNode->isLeaf()) return;
+
+		if (g_lodSettings.useThreads) // MT
+		{
+			std::vector<std::thread*> theadpool;
+
+			if (!pNode->allChildrenLeafs()) // Bottom up -> leafs first
+			{
+				for (int i = 0; i < 8; ++i)
+				{
+					if (pNode->children[i])
+					{
+
+						theadpool.push_back(
+							new std::thread([=] {createRegionGrowing2(pNode->children[i], depth + 1); })//next level  
+						);
+
+					}
+				}
+			}
+
+			for (auto thread : theadpool)
+			{
+				thread->join();
+				delete thread;
+			}
+		}
+		else
+		{
+			if (!pNode->allChildrenLeafs()) // Bottom up -> leafs first
+			{
+				for (int i = 0; i < 8; ++i)
+				{
+					if (pNode->children[i])
+					{
+						createRegionGrowing2(pNode->children[i], depth + 1); //next level  
+					}
+				}
+			}
+		}
+
+		if (g_lodSettings.useThreads) //  MT
+		{
+			runNodeCalculations.aquire();
+		}
+
+		srand(RND_SEED);
+
+		Vec9f lowerBound = Vec9f::Ones() * FLT_MAX;
+		Vec9f upperBound = Vec9f::Ones() * FLT_MAX * (-1);
+
+		for (int i = 0; i < 8; ++i)
+		{
+			if (pNode->children[i])
+			{
+				for (auto vert : pNode->children[i]->data)
+				{
+					Vec9f fv;
+					fv << vert.pos.x, vert.pos.y, vert.pos.z, vert.normal.x, vert.normal.y, vert.normal.z,
+						vert.color.x, vert.color.y, vert.color.z;
+
+					lowerBound = lowerBound.cwiseMin(fv).eval();
+					upperBound = upperBound.cwiseMax(fv).eval();
+
+				}
+			}
+		}
+
+		lowerBound -= lowerBound.cwiseAbs() * 0.025;
+		upperBound += upperBound.cwiseAbs() * 0.025;
+		Vec9f nodeRange = upperBound - lowerBound;
+
+		// diagonal / (GridRes)^3 / 2^depth === diag of one cell at LOD
+		// 
+		float maxDistSq = regionConstants.maxDist * (diagonal / (gridResolution*(1 << depth)));
+		maxDistSq *= maxDistSq;
+		float maxAngle = regionConstants.maxNorAngle *(1 << (reachedDepth - depth - 1));
+		float maxColSq = regionConstants.maxColDist *(1 << (reachedDepth - depth - 1));
+		maxColSq *= maxColSq;
+
+		//unnecessary complicated ? -- works tho
+		UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq)));
+		searchResolution = max(1U, searchResolution);
+
+		//UINT32 searchResolution = gridResolution;
+
+		//calulates clusters for current node
+		// gridRes^3 hashmap w/ chaining
+		// use id as hash function, since we already compute the key (= grid index) 
+		std::unordered_map < UINT32, std::vector<Type>*, hashID> vertMap(searchResolution*searchResolution);
+
+		Eigen::Vector3f evGridStart = lowerBound.head<3>();
+		Eigen::Vector3f evCellsize = Eigen::Vector3f::Ones() * (upperBound - lowerBound).head<3>().maxCoeff() / searchResolution;
+		Eigen::Vector3i oneGridGridSQ;
+		oneGridGridSQ << 1, searchResolution, searchResolution*searchResolution;
+
+		//sort all child verts into grid for --hopefully-- reasonable speed
+		for (int i = 0; i < 8; ++i)
+		{
+			if (pNode->children[i])
+			{
+				for (auto vert : pNode->children[i]->data)
+				{
+					Eigen::Vector3f pos;
+					pos << vert.pos.x, vert.pos.y, vert.pos.z;
+
+					if (XMVector3LengthSq(XMLoadFloat3(&vert.normal)).m128_f32[0] <0.1f && maxAngle < XM_PIDIV2) // invalid normal -> just ditch it ( otherwise dot product w/ centroid will be 0 -> angle = pi/2 > maxAngle -> cluster is not in range of its center -> bad
+					{
+						continue;
+					}
+					//point location in the inscribed grid (searchResolution) <<-- make this float safe
+					UINT32 gridIndex = (pos - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+
+					auto result = vertMap.find(gridIndex);
+					if (result != vertMap.end())
+					{
+						result->second->push_back(vert);
+					}
+					else
+					{
+						std::vector<Type>* newVec = new std::vector<Type>();
+						newVec->push_back(vert);
+						vertMap.insert(std::pair<UINT32, std::vector<Type>*>(gridIndex, newVec));
+					}
+				}
+			}
+		}
+		
+		//all possible verts that could be added to the current cluster ( dist^2 < maxDistSq ) 
+		std::vector<std::pair<float, Type>> candidates;
+
+		//clustering
+		UINT32 itcount = 0;
+		while (!vertMap.empty())
+		{
+			++itcount;
+
+			Type centVertex; 
+			UINT32 centroidCellIndex; 
+			if (candidates.empty()) // start at new seed pt
+			{
+				centroidCellIndex = rand() % vertMap.size();
+				std::unordered_map < UINT32, std::vector<Type>*, hashID>::iterator it(vertMap.begin());
+				std::advance(it, centroidCellIndex);
+				std::vector<Type>& centroidCell = *it->second;
+				centroidCellIndex = it->first;
+
+				//assert(!centroidCell.empty()); 
+				UINT32 centroidIndex = rand() % centroidCell.size();
+				
+				centVertex = centroidCell[centroidIndex];
+				centroidCell[centroidIndex] = centroidCell.back();
+				centroidCell.pop_back(); 
+
+				if (centroidCell.empty())
+				{
+					it->second; 
+					vertMap.erase(centroidIndex);
+				}
+			}
+			else // continue at border
+			{
+				centVertex = candidates[candidates.size()-1].second; 
+				candidates.pop_back(); 
+				centroidCellIndex = (xmfloat2Eigen(centVertex.pos) - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+
+			}
+
+			Cluster2<Type> cluster;
+			cluster.initCentroid(centVertex, maxDistSq, maxAngle, maxColSq, regionConstants.centeringMode);
+
+			// recompute distances to current centroid for border of last centroid
+			for (auto it = candidates.begin(); it!=candidates.end(); ++it)
+			{
+				it->first = (xmfloat2Eigen(it->second.pos) - cluster.centroid.head<3>()).squaredNorm();
+			}
+
+			//get all verts within maxDistSq; 
+			auto hull = getCellNeighbours(searchResolution, centroidCellIndex);
+			for (int idx : hull)
+			{
+				if (idx >= 0 && idx < searchResolution*searchResolution*searchResolution)
+				{
+					auto result = vertMap.find(idx);
+					if (result != vertMap.end())
+					{
+						std::vector<Type>* cellVector = result->second;
+
+						for (size_t it = 0;it != cellVector->size(); )
+						{
+							std::pair<float, Type> candidate; 
+							candidate.first = (xmfloat2Eigen((*cellVector)[it].pos) - cluster.centroid.head<3>()).squaredNorm();
+
+							if (candidate.first < maxDistSq)	//vert is in range
+							{
+								candidate.second = (*cellVector)[it]; 
+								candidates.push_back(candidate);
+
+								(*cellVector)[it] = cellVector->back();
+								cellVector->pop_back(); // size--
+							}
+							else
+							{
+								++it;
+							}
+						}
+						if (cellVector->empty())
+						{
+							delete cellVector;
+							vertMap.erase(idx);
+						}
+					}//result != vertMap.end()
+				}
+			}
+			struct pairComparator
+			{
+				bool operator() (const std::pair<float, Type> & left, const std::pair<float, Type> & right)
+				{
+					return left.first < right.first;
+				}
+				bool operator() (const std::pair<float, Type> & left, float right)
+				{
+					return left.first < right;
+				}
+				bool operator() (float left, const std::pair<float, Type> & right)
+				{
+					return left < right.first;
+				}
+			}comp;
+			//sort candidates by dist to vert
+			std::sort(candidates.begin(), candidates.end(), [](auto &left, auto &right) {
+				return left.first < right.first;
+			});
+
+			
+			auto lb = std::upper_bound(candidates.begin(), candidates.end(), maxDistSq*1.1f, comp); 
+			auto it = lb; 
+			for (; it != candidates.end();++it) // rehash rest verts
+			{
+				auto vert = it->second; 
+				
+				Eigen::Vector3f pos;
+				pos << vert.pos.x, vert.pos.y, vert.pos.z;
+				//point location in the inscribed grid (searchResolution) <<-- make this float safe
+				UINT32 gridIndex = (pos - evGridStart).cwiseQuotient(evCellsize).cast<int>().dot(oneGridGridSQ);
+
+				auto result = vertMap.find(gridIndex);
+				if (result != vertMap.end())
+				{
+					result->second->push_back(vert);
+				}
+				else
+				{
+					std::vector<Type>* newVec = new std::vector<Type>();
+					newVec->push_back(vert);
+					vertMap.insert(std::pair<UINT32, std::vector<Type>*>(gridIndex, newVec));
+				}
+				
+			}
+			std::vector<std::pair<float, Type>>(candidates.begin(), lb).swap(candidates); // cuts all Vertsfurther away than maxDistSq*1.1f // doesnt happan on first it
+
+
+			addVertsToCluster(&candidates, cluster); 
+			cluster.center();
+
+			Type sv = cluster.getSplat();
+			pNode->data.push_back(sv);
+		}//vertMap.empty()
+
+		 //	std::cout << itcount << std::endl; 
+
+		if (g_lodSettings.useThreads) //  MT
+		{
+			runNodeCalculations.release();
+		}
+	}
+
+	void addVertsToCluster(std::vector<std::pair<float, Type>>* candidates, Cluster2<Type>& cluster);
+
 };

@@ -49,7 +49,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwBar* twRenderSettings = TwNewBar("Render"); 
 	TwBar* twLODSettings = TwNewBar("LOD");
 
-	//, { SplatType::ELLIPTIC_SPLAT, "Ellipse-Splats"}
 	TwEnumVal splatTypeEV[] = {{ SplatType::QUAD_SPLAT, "Quad-Splats"}, { SplatType::CIRCLE_SPLAT, "Circle-Splats"}};
 	TwType twRenderMode = TwDefineEnum("Splat Type", splatTypeEV, ARRAYSIZE(splatTypeEV));
 	TwAddVarRW(twRenderSettings, "Render Mode", twRenderMode, &g_renderSettings.splatMode, NULL);
@@ -79,9 +78,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{ LODMode::NONE, "None" },
 		{ LODMode::NESTED_OCTREE_NAIVE, "Nested Octree: Naive" },
 		{ LODMode::NESTED_OCTREE_POSSIONDISK, "Nested Octree: Possion Disk" },
-		{ LODMode::KMEANS_SPHERE, "k-means Spheres" }, 
-		{ LODMode::KMEANS_ELLIPSE, "k-means Ellipses" },
 		{ LODMode::REGIONS_SPHERE, "Regions Spheres" }, 
+		{ LODMode::REGIONS_SPHERE2, "Regions Spheres2" },
 		{ LODMode::REGIONS_ELLIPSE, "Regions Ellipses" }, 
 	};
 	TwType twLODMode = TwDefineEnum("LOD Mode", lodTypeEV, ARRAYSIZE(lodTypeEV));
@@ -271,20 +269,16 @@ void update()
 			g_lodSettings.twImplSettingsBar = Nested_Octree_PossionDisk::setUpTweakBar();
 			break;
 		}
-		case KMEANS_SPHERE:
-		{
-//			g_lodSettings.twImplSettingsBar = Kmeans_Spheres::setUpTweakBar();
-			break;
-		}
-		case KMEANS_ELLIPSE:
-		{
-//			g_lodSettings.twImplSettingsBar = Kmeans_Ellipses::setUpTweakBar();
-			break;
-		}
+
 		case REGIONS_SPHERE: 
 		{
 			g_lodSettings.twImplSettingsBar = Regions_Spheres::setUpTweakBar();
 			break; 
+		}
+		case REGIONS_SPHERE2:
+		{
+			g_lodSettings.twImplSettingsBar = Regions_Spheres2::setUpTweakBar();
+			break;
 		}
 		case REGIONS_ELLIPSE:
 		{
@@ -466,41 +460,32 @@ void input()
 //Evaluate incoming keyboard and mouse events
 void evaluateKeyboardInput(WPARAM key, bool down)
 {
-	
-
 	switch (key)
 	{
-
 	case VK_ESCAPE:
 	{
 		run = false;
 		break;
 	}
-
 	case 0x57: //w
 	{
 		camera->move(0,0, g_userInput.cameraSpeed * g_deltaTime); 
 		break; 
 	}
-
 	case 0x53: //s
 	{
 		camera->move(0, 0, -g_userInput.cameraSpeed * g_deltaTime);
 		break;
 	}
-
 	case 0x41: //a
 	{
 		camera->move(-g_userInput.cameraSpeed * g_deltaTime, 0, 0);
-
 		break;
 	}
-
 	case 0x44: //d
 	{
 		camera->move(g_userInput.cameraSpeed * g_deltaTime, 0, 0);
 		break;
 	}
-
 	}
 }
