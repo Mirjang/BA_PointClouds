@@ -42,11 +42,6 @@ void PointCloud::createLod(ID3D11Device* const device, LODMode mode)
 		lod = new Regions_Spheres();
 		break;
 	}
-	case LODMode::REGIONS_SPHERE2:
-	{
-		lod = new Regions_Spheres2();
-		break;
-	}
 	case LODMode::REGIONS_ELLIPSE:
 	{
 		lod = new Regions_Ellipses();

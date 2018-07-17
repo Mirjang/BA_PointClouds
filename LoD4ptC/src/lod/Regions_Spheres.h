@@ -80,9 +80,3 @@ protected:
 
 
 };
-
-class Regions_Spheres2
-	: public Regions_Spheres
-{
-	virtual void create(ID3D11Device* const device, vector<Vertex>& vertices) override; 
-};

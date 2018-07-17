@@ -18,7 +18,6 @@ enum LODMode
 	NESTED_OCTREE_NAIVE,
 	NESTED_OCTREE_POSSIONDISK,
 	REGIONS_SPHERE,
-	REGIONS_SPHERE2,
 	REGIONS_ELLIPSE
 };
 
@@ -79,7 +78,7 @@ struct LODSettings
 {
 	bool useThreads = false; 
 
-	LODMode mode = LODMode::REGIONS_SPHERE2;
+	LODMode mode = LODMode::REGIONS_SPHERE;
 	int pixelThreshhold = 1; 
 
 

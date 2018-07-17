@@ -180,7 +180,7 @@ void Renderer::reloadShaders()
 		Effects::g_pCurrentPass = Effects::createPass(vsname, psname, gsname, Effects::RS_STATE.CULL_NONE, Effects::LayoutEllipsis);
 
 	}
-	else if (g_lodSettings.mode == LODMode::REGIONS_SPHERE || g_lodSettings.mode == LODMode::REGIONS_SPHERE2)
+	else if (g_lodSettings.mode == LODMode::REGIONS_SPHERE)
 	{
 		vsname = g_renderSettings.drawLOD ? "VS_RADIUS_APPLY_DEPTHCOLOR" : "VS_RADIUS_PASSTHROUGH";
 		if (g_renderSettings.orientSplats)
