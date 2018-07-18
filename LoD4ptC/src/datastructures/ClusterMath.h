@@ -5,6 +5,8 @@
 #include <Eigen/dense>
 #include <iostream>
 #include <minmax.h>
+#include <algorithm> 
+
 #include "../rendering/Vertex.h"
 #include "../global/Distances.h"
 
@@ -64,22 +66,21 @@ struct Cluster
 	std::vector<VertType> verts;
 	Vec9f centroid;
 	float maxDistSq, maxNorAngle, maxColDistSq; 
-	float radius = 0.0f; 
 	CenteringMode centerMode; 
-	inline void initCentroid(const VertType& centroid, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode = CenteringMode::KEEP_SEED)
-	{
-		verts.push_back(centroid); 
-		this->maxDistSq = maxDistSq; 
-		this->centroid = vertex2Feature(centroid); 
-		this->maxNorAngle = maxNorAngle; 
-		this->maxColDistSq = maxColDistSq; 
-		this->centerMode = centerMode;
-	}
+	Eigen::Vector3f majorNor, minorNor; 
+	float majorLen, minorLen; 
+	bool doneGrowing = false; 
+	float angMajMin = 0; 
+
+	void initCentroid(const VertType& centroidVert, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode = CenteringMode::KEEP_SEED);
 
 	bool checkAdd(const VertType& vert);
 
 	void center()
 	{
+		Eigen::Vector3f majPt = centroid.head<3>() + majorNor * majorLen; 
+		Eigen::Vector3f minPt = centroid.head<3>() + minorNor * minorLen;
+
 		switch (centerMode)
 		{
 		case AMEAN:
@@ -128,6 +129,19 @@ struct Cluster
 		}
 		default:
 			break;
+		}
+		majorNor = majPt - centroid.head<3>(); 
+		majorLen = majorNor.norm(); 
+		majorNor /= majorLen; 
+
+		minorNor = minPt - centroid.head<3>();
+		minorLen = minorNor.norm();
+		minorNor /= minorLen;
+
+		if (minorLen > majorLen)
+		{
+			std::swap(majorLen, minorLen); 
+			std::swap(majorNor, minorNor); 
 		}
 
 		centroid.segment<3>(3).normalize();

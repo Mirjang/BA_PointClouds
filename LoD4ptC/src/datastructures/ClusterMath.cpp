@@ -1,6 +1,45 @@
 #include "ClusterMath.h"
 #include <minmax.h>
 
+void Cluster<SphereVertex>::initCentroid(const SphereVertex& centroidVert, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode)
+{
+	verts.push_back(centroidVert);
+	this->maxDistSq = maxDistSq;
+	this->centroid = vertex2Feature(centroidVert);
+	this->maxNorAngle = maxNorAngle;
+	this->maxColDistSq = maxColDistSq;
+	this->centerMode = centerMode;
+
+	majorLen = centroidVert.radius;
+	minorLen = centroidVert.radius;
+
+	majorNor = Eigen::Vector3f::Zero(); 
+	minorNor = Eigen::Vector3f::Zero();
+
+}
+void Cluster<EllipticalVertex>::initCentroid(const EllipticalVertex& centroidVert, const float& maxDistSq, const float& maxNorAngle, const float& maxColDistSq, CenteringMode centerMode)
+{
+	verts.push_back(centroidVert);
+	this->maxDistSq = maxDistSq;
+	this->centroid = vertex2Feature(centroidVert);
+	this->maxNorAngle = maxNorAngle;
+	this->maxColDistSq = maxColDistSq;
+	this->centerMode = centerMode;
+
+
+	majorNor = xmfloat2Eigen(centroidVert.major); 
+	majorLen = majorNor.norm();
+	majorNor /= majorLen; 
+
+	minorNor = majorNor; 
+	minorLen = xmfloat2Eigen(centroidVert.minor).norm(); 
+
+	majorNor = Eigen::Vector3f::Zero();
+	minorNor = Eigen::Vector3f::Zero();
+
+}
+
+
 bool Cluster<SphereVertex>::checkAdd(const SphereVertex& vert)
 {
 
@@ -8,38 +47,62 @@ bool Cluster<SphereVertex>::checkAdd(const SphereVertex& vert)
 
 	Eigen::Vector3f pc = centroid.head<3>();
 	Eigen::Vector3f pv = fv.head<3>();
+	Eigen::Vector3f dv = pv - pc; 
 
-	float dist = (pv - pc).squaredNorm();
+	float dist = dv.squaredNorm(); 
 
-	if (dist > maxDistSq)
+	float distMaj = dv.dot(majorNor); 
+	float distMin = dv.dot(minorNor);
+
+	if (dist > maxDistSq )
 	{
 		return false;
 	}
 	else
 	{
+		if (distMaj > majorLen || distMin > minorLen)
+		{
+			return false; 
+		}
+
+		distMaj += vert.radius; 
+		distMin += vert.radius; 
+
+		Eigen::Vector3f nc = centroid.segment<3>(3);
+		Eigen::Vector3f nv = fv.segment<3>(3);
 		Eigen::Vector3f cc = centroid.tail<3>();
 		Eigen::Vector3f cv = fv.tail<3>();
 
-		if ((cv - cc).squaredNorm() > maxColDistSq)
+
+		if ((cv - cc).squaredNorm() > maxColDistSq || abs(acosf(nc.dot(nv))) > maxNorAngle)
 		{
-			maxDistSq = min(maxDistSq, dist);
+			Eigen::Vector3f dvNor = dv.normalized(); 
+			float angDvMaj = abs(acosf(majorNor.dot(dvNor))); 
+			float angDvMin = abs(acosf(minorNor.dot(dvNor)));
+
+			majorLen = min(majorLen, distMaj);
+			minorLen = min(minorLen, distMaj);
+
+			
+			if (angDvMaj > angMajMin)
+			{
+				minorNor = dvNor;
+				minorLen = sqrt(dist);
+			}
+			else if (angDvMin > angMajMin)
+			{
+				majorNor = dvNor;
+				majorLen = sqrt(dist);
+			}
+			
+
 			return false;
 		}
 		else
 		{
-			Eigen::Vector3f nc = centroid.segment<3>(3);
-			Eigen::Vector3f nv = fv.segment<3>(3);
-			if (abs(acosf(nc.dot(nv))) > maxNorAngle) // normal 
-			{
-				maxDistSq = min(maxDistSq, dist);
-				return false;
-			}
-			else
-			{
-				//vert in range -> add
-				verts.push_back(vert);
-				return true;
-			}
+			//vert in range -> add
+			verts.push_back(vert);
+			return true;
 		}
 	}
 }
@@ -47,13 +110,16 @@ bool Cluster<SphereVertex>::checkAdd(const SphereVertex& vert)
 
 bool Cluster<EllipticalVertex>::checkAdd(const EllipticalVertex& vert)
 {
-
 	Vec9f fv = vertex2Feature(vert);
 
 	Eigen::Vector3f pc = centroid.head<3>();
 	Eigen::Vector3f pv = fv.head<3>();
+	Eigen::Vector3f dv = pv - pc;
 
-	float dist = (pv - pc).squaredNorm();
+	float dist = dv.squaredNorm();
+
+	float distMaj = dv.dot(majorNor);
+	float distMin = dv.dot(minorNor);
 
 	if (dist > maxDistSq)
 	{
@@ -61,44 +127,67 @@ bool Cluster<EllipticalVertex>::checkAdd(const EllipticalVertex& vert)
 	}
 	else
 	{
+		if (distMaj > majorLen || distMin > minorLen)
+		{
+			return false;
+		}
+
+		float vertBoundingSphere = xmfloat2Eigen(vert.major).norm();; 
+		distMaj += vertBoundingSphere; 
+		distMin += vertBoundingSphere; 
+
+
+		Eigen::Vector3f nc = centroid.segment<3>(3);
+		Eigen::Vector3f nv = fv.segment<3>(3);
 		Eigen::Vector3f cc = centroid.tail<3>();
 		Eigen::Vector3f cv = fv.tail<3>();
 
-		if ((cv - cc).squaredNorm() > maxColDistSq)
+
+		if ((cv - cc).squaredNorm() > maxColDistSq || abs(acosf(nc.dot(nv))) > maxNorAngle)
 		{
-			maxDistSq = min(maxDistSq, dist);
+			Eigen::Vector3f dvNor = dv.normalized();
+			float angDvMaj = abs(acosf(majorNor.dot(dvNor)));
+			float angDvMin = abs(acosf(minorNor.dot(dvNor)));
+
+			majorLen = min(majorLen, distMaj);
+			minorLen = min(minorLen, distMaj);
+
+
+			if (angDvMaj > angMajMin)
+			{
+				minorNor = dvNor;
+				minorLen = sqrt(dist);
+			}
+			else if (angDvMin > angMajMin)
+			{
+				majorNor = dvNor;
+				majorLen = sqrt(dist);
+			}
+
+
 			return false;
 		}
 		else
 		{
-			Eigen::Vector3f nc = centroid.segment<3>(3);
-			Eigen::Vector3f nv = fv.segment<3>(3);
-			if (abs(acosf(nc.dot(nv))) > maxNorAngle) // normal 
-			{
-				//		if (debug)
-				//		{
-				//			std::cout << "nor fail "<<"dot: " << nc.dot(nv) <<" acos: " << acosf(nc.dot(nv)) <<"\n" << abs(acosf(nc.dot(nv))) << " > " << maxNorAngle << std::endl;
-				//		}
-				maxDistSq = min(maxDistSq, dist);
-				return false;
-			}
-			else
-			{
-				//vert in range -> add
-				verts.push_back(vert);
-				return true;
-			}
+			//vert in range -> add
+			verts.push_back(vert);
+			return true;
 		}
 	}
 }
 
 SphereVertex Cluster<SphereVertex>::getSplat()
 {
+	if (verts.size() == 1)
+	{
+		return verts[0];
+	}
+
 	SphereVertex newVert = feature2Vertex(centroid);
 	//	newVert.radius = verts.size() == 1 ? radius : sqrtf(maxDistSq); 
-	newVert.radius = radius;
+	newVert.radius = majorLen; 
 
-
+	/*/
 	Eigen::Vector3f pc = centroid.head<3>();
 	for (auto vert : verts)
 	{
@@ -107,6 +196,7 @@ SphereVertex Cluster<SphereVertex>::getSplat()
 		float dist = (pv - pc).norm() + vert.radius;
 		newVert.radius = max(newVert.radius, dist);
 	}
+	*/
 
 	return newVert;
 }
@@ -120,6 +210,11 @@ EllipticalVertex Cluster<EllipticalVertex>::getSplat()
 
 	EllipticalVertex newVert = feature2Vertex(centroid);
 
+	XMStoreFloat3(&newVert.major, eigen2XMVector(majorNor*majorLen)); 
+	XMStoreFloat3(&newVert.minor, eigen2XMVector((minorNor-majorNor).normalized() * minorLen));
+
+	return newVert; 
+	/**
 	if (verts.size() == 2) // 2 pts wont be enough for pca
 	{
 		XMVECTOR vmajor, vminor;
@@ -178,7 +273,7 @@ EllipticalVertex Cluster<EllipticalVertex>::getSplat()
 
 		XMStoreFloat3(&newVert.major, eigen2XMVector(major));
 		XMStoreFloat3(&newVert.minor, eigen2XMVector(minorDir*minorLen));
-		/**/
+		/**
 
 		//			std::cout <<"info: " << pca.info() <<  "\nmaj: " << major.transpose() << "\nmin:" << minor.transpose() << "\nEigenvalues: "
 		//				<< pca.eigenvalues() << "\n" << pca.eigenvectors() << "\nCluster:\n" << clusterMat <<"\nCov:\n"<< (clusterMat.transpose()* clusterMat) / static_cast<float>(verts.size() - 1)
@@ -188,8 +283,9 @@ EllipticalVertex Cluster<EllipticalVertex>::getSplat()
 
 
 	}
-
+	
 	return newVert;
+	/**/
 }
 
 

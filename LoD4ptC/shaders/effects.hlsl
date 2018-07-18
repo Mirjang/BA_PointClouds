@@ -570,18 +570,17 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
     float4 major, minor; 
     major.xyz = mul(rad.x, normalize(input[0].major));
     minor.xyz = mul(rad.x, normalize(input[0].minor));
-
-  //  if (abs(acos(dot(input[0].normal, normalize(cross(minor.xyz, major.xyz))))) > 0.087)
- //   {
-    //    output.color.x = 1;
- //   }
-
-
-
- //   major.xyz = mul(rad.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
- //   minor.xyz = mul(rad.x, normalize(cross(input[0].normal, major.xyz)));
     major.w = 0;
     minor.w = 0;
+ //   if (abs(acos(dot(input[0].normal, normalize(cross(minor.xyz, major.xyz))))) > 0.087)
+  //  {
+  //      output.color.x = 1;
+  //  }
+
+
+
+  //  major.xyz = mul(rad.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
+  //  minor.xyz = mul(rad.x, normalize(cross(input[0].normal, major.xyz)));
    // minor.xyz = cross(major.xyz, input[0].normal);
 
  //   rad.x /= 2; 
@@ -597,6 +596,8 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
 
    // output.radXY = float2(1, 1) * g_splatSize;
 //	output.radXY = rad * g_splatradius;
+
+    /*
     output.pos = mul(input[0].pos, m_wvp); 
     float2 radius = rad;
     float2 diameter = radius + radius;
@@ -618,6 +619,7 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
     OutStream.Append(output);
 
     return; 
+    */
 
     float4 pos = input[0].pos;
    

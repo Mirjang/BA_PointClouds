@@ -517,8 +517,8 @@ private:
 		maxColSq *= maxColSq;
 
 		//unnecessary complicated ? -- works tho
-		UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >> 2;
-		searchResolution = max(8U, searchResolution);
+		UINT32 searchResolution = static_cast<UINT32>(nodeRange.head<3>().maxCoeff() / (sqrt(maxDistSq))) >>2;
+		searchResolution = max(3U, searchResolution);
 		//searchResolution = min(128U, searchResolution);
 
 		//UINT32 searchResolution = gridResolution;
