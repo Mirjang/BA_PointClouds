@@ -330,86 +330,10 @@ void GS_LIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> Ou
     OutStream.Append(output);
 }
 
-//only color for no lighting calculates splat size on the fly (for subsampling techniques) 
-[maxvertexcount(4)]
-void GS_UNLIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
-{
-
-	PosWorldNorColTex output;
-	output.pos = mul(input[0].pos, m_wvp);
-	output.normal = float3(0, 0, 0);
-	output.posWorld = float3(0, 0, 0);
-	output.color = input[0].color;
-
-    float depth = calcDepth(input[0].pos.xyz);    
-
-    
-    float2 adaptedRadius = calcSplatSize(depth);
-    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
-
-    output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
-    output.tex.xy = float2(-1, -1);
-    OutStream.Append(output);
-
-    output.pos.y -= adaptedDiameter.y; //right up
-    output.tex.xy = float2(1, -1);
-    OutStream.Append(output);
-
-    output.pos.xy += adaptedDiameter; //left down
-    output.tex.xy = float2(-1, 1);
-    OutStream.Append(output);
-
-    output.pos.y -= adaptedDiameter.y; //right down
-    output.tex.xy = float2(1, 1);
-    OutStream.Append(output);
-
-}
-
-//only color for no lighting calculates splat size on the fly (for subsampling techniques) 
-[maxvertexcount(4)]
-void GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
-{
-
-    PosWorldNorColTex output;
-    output.pos = mul(input[0].pos, m_wvp);
-    output.normal = float3(0, 0, 0);
-    output.posWorld = float3(0, 0, 0);
-    output.color = input[0].color;
-
-    float depth = calcDepth(input[0].pos.xyz);
-
-
-        
-    float tmp = (1.0f * depth) / g_maxLod;
-
-    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
-    
-
-    
-    float2 adaptedRadius = calcSplatSize(depth);
-    float2 adaptedDiameter = adaptedRadius + adaptedRadius;
-
-    output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
-    output.tex.xy = float2(-1, -1);
-    OutStream.Append(output);
-
-    output.pos.y -= adaptedDiameter.y; //right up
-    output.tex.xy = float2(1, -1);
-    OutStream.Append(output);
-
-    output.pos.xy += adaptedDiameter; //left down
-    output.tex.xy = float2(-1, 1);
-    OutStream.Append(output);
-
-    output.pos.y -= adaptedDiameter.y; //right down
-    output.tex.xy = float2(1, 1);
-    OutStream.Append(output);
-
-}
 
 //only color for no lighting 
 [maxvertexcount(4)]
-void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+void GS_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
     PosWorldNorColTex output;
     output.pos = mul(input[0].pos, m_wvp);
@@ -441,7 +365,7 @@ void GS_LIT_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<Pos
 
 //only color for no lighting 
 [maxvertexcount(4)]
-void GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+void GS_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
     PosWorldNorColTex output;
     output.pos = mul(input[0].pos, m_wvp);
@@ -473,7 +397,98 @@ void GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout Triangl
     output.pos.y -= adaptedDiameter.y; //right down
     output.tex.xy = float2(1, 1);
     OutStream.Append(output);
+}
 
+//only color for no lighting 
+[maxvertexcount(4)]
+void GS_ORIENTED_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
+    output.color = input[0].color;
+    float depth = calcDepth(input[0].pos.xyz);
+    
+    float2 adaptedRadius = calcSplatSize(depth);
+  //  float2 adaptedDiameter = adaptedRadius + adaptedRadius;
+
+    float4 axis1, axis2;
+    axis1.xyz = mul(adaptedRadius.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
+    axis2.xyz = mul(adaptedRadius.x, normalize(cross(input[0].normal, axis1.xyz)));
+    axis1.w = 0;
+    axis2.w = 0;
+
+    float4 pos = input[0].pos;
+   
+    output.pos = mul(pos - axis1, m_wvp);
+//    output.color = float4(1, 0, 0, 1); 
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos - axis2, m_wvp);
+//    output.color = float4(1, 1, 0, 1);
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos + axis2, m_wvp);
+ //   output.color = float4(0, 1, 0, 1);
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos + axis1, m_wvp);
+ //   output.color = float4(0, 0, 1, 1);
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+
+}
+
+//only color for no lighting 
+[maxvertexcount(4)]
+void GS_ORIENTED_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
+{
+    PosWorldNorColTex output;
+    output.pos = mul(input[0].pos, m_wvp);
+    output.posWorld = mul(input[0].pos, m_world);
+    output.normal = mul(input[0].normal, (float3x3) m_world);
+    output.color = input[0].color;
+
+    float depth = calcDepth(input[0].pos.xyz);
+    
+
+    float tmp = (1.0f * depth) / g_maxLod;
+    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+    
+    float2 adaptedRadius = calcSplatSize(depth);
+  //  float2 adaptedDiameter = adaptedRadius + adaptedRadius;
+
+    float4 axis1, axis2;
+    axis1.xyz = mul(adaptedRadius.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
+    axis2.xyz = mul(adaptedRadius.x, normalize(cross(input[0].normal, axis1.xyz)));
+    axis1.w = 0;
+    axis2.w = 0;
+
+    float4 pos = input[0].pos;
+   
+    output.pos = mul(pos - axis1, m_wvp);
+//    output.color = float4(1, 0, 0, 1); 
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos - axis2, m_wvp);
+//    output.color = float4(1, 1, 0, 1);
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos + axis2, m_wvp);
+ //   output.color = float4(0, 1, 0, 1);
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos + axis1, m_wvp);
+ //   output.color = float4(0, 0, 1, 1);
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
 }
 
 [maxvertexcount(4)]
@@ -515,8 +530,8 @@ void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWor
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-    float2 radius = mul(input[0].radius, g_splatradius) + g_splatSize;
-
+    float2 radius = mul(input[0].radius, g_splatradius)+g_splatSize;
+    
   // input[0].normal = float3(0, 1, 0); 
 
     float4 axis1, axis2;
@@ -550,76 +565,24 @@ void GS_RADIUS_ORIENTED(point PosNorColRad input[1], inout TriangleStream<PosWor
 
 
 [maxvertexcount(4)]
-void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<PosWorldNorColTexRadXY> OutStream)
+void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
-    PosWorldNorColTexRadXY output;
+    PosWorldNorColTex output;
 //    output.pos = mul(input[0].pos, m_wvp);
     output.posWorld = mul(input[0].pos, m_world);
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
 
-
     float2 rad;
     //splatradius...= cluster scale , splatSize = size of sample 
     rad.x = length(input[0].major) * g_splatradius.x + g_splatSize.x;
     rad.y = length(input[0].minor) * g_splatradius.x + g_splatSize.x;
-//    major = normalize(input[0].major);
- //   minor = normalize(input[0].minor); 
-	
 
     float4 major, minor; 
     major.xyz = mul(rad.x, normalize(input[0].major));
     minor.xyz = mul(rad.x, normalize(input[0].minor));
     major.w = 0;
     minor.w = 0;
- //   if (abs(acos(dot(input[0].normal, normalize(cross(minor.xyz, major.xyz))))) > 0.087)
-  //  {
-  //      output.color.x = 1;
-  //  }
-
-
-
-  //  major.xyz = mul(rad.x, normalize(cross(input[0].normal, float3(0, 0, 1))));
-  //  minor.xyz = mul(rad.x, normalize(cross(input[0].normal, major.xyz)));
-   // minor.xyz = cross(major.xyz, input[0].normal);
-
- //   rad.x /= 2; 
-
-//    major.xyz = float3(1, 0, 0); 
-//    minor.xyz = float3(0, 1, 0);
-
- //   rad = float2(1, 1);
-   // major = input[0].major; 
-   // minor = input[0].minor; 
-
-    output.radXY = rad;
-
-   // output.radXY = float2(1, 1) * g_splatSize;
-//	output.radXY = rad * g_splatradius;
-
-    /*
-    output.pos = mul(input[0].pos, m_wvp); 
-    float2 radius = rad;
-    float2 diameter = radius + radius;
-
-    output.pos.xy += float2(-1, 1) * radius; //left up
-    output.tex.xy = float2(-1, -1);
-    OutStream.Append(output);
-
-    output.pos.y -= diameter.y; //right up
-    output.tex.xy = float2(1, -1);
-    OutStream.Append(output);
-
-    output.pos.xy += diameter; //left down
-    output.tex.xy = float2(-1, 1);
-    OutStream.Append(output);
-
-    output.pos.y -= diameter.y; //right down
-    output.tex.xy = float2(1, 1);
-    OutStream.Append(output);
-
-    return; 
-    */
 
     float4 pos = input[0].pos;
    
@@ -691,10 +654,10 @@ float4 PS_QUADELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
     return lightning_phong(input.posWorld, input.normal) * input.color;
 }
 
-float4 PS_ELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
+float4 PS_ELLIPSE_NOLIGHT(PosWorldNorColTex input) : SV_TARGET
 {
     //point in ellipse checl 
-    float2 val = input.tex * input.tex / input.radXY;
+    float2 val = input.tex * input.tex;
     if(val.x + val.y > 1.0f)
     {
         discard; 
@@ -704,9 +667,9 @@ float4 PS_ELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
 }
 
 
-float4 PS_ELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
+float4 PS_ELLIPSE_PHONG(PosWorldNorColTex input) : SV_TARGET
 {
-    float2 val = input.tex * input.tex / input.radXY;
+    float2 val = input.tex * input.tex;
     if (val.x + val.y > 1.0f)
     {
         discard;

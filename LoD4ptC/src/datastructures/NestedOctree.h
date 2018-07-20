@@ -521,7 +521,7 @@ private:
 		searchResolution = max(3U, searchResolution);
 		//searchResolution = min(128U, searchResolution);
 
-		//UINT32 searchResolution = gridResolution;
+		searchResolution = gridResolution;
 
 		//calulates clusters for current node
 		// gridRes^3 hashmap w/ chaining

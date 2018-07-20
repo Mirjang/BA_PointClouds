@@ -187,7 +187,7 @@ SphereVertex Cluster<SphereVertex>::getSplat()
 	//	newVert.radius = verts.size() == 1 ? radius : sqrtf(maxDistSq); 
 	newVert.radius = majorLen; 
 
-	/*/
+	
 	Eigen::Vector3f pc = centroid.head<3>();
 	for (auto vert : verts)
 	{
@@ -196,7 +196,7 @@ SphereVertex Cluster<SphereVertex>::getSplat()
 		float dist = (pv - pc).norm() + vert.radius;
 		newVert.radius = max(newVert.radius, dist);
 	}
-	*/
+	
 
 	return newVert;
 }
@@ -207,11 +207,26 @@ EllipticalVertex Cluster<EllipticalVertex>::getSplat()
 	{
 		return verts[0];
 	}
+	minorNor = majorNor.cross(centroid.segment<3>(3)).normalized(); 
 
 	EllipticalVertex newVert = feature2Vertex(centroid);
 
+	Eigen::Vector3f pc = centroid.head<3>();
+	for (auto vert : verts)
+	{
+		Eigen::Vector3f pv;
+		pv << vert.pos.x, vert.pos.y, vert.pos.z;
+		float vertBoundingSphere = xmfloat2Eigen(vert.major).norm();
+		float dist = (pv - pc).norm() + vertBoundingSphere;
+		majorLen = max(majorLen, dist);
+
+		minorLen = max(minorLen, abs(minorNor.dot(pc - pv)) + vertBoundingSphere); 
+
+	}
+
+
 	XMStoreFloat3(&newVert.major, eigen2XMVector(majorNor*majorLen)); 
-	XMStoreFloat3(&newVert.minor, eigen2XMVector((minorNor-majorNor).normalized() * minorLen));
+	XMStoreFloat3(&newVert.minor, eigen2XMVector(minorNor * minorLen));
 
 	return newVert; 
 	/**

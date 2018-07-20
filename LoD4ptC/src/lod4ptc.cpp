@@ -66,7 +66,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	TwAddVarRW(twSceneSettings, "Light Color", TW_TYPE_COLOR3F, &g_userInput.lightColor, "");
 	TwAddVarRW(twSceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");
 	TwAddSeparator(twSceneSettings, "sep", "");
-	TwAddVarRW(twSceneSettings, "OrbitCamera", TW_TYPE_BOOLCPP, &g_userInput.orbitCam, "");
+//	TwAddVarRW(twSceneSettings, "OrbitCamera", TW_TYPE_BOOLCPP, &g_userInput.orbitCam, ""); // dont think thats working properly
 	TwAddVarRW(twSceneSettings, "Camera Speed", TW_TYPE_FLOAT, &g_userInput.cameraSpeed, "min=0.5 max=1000 step=5");
 	TwAddVarRW(twSceneSettings, "Camera Rotate Speed", TW_TYPE_FLOAT, &g_userInput.camRotateSpeed, "min=0.005 max=2 step=0.005");
 	TwAddVarRW(twSceneSettings, "Object Rotation", TW_TYPE_QUAT4F, &g_userInput.objectRotation, "");

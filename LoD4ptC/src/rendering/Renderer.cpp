@@ -153,11 +153,13 @@ void Renderer::reloadShaders()
 
 	//create pass based on g_renderSettings
 
-	//TODO: there will be different passes based on selected LOD strategy
-	//ok this part is now officially a mess
 	std::string vsname, gsname, psname;
 
-	//Determine shaders based on lodtype and user settings 
+	/*
+	* the following ~100 lines determine the shaders based on current render settings
+	* its an absolute mess but it works... 
+	*/
+
 	if (g_lodSettings.mode == LODMode::REGIONS_ELLIPSE)	//or any method that uses elliptical splats
 	{
 		vsname = g_renderSettings.drawLOD ? "VS_ELLIPTICAL_APPLY_DEPTHCOLOR" : "VS_ELLIPTICAL_PASSTHROUGH";
@@ -209,52 +211,47 @@ void Renderer::reloadShaders()
 	}
 	else
 	{
-
-
 		vsname = g_renderSettings.drawLOD ? "VS_APPLY_DEPTHCOLOR" : "VS_PASSTHROUGH";
 
-		if (g_renderSettings.useLight)
+		if (g_renderSettings.determineSplatsize)
 		{
-			if (g_renderSettings.determineSplatsize)
+			if (g_renderSettings.drawLOD)
 			{
-
-				if (g_renderSettings.drawLOD)
+				if (g_renderSettings.orientSplats)
 				{
-					gsname = "GS_LIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
-					vsname = "VS_PASSTHROUGH";
+					gsname = "GS_ORIENTED_ADAPTIVESPLATSIZE_DEPTHCOLOR";
 				}
 				else
 				{
-					gsname = "GS_LIT_ADAPTIVESPLATSIZE";
+					gsname = "GS_ADAPTIVESPLATSIZE_DEPTHCOLOR";
 				}
-
+				vsname = "VS_PASSTHROUGH";
 			}
 			else
 			{
-				gsname = "GS_LIT";
-			}
-		}
-		else
-		{
-			if (g_renderSettings.determineSplatsize)
-			{
-				if (g_renderSettings.drawLOD)
+				if (g_renderSettings.orientSplats)
 				{
-					gsname = "GS_UNLIT_ADAPTIVESPLATSIZE_DEPTHCOLOR";
-					vsname = "VS_PASSTHROUGH";
+					gsname = "GS_ORIENTED_ADAPTIVESPLATSIZE";
 				}
 				else
 				{
-					gsname = "GS_UNLIT_ADAPTIVESPLATSIZE";
+					gsname = "GS_ADAPTIVESPLATSIZE";
 				}
+			}
 
+		}
+		else
+		{
+			if (g_renderSettings.useLight)
+			{
+				gsname = "GS_LIT";
 			}
 			else
 			{
 				gsname = "GS_UNLIT";
 			}
 		}
-
+	
 
 		switch (g_renderSettings.splatMode)
 		{
