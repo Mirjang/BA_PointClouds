@@ -38,8 +38,8 @@ TwBar* Regions_Ellipses::setUpTweakBar()
 	TwEnumVal centeringEV[] = {
 		{ CenteringMode::KEEP_SEED, "None" },
 	{ CenteringMode::AMEAN, "amean" },
-	{ CenteringMode::SPACIAL, "Spacial" },
-	{ CenteringMode::SPACIAL_POS_REST_AMEAN, "pos Spacial, Rest amean" },
+	{ CenteringMode::SPACIAL, "AABB" },
+	{ CenteringMode::SPACIAL_POS_REST_AMEAN, "pos AABB, rest amean" },
 	};
 	TwType twCenteringMode = TwDefineEnum("Center", centeringEV, ARRAYSIZE(centeringEV));
 	TwAddVarRW(tweakBar, "Center", twCenteringMode, &Regions_Ellipses::settings.centeringMode, NULL);

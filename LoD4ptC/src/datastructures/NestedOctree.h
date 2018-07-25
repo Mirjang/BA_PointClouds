@@ -1138,7 +1138,4 @@ private:
 		}//result != vertMap.end()
 		return cluster.verts.size() != clusterSize; // a vert has been added
 	}
-
-	void addVertsToCluster(std::vector<std::pair<float, Type>>* candidates, Cluster2<Type>& cluster);
-
 };

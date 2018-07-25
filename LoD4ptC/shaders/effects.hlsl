@@ -580,7 +580,7 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
 
     float4 major, minor; 
     major.xyz = mul(rad.x, normalize(input[0].major));
-    minor.xyz = mul(rad.x, normalize(input[0].minor));
+    minor.xyz = mul(rad.y, normalize(input[0].minor));
     major.w = 0;
     minor.w = 0;
 
