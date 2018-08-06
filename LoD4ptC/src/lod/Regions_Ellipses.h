@@ -29,24 +29,28 @@ private:
 
 	void drawRecursiveFixedDepth(ID3D11DeviceContext* const context, UINT32 nodeIndex, int depth);
 
+	size_t calcTotalSamples(size_t index = 0); 
+
+
 	struct TweakSettings
 	{
 		//----creation---
 		UINT32 gridResolution = 128;
 
-		float maxFeatureDist = 25.0f;
+		float maxFeatureDist = 10.0f;
 
 		float weightPos = 1.0f;
-		float weightNormal = 5.0f;
-		float weightColor = 0.1f;
+		float weightNormal = 2.5f;
+		float weightColor = 0.01f;
 
 		CenteringMode centeringMode = CenteringMode::SPACIAL;
+		bool neighborhood26 = false; 
 
 		/*
 		* expand node after this many vertices have allocated a duplicate position
 		* a flat surface in a 128^3 grid would have roughly 16k (128^2) verts)
 		*/
-		UINT32 expansionThreshold = 1000;
+		UINT32 expansionThreshold = 500;
 		//maximum depth for octree 
 		UINT32 maxDepth = 16;
 

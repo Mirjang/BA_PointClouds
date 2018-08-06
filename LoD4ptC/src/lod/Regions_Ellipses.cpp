@@ -43,6 +43,8 @@ TwBar* Regions_Ellipses::setUpTweakBar()
 	};
 	TwType twCenteringMode = TwDefineEnum("Center", centeringEV, ARRAYSIZE(centeringEV));
 	TwAddVarRW(tweakBar, "Center", twCenteringMode, &Regions_Ellipses::settings.centeringMode, NULL);
+	TwAddVarRW(tweakBar, "26-Neighborhood", TW_TYPE_BOOLCPP, &Regions_Ellipses::settings.neighborhood26, NULL);
+
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Ellipses::settings.expansionThreshold, NULL);
 
 	TwAddVarRW(tweakBar, "Max. Depth", TW_TYPE_UINT32, &Regions_Ellipses::settings.maxDepth, NULL);
@@ -52,7 +54,7 @@ TwBar* Regions_Ellipses::setUpTweakBar()
 	//	TwAddVarRW(tweakBar, "Distance Function", twDistanceFunction, &settings.distanceFunction, NULL);
 
 	TwAddSeparator(tweakBar, "sep", NULL);
-	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Ellipses::settings.fixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Ellipses::settings.fixedDepth, "min = 0, max = 16");
 	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Ellipses::settings.drawFixedDepth, NULL);
 	TwAddVarRW(tweakBar, "Cluster Scale", TW_TYPE_FLOAT, &Regions_Ellipses::settings.clusterSplatScale, "min = 0.00 step = 0.005");
 
@@ -60,6 +62,26 @@ TwBar* Regions_Ellipses::setUpTweakBar()
 	TwAddVarRO(tweakBar, "LOD", TW_TYPE_INT32, &Regions_Ellipses::settings.LOD, NULL);
 	TwAddVarRO(tweakBar, "Nodes drawn", TW_TYPE_INT32, &Regions_Ellipses::settings.nodesDrawn, NULL);
 	return tweakBar;
+}
+
+size_t Regions_Ellipses::calcTotalSamples(size_t index)
+{
+	size_t samples = vertexBuffers[index].data.size; 
+
+	size_t numchildren = 0; 
+	for (int i = 0; i < 8; ++i)
+	{
+		if (vertexBuffers[index].children & (0x01 << i))	//ist ith flag set T->the child exists
+		{
+			samples += calcTotalSamples(vertexBuffers[index].firstChildIndex + numchildren);
+
+			++numchildren;
+		}
+	}
+
+	return samples; 
+
+	
 }
 
 // pray for -O3
@@ -82,7 +104,9 @@ void Regions_Ellipses::create(ID3D11Device* const device, vector<Vertex>& vertic
 	}
 
 
-	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);
+	octree = new NestedOctree<EllipticalVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, 
+		OctreeCreationMode::CreateAndPushDown, 
+		OctreeFlags::createCube | (settings.neighborhood26? OctreeFlags::neighbourhood26 : OctreeFlags::neighbourhood18));
 
 
 	initalEllpticalVerts.clear();
@@ -91,13 +115,16 @@ void Regions_Ellipses::create(ID3D11Device* const device, vector<Vertex>& vertic
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 	std::cout << "Created Octree w/ Regions Ellipses with Depth: " << octree->reachedDepth << " and #nodes: " << octree->numNodes << std::endl;
 	std::cout << "Took: " << elapsed.count() << "s" << std::endl;
-
+	
 	//init GPU stuff
 
 	//load to GPU
 	std::cout << "uploading relevant octree data to gpu" << std::endl;
 
 	octree->getStructureAsVector<LOD_Utils::EllipticalVertexBuffer, ID3D11Device*>(vertexBuffers, &LOD_Utils::createEllipsisVertexBufferFromNode, device);
+
+//	std::cout << "Total Samples: " << calcTotalSamples() << std::endl;
+
 
 	Effects::cbShaderSettings.maxLOD = octree->reachedDepth;
 	g_statistics.maxDepth = octree->reachedDepth;
@@ -146,9 +173,17 @@ void Regions_Ellipses::draw(ID3D11DeviceContext* const context)
 void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 nodeIndex, XMVECTOR& center, const XMVECTOR& cameraPos, int depth)
 {
 	settings.LOD = max(settings.LOD, depth);
+	Effects::cbPerLOD.currentLOD = depth;
+	Effects::UpdatePerLODBuffer(context);
 
-	//clipping 
-	XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, XMLoadFloat4x4(&Effects::cbPerObj.wvpMat));
+	XMMATRIX wvpMat = XMLoadFloat4x4(&Effects::cbPerObj.wvpMat);
+
+	wvpMat = XMLoadFloat4x4(&Effects::cbPerObj.worldMat) * XMLoadFloat4x4(&Effects::cbPerObj.viewMat);
+
+	center.m128_f32[3] = 1.0f;
+
+
+	XMVECTOR octreeCenterCamSpace = XMVector4Transform(center, wvpMat);
 
 	//clipping 
 	float dist = octree->range.x / (1 << depth);
@@ -158,7 +193,10 @@ void Regions_Ellipses::drawRecursive(ID3D11DeviceContext* const context, UINT32 
 	}
 
 	float worldradius = vertexBuffers[nodeIndex].data.maxWorldspaceSize;
+//	worldradius = g_renderSettings.splatSize * (1 << (octree->reachedDepth - depth));
+
 	float pixelsize = (worldradius * drawConstants.pixelSizeConstant) / abs(octreeCenterCamSpace.m128_f32[2]);
+
 	if (!vertexBuffers[nodeIndex].children || pixelsize < g_lodSettings.pixelThreshhold)
 	{
 

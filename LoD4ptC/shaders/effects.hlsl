@@ -147,30 +147,23 @@ inline uint calcDepth(float3 inpos)
 
     float3 center = g_octreeMin.xyz + g_octreeRange.xyz / 2;
 
-    while (node.x)
+    while (true)
     {
         uint offset = 0;
-
 
         uint depthShift = (4 << depth); 
         //determine subgrid of current pt
         float3 childRange = g_octreeRange.xyz / float3(depthShift, depthShift, depthShift);
-
         int3 distCheck = int3(center <= inpos.xyz);
-
         float3 signvec = 2 * distCheck - int3(1, 1, 1); 
 
         center += childRange * signvec;
-
         distCheck *= int3(1, 2, 4); 
-
         offset = distCheck.x + distCheck.y + distCheck.z; 
 
         uint childNr = 0;
-
         if (!(node.x & (1 << offset)))
             return depth;
-
 
         for (int i = 0; i < offset; ++i)
         {
@@ -186,7 +179,6 @@ inline uint calcDepth(float3 inpos)
         {
             return g_maxLod; 
         }
-
     }
     return depth; 
 }
@@ -232,6 +224,7 @@ PosNorCol VS_PASSTHROUGH(PosNorCol input)
 PosNorCol VS_APPLY_DEPTHCOLOR(PosNorCol input)
 {
     input.pos.w = 1.0f;     
+
     float tmp = (1.0f * g_LODdepth) / g_maxLod; 
     input.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);  
 
@@ -278,11 +271,28 @@ PosNorColEllipticalAxis VS_ELLIPTICAL_APPLY_DEPTHCOLOR(PosNorColEllipticalAxis i
 [maxvertexcount(4)]
 void GS_UNLIT(point PosNorCol input[1], inout TriangleStream<PosWorldNorColTex> OutStream)
 {
+
+
+
     PosWorldNorColTex output;
     output.pos = mul(input[0].pos, m_wvp);
     output.normal = float3(0, 0, 0); 
     output.posWorld = float3(0, 0, 0); 
     output.color = input[0].color;
+
+    /*
+    float depth = calcDepth(input[0].pos.xyz);
+    if (depth == 3)
+        depth = 0;
+    float tmp = (1.0f * depth) / g_maxLod;
+
+   // tmp = (1.0f * max(g_LODdepth, 1.0f)) / g_maxLod;
+
+
+    output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+*/
+
+
 
     output.pos.xy += float2(-1, 1)*g_splatradius; //left up
     output.tex.xy = float2(-1, -1);
@@ -341,7 +351,8 @@ void GS_ADAPTIVESPLATSIZE(point PosNorCol input[1], inout TriangleStream<PosWorl
     output.normal = mul(input[0].normal, (float3x3) m_world);
     output.color = input[0].color;
     float depth = calcDepth(input[0].pos.xyz);
-    
+    depth = g_LODdepth;
+
     float2 adaptedRadius = calcSplatSize(depth);
     float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
@@ -374,13 +385,22 @@ void GS_ADAPTIVESPLATSIZE_DEPTHCOLOR(point PosNorCol input[1], inout TriangleStr
     output.color = input[0].color;
 
     float depth = calcDepth(input[0].pos.xyz);
-    
+
+
     float2 adaptedRadius = calcSplatSize(depth);
     float2 adaptedDiameter = adaptedRadius + adaptedRadius;
 
     float tmp = (1.0f * depth) / g_maxLod;
 
+    /*
+    if (depth == 3)
+        depth = 0;
+    tmp = (1.0f * depth) / g_maxLod;
+*/
+   // tmp = (1.0f * max(g_LODdepth, 1.0f)) / g_maxLod;
+
     output.color = float4(tmp, 1.0f - tmp, 0.0f, 1.0f);
+
 
     output.pos.xy += float2(-1, 1) * adaptedRadius; //left up
     output.tex.xy = float2(-1, -1);
@@ -586,6 +606,28 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
 
     float4 pos = input[0].pos;
    
+    output.pos = mul(pos - major - minor, m_wvp);
+//    output.color = float4(1, 0, 0, 1); 
+    output.tex.xy = float2(-1, -1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos - major + minor, m_wvp);
+//    output.color = float4(1, 1, 0, 1);
+    output.tex.xy = float2(1, -1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos + major - minor, m_wvp);
+ //   output.color = float4(0, 1, 0, 1);
+    output.tex.xy = float2(-1, 1);
+    OutStream.Append(output);
+
+    output.pos = mul(pos + major + minor, m_wvp);
+ //   output.color = float4(0, 0, 1, 1);
+    output.tex.xy = float2(1, 1);
+    OutStream.Append(output);
+}
+
+/*
     output.pos = mul(pos - major, m_wvp);
 //    output.color = float4(1, 0, 0, 1); 
     output.tex.xy = float2(-1, -1);
@@ -605,8 +647,8 @@ void GS_ELLIPTICAL(point PosNorColEllipticalAxis input[1], inout TriangleStream<
  //   output.color = float4(0, 0, 1, 1);
     output.tex.xy = float2(1, 1);
     OutStream.Append(output);
-}
 
+*/
 
 
 
@@ -637,19 +679,27 @@ float4 PS_CIRCLE_PHONG(PosWorldNorColTex input) : SV_TARGET
     
     if (input.tex.x * input.tex.x + input.tex.y * input.tex.y > 1)
     {
-        discard;            //remove discard when using blending for better performance 
+        discard;            //remove discard when using blending for better performance ww
         return float4(0, 0, 0, 0); 
     }
+
+    /**
+    if (input.tex.x * input.tex.x + input.tex.y * input.tex.y > 0.93)
+    {
+         //remove discard when using blending for better performance 
+        return float4(0, 0, 0, 0);
+    }
+    /**/
 
     return lightning_phong(input.posWorld, input.normal) * input.color;
 }
 
-float4 PS_QUADELLIPSE_NOLIGHT(PosWorldNorColTexRadXY input) : SV_TARGET
+float4 PS_QUADELLIPSE_NOLIGHT(PosWorldNorColTex input) : SV_TARGET
 {
     return input.color;
 }
 
-float4 PS_QUADELLIPSE_PHONG(PosWorldNorColTexRadXY input) : SV_TARGET
+float4 PS_QUADELLIPSE_PHONG(PosWorldNorColTex input) : SV_TARGET
 {
     return lightning_phong(input.posWorld, input.normal) * input.color;
 }

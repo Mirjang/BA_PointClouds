@@ -45,7 +45,7 @@ TwBar* Nested_Octree_PossionDisk::setUpTweakBar()
 
 
 	TwAddSeparator(tweakBar, "sep", NULL);
-	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Nested_Octree_PossionDisk::settings.fixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Nested_Octree_PossionDisk::settings.fixedDepth, "min = 0, max = 16");
 	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Nested_Octree_PossionDisk::settings.drawFixedDepth, NULL);
 
 	TwAddSeparator(tweakBar, "sep2", NULL);
@@ -76,7 +76,7 @@ void Nested_Octree_PossionDisk::create(ID3D11Device* const device, vector<Vertex
 		Nested_Octree_PossionDisk::settings.expansionThreshold, 
 		Nested_Octree_PossionDisk::settings.maxDepth,
 		OctreeCreationMode::CreatePossionDisk,
-		OctreeFlags::createCube | settings.distanceFunction | OctreeFlags::neighbourhoodFull);	//depending on vert count this may take a while
+		OctreeFlags::createCube | settings.distanceFunction | OctreeFlags::neighbourhood26);	//depending on vert count this may take a while
 
 
 
@@ -197,6 +197,11 @@ void Nested_Octree_PossionDisk::draw(ID3D11DeviceContext* const context)
 
 	if (settings.drawFixedDepth)
 	{
+		float worldradius = g_renderSettings.splatSize * (1 << (max(0, (int)octree->reachedDepth - (int)settings.fixedDepth)));
+
+		Effects::SetSplatSize(worldradius);
+		Effects::UpdatePerLODBuffer(context);
+
 		drawRecursiveFixedDepth(context, 0, 0);
 	}
 	else
@@ -262,9 +267,7 @@ void Nested_Octree_PossionDisk::drawRecursiveFixedDepth(ID3D11DeviceContext* con
 	{
 		settings.nodesDrawn++;
 
-		float worldradius = g_renderSettings.splatSize * (1<<(octree->reachedDepth - depth));
 
-		Effects::SetSplatSize(worldradius);
 		Effects::cbPerLOD.currentLOD = depth;
 		Effects::UpdatePerLODBuffer(context);
 

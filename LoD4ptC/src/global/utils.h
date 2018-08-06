@@ -78,7 +78,7 @@ struct LODSettings
 {
 	bool useThreads = false; 
 
-	LODMode mode = LODMode::REGIONS_SPHERE;
+	LODMode mode = LODMode::REGIONS_ELLIPSE;
 	int pixelThreshhold = 1; 
 
 

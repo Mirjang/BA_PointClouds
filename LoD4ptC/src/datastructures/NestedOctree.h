@@ -62,13 +62,13 @@ enum OctreeFlags
 	dfEuclididan = 0x01 << 1,
 	dfManhattan = 0x01 << 2,
 
-	neighbourhoodSimple = 0x01 << 3,
-	neighbourhoodFull = 0x01 << 4,
+	neighbourhood18 = 0x01 << 3,
+	neighbourhood26 = 0x01 << 4,
 
 	normalsUse = 0x01 << 5,
 	normalsGenerate = 0x01 << 6,
 
-	defaultFlags = createCube | dfEuclididan | neighbourhoodFull | normalsUse
+	defaultFlags = createCube | dfEuclididan | neighbourhood26 | normalsUse
 };
 
 
@@ -186,8 +186,7 @@ public:
 		gridNeighboursAdj.push_back(GridIndex(0, 0, 1, gridResolution));
 		gridNeighboursAdj.push_back(GridIndex(0, 0, -1, gridResolution));
 
-		if (flags&OctreeFlags::neighbourhoodFull)
-		{
+	
 			//edges
 			gridNeighboursAdj.push_back(GridIndex(1, 1, 0, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(-1, 1, 0, gridResolution));
@@ -204,7 +203,8 @@ public:
 			gridNeighboursAdj.push_back(GridIndex(0, 1, -1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(0, -1, -1, gridResolution));
 			//corners
-
+		if (flags&OctreeFlags::neighbourhood26)
+		{
 			gridNeighboursAdj.push_back(GridIndex(-1, 1, 1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(-1, -1, 1, gridResolution));
 			gridNeighboursAdj.push_back(GridIndex(-1, 1, -1, gridResolution));
@@ -311,16 +311,19 @@ public:
 		hull.push_back(index + GridIndex(0, 1, -1, res));
 		hull.push_back(index + GridIndex(0, -1, -1, res));
 
-		//corners
-		hull.push_back(index + GridIndex(-1, 1, 1, res));
-		hull.push_back(index + GridIndex(-1, -1, 1, res));
-		hull.push_back(index + GridIndex(-1, 1, -1, res));
-		hull.push_back(index + GridIndex(-1, -1, -1, res));
+		if (flags&OctreeFlags::neighbourhood26)
+		{
+			//corners
+			hull.push_back(index + GridIndex(-1, 1, 1, res));
+			hull.push_back(index + GridIndex(-1, -1, 1, res));
+			hull.push_back(index + GridIndex(-1, 1, -1, res));
+			hull.push_back(index + GridIndex(-1, -1, -1, res));
 
-		hull.push_back(index + GridIndex(1, 1, 1, res));
-		hull.push_back(index + GridIndex(1, -1, 1, res));
-		hull.push_back(index + GridIndex(1, 1, -1, res));
-		hull.push_back(index + GridIndex(1, -1, -1, res));
+			hull.push_back(index + GridIndex(1, 1, 1, res));
+			hull.push_back(index + GridIndex(1, -1, 1, res));
+			hull.push_back(index + GridIndex(1, 1, -1, res));
+			hull.push_back(index + GridIndex(1, -1, -1, res));
+		}
 
 		return hull; 
 	}

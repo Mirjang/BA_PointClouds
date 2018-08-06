@@ -48,6 +48,7 @@ TwBar* Regions_Spheres::setUpTweakBar()
 	};
 	TwType twCenteringMode = TwDefineEnum("Center", centeringEV, ARRAYSIZE(centeringEV));
 	TwAddVarRW(tweakBar, "Center", twCenteringMode, &Regions_Spheres::settings.centeringMode, NULL);
+	TwAddVarRW(tweakBar, "26-Neighborhood", TW_TYPE_BOOLCPP, &Regions_Spheres::settings.neighborhood26, NULL);
 
 	TwAddVarRW(tweakBar, "Expansion Threshold", TW_TYPE_UINT32, &Regions_Spheres::settings.expansionThreshold, NULL);
 
@@ -59,7 +60,7 @@ TwBar* Regions_Spheres::setUpTweakBar()
 
 	TwAddSeparator(tweakBar, "sep", NULL);
 	TwAddVarRW(tweakBar, "Fixed depth", TW_TYPE_INT32, &Regions_Spheres::settings.fixedDepth, NULL);
-	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Spheres::settings.drawFixedDepth, NULL);
+	TwAddVarRW(tweakBar, "Draw Fixed depth", TW_TYPE_BOOLCPP, &Regions_Spheres::settings.drawFixedDepth, "min = 0, max = 16");
 	TwAddVarRW(tweakBar, "Cluster Scale", TW_TYPE_FLOAT, &Regions_Spheres::settings.clusterSplatScale, "min = 0.00 step = 0.005");
 
 	TwAddSeparator(tweakBar, "sep2", NULL);
@@ -87,8 +88,9 @@ void Regions_Spheres::create(ID3D11Device* const device, vector<Vertex>& vertice
 		initalEllpticalVerts.push_back(SphereVertex(vert));
 	}
 
-	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth, OctreeCreationMode::CreateAndPushDown, OctreeFlags::createCube | OctreeFlags::neighbourhoodFull);	
-	initalEllpticalVerts.clear();
+	octree = new NestedOctree<SphereVertex>(initalEllpticalVerts, settings.gridResolution, settings.expansionThreshold, settings.maxDepth,
+		OctreeCreationMode::CreateAndPushDown,
+		OctreeFlags::createCube | (settings.neighborhood26 ? OctreeFlags::neighbourhood26 : OctreeFlags::neighbourhood18));	initalEllpticalVerts.clear();
 
 	octree->createRegionGrowing(settings.maxFeatureDist, settings.weightPos, XMConvertToRadians(settings.weightNormal), settings.weightColor, settings.centeringMode);
 
